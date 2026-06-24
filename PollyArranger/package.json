@@ -1,0 +1,20 @@
+{
+  "name": "polly-arranger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A reconstruction of Polly — the multi-agent orchestrator (production line) that built tiny-world-builder. Node.js ESM, no bundler, consistent with the parent project.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/index.mjs"
+  },
+  "keywords": [
+    "orchestrator",
+    "multi-agent",
+    "polly"
+  ],
+  "license": "AGPL-3.0-only"
+}

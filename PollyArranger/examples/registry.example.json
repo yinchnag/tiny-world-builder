@@ -1,0 +1,186 @@
+{
+  "_comment": "Worked example of a PollyArranger registry — the single source of truth (see docs/02-data-model.md). This is VALID JSON (no // comments); annotations use _comment fields and are ignored by the loader. It shows five items spanning the whole state machine: one MERGED, one in a fix loop (RE_REVIEW), one freshly BUILDING, one BLOCKED on a human decision, and one still PLANNED.",
+
+  "version": 1,
+  "vendors": ["claude_code", "codex", "openclaude", "cursor"],
+
+  "policy": {
+    "_comment": "Global pipeline policy. merge=human means Polly parks finished items and waits; it never auto-merges. maxReviewRounds caps fix->review loops before escalating. concurrency caps items building/reviewing at once.",
+    "merge": "human",
+    "maxReviewRounds": 3,
+    "concurrency": 4
+  },
+
+  "waves": [
+    {
+      "id": "wave1",
+      "label": "WAVE1",
+      "goal": "make the in-world lobby feel alive for the Sunday launch",
+      "deadline": "2026-06-21",
+      "decisions": {
+        "bots": "LLM via free OpenRouter models",
+        "ambient_crowd_default_on": true
+      }
+    },
+    {
+      "id": "wave2",
+      "label": "WAVE2",
+      "goal": "build-up announced publicly; discoverability + admin tooling",
+      "deadline": null,
+      "decisions": {}
+    }
+  ],
+
+  "items": [
+    {
+      "_comment": "MERGED — the happy-ish path with one blocking round. Mirrors the real p8 (github stars). Note implementer=claude_code, reviewer=codex (different family), reviewRound=2 (one fix loop), and the recorded review verdict CLEAN.",
+      "id": "p8",
+      "wave": "wave1",
+      "title": "GitHub stars badge + star-history + live home pill",
+      "spec": "Add a stars badge to README, a Star History chart, and a home-page stars pill that live-fetches the GitHub star count with caching + a graceful fallback.",
+      "branch": "polly/p8-github-stars",
+      "worktree": null,
+      "base": "origin/main bb84f72",
+      "pr": 56,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "convId": "conv_p8_impl_001",
+      "reviewConvId": "conv_p8_rev_001",
+      "status": "MERGED",
+      "reviewRound": 2,
+      "createdAt": "2026-06-18T05:30:00Z",
+      "mergedAt": "2026-06-18T09:00:00Z",
+      "review": {
+        "verdict": "CLEAN",
+        "round": 2,
+        "findings": []
+      },
+      "gates": { "check": true, "test": true, "i18n": true, "build": true },
+      "caveats": []
+    },
+
+    {
+      "_comment": "RE_REVIEW — currently in a fix loop. Reviewer (codex) raised BLOCKING findings round 1; implementer (claude_code) pushed fixes; codex is re-checking. Same vendors are sticky across rounds. The findings array is the structured review output the state machine branched on.",
+      "id": "p15",
+      "wave": "wave1",
+      "title": "LLM lobby population layer (NPC peers)",
+      "spec": "Add >=10 LLM-driven NPC peers that join the lobby room over the real WS protocol, wander, and chat. Off by default; prod-safe; free models with graceful degrade.",
+      "branch": "polly/p15-lobby-population",
+      "worktree": ".worktrees/p15-lobby-population",
+      "base": "origin/main 9528647",
+      "pr": 65,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "convId": "conv_p15_impl_001",
+      "reviewConvId": "conv_p15_rev_001",
+      "status": "RE_REVIEW",
+      "reviewRound": 2,
+      "createdAt": "2026-06-17T22:00:00Z",
+      "mergedAt": null,
+      "review": {
+        "verdict": "BLOCKING",
+        "round": 1,
+        "findings": [
+          { "severity": "blocking", "where": "tools/lobby-bots.mjs", "what": "duplicate-scheduler race; needs epoch token" },
+          { "severity": "blocking", "where": "tools/lobby-bots.mjs", "what": "welcome-id self-chat; enforce :free model + strip emoji" }
+        ]
+      },
+      "gates": { "check": true, "test": true, "i18n": true, "build": true },
+      "caveats": ["live LLM gen not verified headlessly — needs OPENROUTER_API_KEY"]
+    },
+
+    {
+      "_comment": "BUILDING — just started. Roles assigned, worktree created off a known base, but no PR yet (pr=null) and no review yet. The implementer agent is editing files right now.",
+      "id": "p9",
+      "wave": "wave2",
+      "title": "WAVE indicator -> inline ADMIN control",
+      "spec": "Make wave assignment an inline admin-only control (click-to-change, no modal); assignable on unset items; public sees the label only. Must stay admin-gated.",
+      "branch": "polly/p9-wave-inline-edit",
+      "worktree": ".worktrees/p9-wave-inline-edit",
+      "base": "origin/main 2d90eef",
+      "pr": null,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "convId": "conv_p9_impl_001",
+      "reviewConvId": null,
+      "status": "BUILDING",
+      "reviewRound": 0,
+      "createdAt": "2026-06-18T06:00:00Z",
+      "mergedAt": null,
+      "review": null,
+      "gates": null,
+      "caveats": ["backend wave-only PATCH already exists (PR#52) — must stay admin-gated (PR#50 isWorldAdminEmail)"]
+    },
+
+    {
+      "_comment": "BLOCKED — good work, but waiting on a HUMAN decision, not a code failure. This is distinct from ABANDONED. The open question is recorded so the human can find exactly what needs their input. Mirrors the real onboarding email-gate 'wallet fork'.",
+      "id": "p10",
+      "wave": "wave2",
+      "title": "Forced profile onboarding + email-verify gate on community",
+      "spec": "Require profile completion on first run and hard-gate chat/community behind a verified email.",
+      "branch": "polly/p10-onboarding-foundation",
+      "worktree": ".worktrees/p10-onboarding-foundation",
+      "base": "origin/main 2d90eef",
+      "pr": null,
+      "implementer": "codex",
+      "reviewer": "claude_code",
+      "convId": "conv_p10_impl_001",
+      "reviewConvId": null,
+      "status": "BLOCKED",
+      "reviewRound": 0,
+      "createdAt": "2026-06-18T07:00:00Z",
+      "mergedAt": null,
+      "review": null,
+      "gates": null,
+      "caveats": [],
+      "blockedOn": "OPEN DECISION: wallet-only users have no Identity email -> can't be email-verified. Must they also create an email login / be exempt / accept lockout? Needs user decision before build proceeds."
+    },
+
+    {
+      "_comment": "PLANNED — exists in the backlog, nothing assigned yet. The orchestrator will pick it up when a concurrency slot frees, assign roles (implementer != reviewer, different family), create the worktree, and move it to BUILDING.",
+      "id": "p20",
+      "wave": "wave2",
+      "title": "Roadmap countdown header",
+      "spec": "Add a countdown header to the roadmap page, consistent with the WAVE1 countdown pill styling.",
+      "branch": null,
+      "worktree": null,
+      "base": null,
+      "pr": null,
+      "implementer": null,
+      "reviewer": null,
+      "convId": null,
+      "reviewConvId": null,
+      "status": "PLANNED",
+      "reviewRound": 0,
+      "createdAt": "2026-06-18T08:00:00Z",
+      "mergedAt": null,
+      "review": null,
+      "gates": null,
+      "caveats": []
+    }
+  ],
+
+  "notes": [
+    {
+      "_comment": "The operator log (see docs/02-data-model.md section 5). Free-text, timestamped, typed. This is the human-readable catch-up trail and the highest-value record of WHY things happened — including mistakes.",
+      "at": "2026-06-18T09:00:00Z",
+      "kind": "info",
+      "text": "p8 merged (#56) after 1 blocking round (off-by-one n<0 vs n<=0 in star count caught by codex). Wave1."
+    },
+    {
+      "at": "2026-06-18T11:36:57Z",
+      "kind": "mistake",
+      "text": "An earlier item enabled the legacy 2.5D sprite crowd in the lobby — WRONG (project uses voxel avatars). User angry. Correction filed as a new revert item; keep this note for the post-mortem."
+    },
+    {
+      "at": "2026-06-18T12:00:00Z",
+      "kind": "blocked",
+      "text": "p10 blocked on wallet-email fork — awaiting user decision (see item.blockedOn)."
+    },
+    {
+      "at": "2026-06-18T12:05:00Z",
+      "kind": "decision",
+      "text": "Merge order set: p0 -> p1 -> p2 already done; next p6 + p7 -> cross-review -> human merge. merge-gate is the bottleneck (by design)."
+    }
+  ]
+}
