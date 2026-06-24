@@ -14,12 +14,19 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 0 complete → **Phase 1 not started.**
-- **Next session starts here:** Begin [Phase 1](docs/06-roadmap.md#phase-1--the-closed-loop-with-mock-agents) —
-  build the closed loop with **mock** agents: registry store → state machine →
-  orchestrator loop → MockAdapter. Target: drive one item `PLANNED → READY_FOR_HUMAN_MERGE`
-  from canned mock results, with the registry file updating at each step.
+- **Current phase:** Phase 1 complete → **Phase 2 not started.**
+- **Next session starts here:** Begin [Phase 2](docs/06-roadmap.md#phase-2--real-git--one-real-agent-implementer-only) —
+  make the work physically happen on disk: real **worktree manager** + **git/gh
+  service** + **gates runner** + **one real implementer adapter** (`claude_code`
+  via `@anthropic-ai/claude-agent-sdk`). Reviewer stays mock for Phase 2. Swap
+  these in behind the SAME interfaces the mocks already use
+  (`src/services/mock.mjs`, `src/adapters/mock.mjs`) — the orchestrator must not
+  change. Target: a real `PLANNED` item produces a real branch + commit + PR and
+  parks at `READY_FOR_HUMAN_MERGE`.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
+- **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
+  machine, registry store (atomic+validated), schema/invariants, MockAdapter,
+  mock services, orchestrator loop, runnable demo (`npm start`).
 
 ---
 
@@ -29,7 +36,7 @@
 |-------|------|--------|----------------|
 | Design | All `docs/` + example registry | ✅ done | (was several steps) |
 | **0** | Decide stack; scaffold `package.json` + `src/` + continuity files | ✅ done | yes |
-| **1** | Closed loop with MOCK agents (store, state machine, loop, MockAdapter) | ⬜ not started | **1 session** |
+| **1** | Closed loop with MOCK agents (store, state machine, loop, MockAdapter) | ✅ done | (1 session) |
 | **2** | Real git + 1 real implementer adapter; worktree mgr; gh; gates | ⬜ | 1–2 sessions |
 | **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ⬜ | 1–2 sessions |
 | **4** | Parallelism + waves + planner entry point | ⬜ | 1–2 sessions |
@@ -43,8 +50,8 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test          # currently: a placeholder that passes; real tests land in Phase 1
-node -e "JSON.parse(require('fs').readFileSync('examples/registry.example.json','utf8'))"  # example registry parses
+npm test          # 26 tests: state machine, schema, store, full orchestrator integration
+npm start         # runs the Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE
 ```
 
 If anything above fails, FIX THAT before building new work. The contract is:
@@ -74,6 +81,25 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-24 — Session 2 (Phase 1: closed loop with mock agents)
+- Built the full closed loop, all pure-logic + mocks, no real models/git:
+  - `src/state-machine.mjs` — pure `nextAction` / `applyResult` / `assignRoles`
+    (all decision logic; the round cap → BLOCKED escalation lives here).
+  - `src/registry/schema.mjs` — invariants (incl. implementer≠reviewer) + validation.
+  - `src/registry/store.mjs` — atomic, validated load/save; `createEmptyRegistry`.
+  - `src/adapters/mock.mjs` — canned `implement`/`review`; `reviewPlan` drives the fix loop.
+  - `src/services/mock.mjs` — mock worktree/git/gates (Phase 2 swaps real ones in here).
+  - `src/orchestrator.mjs` — the tick loop (only I/O layer); `tick` / `run`.
+  - `src/index.mjs` — `npm start` demo; writes to `.run/` (gitignored).
+- **26 tests passing** (`npm test`): unit (state machine, schema, store) +
+  integration (PLANNED→READY via BLOCKING-then-CLEAN, auto-merge→MERGED,
+  failing implementer→ABANDONED, persistent blocking→BLOCKED at cap).
+- **Handoff:** next session = Phase 2. The mock services/adapters define the
+  exact interfaces the real ones must match — implement `worktree.create/teardown`,
+  `git.openPR/push/merge`, `gates.run`, and a real `claude_code` implement adapter
+  via `@anthropic-ai/claude-agent-sdk`. Do NOT change `orchestrator.mjs`. Keep
+  the reviewer mocked until Phase 3.
 
 ### 2026-06-24 — Session 1 (design + Phase 0)
 - Wrote the full design doc set (`docs/00`–`06`, `07-glossary`, `DERIVATION`).
