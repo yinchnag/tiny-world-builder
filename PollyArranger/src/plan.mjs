@@ -107,8 +107,10 @@ export function validatePlan(items) {
 export function gatherContext(repoPath, { maxFiles = 200 } = {}) {
   let files = [];
   try {
-    files = execFileSync('git', ['-C', repoPath, 'ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean);
-  } catch { /* not a git repo / empty */ }
+    // stdio pipe so git's "not a git repository" stderr is captured, not leaked.
+    files = execFileSync('git', ['-C', repoPath, 'ls-files'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      .split('\n').filter(Boolean);
+  } catch { /* not a git repo / empty → plan with no file context */ }
   let docs = '';
   for (const f of ['README.md', 'CLAUDE.md', 'AGENTS.md']) {
     const p = join(repoPath, f);
