@@ -50,7 +50,9 @@ const IMPLEMENT_SYSTEM = [
   'Make the SMALLEST change that fully satisfies the task. Do not refactor unrelated code.',
   'Read before you write. Prefer write_file with the full new file contents.',
   'When the task is complete, call finish with a one-line summary.',
-  'Do not ask questions; act.',
+  'Do NOT start servers or long-running/blocking commands (e.g. `node server.js`, `npm start`,',
+  'dev servers, watchers) — they hang and waste the run. Only run quick, self-terminating',
+  'commands (e.g. `node --check file.js`, `npm install`). Do not ask questions; act.',
 ].join(' ');
 
 const REVIEW_SYSTEM = [
@@ -173,14 +175,16 @@ export function createOpenAICompatibleAdapter(cfg) {
             { role: 'user', content: task.spec },
           ];
       let summary = '';
+      let aborted = null;
 
       for (let step = 0; step < maxSteps; step += 1) {
         let resp;
         try {
           resp = await chat(messages, IMPLEMENT_TOOLS);
         } catch (err) {
-          transcripts?.save(convId, messages);
-          return { ok: false, convId, summary: `model call failed: ${err.message}`, commits: [], usage };
+          // Don't throw away work already written — break and commit what's there.
+          aborted = err.message;
+          break;
         }
         addUsage(usage, resp.usage);
         const msg = resp.message;
@@ -210,15 +214,17 @@ export function createOpenAICompatibleAdapter(cfg) {
       // Persist the full conversation so a later fix lap can truly resume (⑤).
       transcripts?.save(convId, messages);
 
-      // Commit whatever changed. No changes → the implement failed to do anything.
+      // Commit whatever changed — even if the loop aborted on a model error, the
+      // files already written ARE the deliverable; don't throw the work away.
       const dirty = gitOut(root, ['status', '--porcelain']).length > 0;
       if (!dirty) {
-        return { ok: false, convId, summary: summary || 'no file changes produced', commits: [], usage };
+        return { ok: false, convId, summary: aborted ? `model call failed: ${aborted}` : (summary || 'no file changes produced'), commits: [], usage };
       }
       gitOut(root, ['add', '-A']);
-      gitOut(root, ['commit', '-m', commitMessage(task, summary)]);
+      gitOut(root, ['commit', '-m', commitMessage(task, summary || 'implement')]);
       const sha = gitOut(root, ['rev-parse', '--short', 'HEAD']);
-      return { ok: true, convId, summary: summary || 'changes committed', commits: [sha], usage };
+      const note = aborted ? `committed partial work (model call failed: ${aborted})` : (summary || 'changes committed');
+      return { ok: true, convId, summary: note, commits: [sha], usage };
     },
 
     async review(task) {
@@ -327,11 +333,12 @@ function writeWithin(root, p, content) {
 function runCommand(root, command, maxOut = 8000) {
   if (!command) return 'error: empty command';
   try {
-    const out = execSync(command, { cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 120000 });
+    const out = execSync(command, { cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 60000 });
     return `exit 0\n${out}`.slice(0, maxOut);
   } catch (err) {
     const out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
-    return `exit ${err.status ?? 1}\n${out}`.slice(0, maxOut);
+    const timedOut = err.killed || err.signal === 'SIGTERM' ? ' (timed out — did you start a blocking/long-running command?)' : '';
+    return `exit ${err.status ?? 1}${timedOut}\n${out}`.slice(0, maxOut);
   }
 }
 
