@@ -140,7 +140,8 @@ export function gatherContext(repoPath, { maxFiles = 200 } = {}) {
       .split('\n').filter(Boolean);
   } catch { /* not a git repo / empty → plan with no file context */ }
   let docs = '';
-  for (const f of ['README.md', 'CLAUDE.md', 'AGENTS.md']) {
+  // Include project memory so the plan respects the chosen stack/conventions.
+  for (const f of ['.polly/memory.md', 'README.md', 'CLAUDE.md', 'AGENTS.md']) {
     const p = join(repoPath, f);
     if (existsSync(p)) docs += `\n--- ${f} ---\n${readFileSync(p, 'utf8').slice(0, 2000)}`;
   }
