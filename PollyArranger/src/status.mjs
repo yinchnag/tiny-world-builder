@@ -50,7 +50,13 @@ function catchUp(items) {
 /** The full implement↔review back-and-forth for one item (audit trail). */
 export function formatHistory(item) {
   const out = [`=== ${item.id} — ${item.title} (${item.status}) ===`];
-  const hist = item.history ?? [];
+  let hist = item.history ?? [];
+  if (hist.length === 0 && item.review) {
+    // Runs from before history was recorded only kept the LATEST review — surface
+    // it so the command still shows the findings (earlier rounds weren't saved).
+    out.push('  (only the latest review was kept — earlier rounds predate history)');
+    hist = [{ kind: 'review', round: item.review.round, by: item.reviewer, verdict: item.review.verdict, findings: item.review.findings }];
+  }
   if (hist.length === 0) { out.push('  (no history recorded)'); return out.join('\n'); }
   for (const h of hist) {
     if (h.kind === 'implement') {

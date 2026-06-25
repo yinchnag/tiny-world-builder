@@ -48,3 +48,15 @@ test('formatHistory renders the back-and-forth with verdicts + findings', () => 
   assert.match(out, /review #1 by deepseek: BLOCKING/);
   assert.match(out, /ball passes through paddle/);
 });
+
+test('formatHistory falls back to the latest review for pre-history runs', () => {
+  const item = {
+    id: 'p1', title: 'old run', status: STATES.BLOCKED, reviewer: 'deepseek',
+    // no `history` array; only the latest review survived
+    review: { verdict: 'BLOCKING', round: 3, findings: [{ severity: 'blocking', where: 'collide', what: 'passes through paddle' }] },
+  };
+  const out = formatHistory(item);
+  assert.match(out, /only the latest review was kept/);
+  assert.match(out, /review #3 by deepseek: BLOCKING/);
+  assert.match(out, /passes through paddle/);
+});
