@@ -30,7 +30,7 @@ See [04 §3](04-agent-adapters.md) for the full discussion.
 | `qwen` (Alibaba) | qwen | raw API (OpenAI-compatible mode) | `openai-compatible` adapter | ✅ **live-verified** | ✅ | `DASHSCOPE_API_KEY` |
 | `glm` (Zhipu) | glm | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `ZHIPU_API_KEY` |
 | `openrouter` | (per model) | aggregator (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `OPENROUTER_API_KEY` |
-| `claude_code` | anthropic | harness (CLI) | `claude -p` subprocess (`adapters/harness.mjs`) | ✅ | ✅ | **none — CLI's own auth** |
+| `claude_code` | anthropic | harness (CLI) | `claude -p` subprocess (`adapters/harness.mjs`) | ✅ | ✅ **live-verified** | **none — CLI's own auth** |
 | `codex` | openai | harness (CLI) | `codex exec` subprocess (`adapters/harness.mjs`) | ✅ | ✅ | **none — CLI's own auth** |
 | `cursor` | cursor | harness (CLI) | Cursor agent subprocess | ✅ | ✅ | per CLI auth |
 | `openclaude` | anthropic | harness | OpenClaude subprocess | ✅ | ✅ | per harness auth |

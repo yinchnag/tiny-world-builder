@@ -118,6 +118,19 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 
 ## Session log (newest first — append one entry per session)
 
+### 2026-06-25 — Session 15 (LIVE: Claude Code implements ↔ DeepSeek reviews)
+- **First real harness run, verified end-to-end on this machine** (Claude Code
+  2.1.185): `polly run --vendors claude_code,deepseek --local-pr --merge auto`
+  drove a fizzbuzz task PLANNED→MERGED. Claude wrote correct code + committed;
+  DeepSeek reviewed the diff → CLEAN; merged. 2 calls, 4144 tokens.
+- Probe confirmed the claude preset is correct for this version: `claude -p
+  --output-format json --permission-mode acceptEdits` runs headless (no trust
+  hang), JSON has result/session_id/total_cost_usd/usage.{input,output}_tokens
+  exactly as the preset expects (cost + ⑤ native resume work).
+- So **`claude_code` harness is now live-verified** (was only unit-tested).
+  `codex` still per-machine on the home Mac/Windows (codex not installed here).
+- No code change needed — preset matched reality. Doc-only update.
+
 ### 2026-06-25 — Session 14 (harness: cross-platform tuning flags + codex checklist)
 - harness.mjs: prompt delivery is now `promptVia: 'stdin' | 'arg'` (claude=stdin,
   codex=arg `exec <prompt>`), plus a `forceStdin` override (Windows quoting dodge).
