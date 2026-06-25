@@ -103,15 +103,43 @@ Bedrock…). So a harness vendor works even when you cannot obtain a key yoursel
   (home). Both are genuine cross-vendor.
 - **Resume (⑤):** claude uses native `--session-id`/`--resume`; codex soft-resumes
   via the worktree.
-- **Per-machine verification (do this once on each machine):** run a small real task
-  and confirm the CLI's headless mode works — the **workspace-trust prompt** and the
-  **permission flags** are the things that vary:
-  - claude: `claude -p --output-format json --permission-mode acceptEdits` (the
-    adapter's default). If a new worktree triggers a trust dialog, pre-accept it.
-  - codex: `codex exec "<task>"` (verify the exact non-interactive flag for your
-    version).
-  - Tune via the factory `harness` overrides (`command`, `shell`, custom `preset`)
-    if your install needs e.g. `claude.cmd` on Windows or `--dangerously-skip-permissions`.
+- **Tuning without code edits:** the CLI exposes three harness flags so you adapt
+  to a machine from the command line:
+  - `--harness-command <c>` — e.g. `--harness-command codex.cmd` on Windows
+  - `--harness-shell` — spawn via a shell (needed to run a `.cmd` on Windows)
+  - `--harness-stdin` — send the prompt via stdin instead of an arg (dodges shell quoting)
+
+### Per-machine verification checklist (≈10 min each, not a dev session)
+
+Run `npm test` first (all offline — proves the harness mechanism). Then one real
+smoke per machine against a throwaway repo:
+
+```bash
+npm run polly -- run --repo <tmp-repo> --spec "Create hello.mjs exporting hi()" \
+  --vendors codex,deepseek --local-pr --merge auto --gates "node --version"
+```
+
+1. **Check the CLI's headless interface once:** `codex --help` (and `codex exec --help`).
+   Confirm the non-interactive subcommand is `exec`, and note whether it can read the
+   prompt from **stdin** and whether it prints clean output.
+2. **macOS (codex):** the default usually works as-is — `codex` is on PATH and
+   `shell:false` passes the prompt as a clean arg (no quoting issues). If `codex`
+   isn't found, add `--harness-command "$(command -v codex)"`.
+3. **Windows (codex):** `codex` is typically a `.cmd` shim, which Node can't spawn
+   without a shell. Use:
+   `--harness-shell --harness-stdin` (shell finds `codex.cmd`; stdin avoids the shell
+   mangling a multi-line prompt). If the command name differs, add
+   `--harness-command codex.cmd`. **Only works if `codex exec` reads stdin** — if step 1
+   says it doesn't, tell me and I'll add a temp-file prompt mode.
+4. **claude (work machine):** default is `claude -p --output-format json
+   --permission-mode acceptEdits`. If a fresh worktree pops a **workspace-trust**
+   dialog, pre-accept it (or we add the right flag once you see the prompt).
+5. **Confirm the review verdict parses:** the reviewer must end with a
+   `POLLY_VERDICT: …` line. Real models follow the instruction reliably; if a CLI
+   wraps output in extra chrome, the marker regex still finds it.
+
+If something doesn't line up, capture the exact `--help` output + the error and we
+adjust the preset/flags — no core changes needed.
 
 ## 5. Adding a new provider (checklist)
 

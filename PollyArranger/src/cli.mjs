@@ -20,6 +20,7 @@ import { createFileStore, createEmptyRegistry, saveRegistry, loadRegistry } from
 import { seedItems } from './planner.mjs';
 import { createGitServices, localMergeStrategy } from './services/git.mjs';
 import { createRealAdapters } from './adapters/factory.mjs';
+import { HARNESS_PRESETS } from './adapters/harness.mjs';
 import { createOrchestrator } from './orchestrator.mjs';
 import { createDaemon } from './daemon.mjs';
 import { formatStatus } from './status.mjs';
@@ -55,6 +56,11 @@ run/daemon options:
   --local-pr             don't use gh — stub the PR + merge locally (offline testing)
   --env <path>           .env file with API keys (default: PollyArranger/.env)
   --interval <sec>       daemon idle poll interval (default: 5)
+
+harness tuning (for claude_code / codex vendors — no key needed, uses the CLI's own auth):
+  --harness-command <c>  override the CLI command (e.g. codex.cmd on Windows)
+  --harness-shell        spawn via a shell (needed to run a .cmd on Windows)
+  --harness-stdin        send the prompt via stdin instead of an arg (dodges shell quoting)
 `;
 
 /** Minimal argv parser: first token is the command; --key value / --flag after. */
@@ -137,7 +143,18 @@ function buildContext(opts) {
       ? { createPullRequest: () => (prSeq += 1), mergePullRequest: localMergeStrategy }
       : {}),
   });
-  const adapters = createRealAdapters({ vendors, repoPath });
+  // Harness (claude/codex) tuning, applied to any harness vendor in --vendors.
+  // Lets you adapt to a machine (e.g. codex.cmd on Windows) with zero code edits.
+  const harness = {};
+  const hOverride = {};
+  if (typeof opts['harness-command'] === 'string') hOverride.command = opts['harness-command'];
+  if (opts['harness-shell']) hOverride.shell = true;
+  if (opts['harness-stdin']) hOverride.forceStdin = true;
+  if (Object.keys(hOverride).length) {
+    for (const v of vendors) if (HARNESS_PRESETS[v]) harness[v] = hOverride;
+  }
+
+  const adapters = createRealAdapters({ vendors, repoPath, harness });
   const orchestrator = createOrchestrator({ store: createFileStore(), registryPath, adapters, services });
   return { repoPath, vendors, registryPath, concurrency, merge, orchestrator };
 }

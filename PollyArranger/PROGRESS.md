@@ -77,7 +77,7 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 75 tests (all offline): + gate-block ①, CLI ⓠ, transcripts ⑤, mutex ③, daemon ④, harness ②
+npm test               # 77 tests (all offline): + gate-block ①, CLI ⓠ, transcripts ⑤, mutex ③, daemon ④, harness ②
 npm run polly          # CLI: run | daemon | add | status. e.g. `-- run --repo <p> --spec "..."`
                        #   daemon: `-- daemon --repo <p>` keeps running; feed it with `-- add --repo <p> --spec "..."`
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
@@ -117,6 +117,19 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 14 (harness: cross-platform tuning flags + codex checklist)
+- harness.mjs: prompt delivery is now `promptVia: 'stdin' | 'arg'` (claude=stdin,
+  codex=arg `exec <prompt>`), plus a `forceStdin` override (Windows quoting dodge).
+- cli.mjs: new flags `--harness-command` / `--harness-shell` / `--harness-stdin`
+  applied to harness vendors → zero-code tuning per machine.
+- docs/08-providers.md: per-machine verification checklist for **macOS + Windows**
+  codex (and claude). Mac codex usually works as-is; Windows codex = `--harness-shell
+  --harness-stdin` (+ maybe `--harness-command codex.cmd`), pending whether `codex
+  exec` reads stdin (if not, add a temp-file prompt mode).
+- harness.test.mjs: arg-mode appends prompt; forceStdin flips to stdin. **77 tests, all offline.**
+- User home has codex on BOTH Mac + Windows. Real codex still unverified by me (not
+  installed here) — it's now a ~10-min checklist run, not a dev session.
 
 ### 2026-06-25 — Session 13 (post-roadmap: ② CLI-harness adapters — Claude Code / Codex)
 - `src/adapters/harness.mjs` (`createHarnessAdapter` + `HARNESS_PRESETS`): drives an

@@ -135,7 +135,7 @@ process.stdin.on('end', () => {
     const preset = {
       ...HARNESS_PRESETS.claude_code,
       command: process.execPath, // node
-      implement: () => ({ args: [cli], viaStdin: true }),
+      implement: () => ({ args: [cli], promptVia: 'stdin' }),
     };
     const adapter = createHarnessAdapter({ vendor: 'claude_code', repoPath: work, preset });
     const res = await adapter.implement({ itemId: 'p1', spec: 'make a file', worktreePath });
@@ -143,6 +143,43 @@ process.stdin.on('end', () => {
     assert.equal(res.ok, true);
     const f = join(work, worktreePath, 'spawned.txt');
     assert.ok(existsSync(f), 'fake CLI wrote the file via the real spawn runner');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('arg-mode preset (codex) appends the prompt as the final arg', async () => {
+  const { root, work, worktreePath } = makeWorktree();
+  try {
+    const calls = [];
+    const runner = async ({ args, input, cwd }) => {
+      calls.push({ args, input });
+      writeFileSync(join(cwd, 'f.txt'), 'x\n');
+      return { code: 0, stdout: 'done', stderr: '' };
+    };
+    // codex preset uses promptVia 'arg'
+    const adapter = createHarnessAdapter({ vendor: 'codex', repoPath: work, runner });
+    await adapter.implement({ itemId: 'p1', spec: 'BUILD THIS', worktreePath });
+    assert.deepEqual(calls[0].args, ['exec', 'BUILD THIS'], 'prompt appended after exec');
+    assert.equal(calls[0].input, undefined, 'no stdin in arg mode');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('forceStdin flips an arg-mode vendor to stdin (Windows quoting dodge)', async () => {
+  const { root, work, worktreePath } = makeWorktree();
+  try {
+    const calls = [];
+    const runner = async ({ args, input, cwd }) => {
+      calls.push({ args, input });
+      writeFileSync(join(cwd, 'f.txt'), 'x\n');
+      return { code: 0, stdout: 'done', stderr: '' };
+    };
+    const adapter = createHarnessAdapter({ vendor: 'codex', repoPath: work, runner, forceStdin: true });
+    await adapter.implement({ itemId: 'p1', spec: 'BUILD THIS', worktreePath });
+    assert.deepEqual(calls[0].args, ['exec'], 'prompt NOT in args');
+    assert.equal(calls[0].input, 'BUILD THIS', 'prompt sent via stdin');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

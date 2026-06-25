@@ -26,20 +26,23 @@ import { randomUUID } from 'node:crypto';
 // Each preset says how to invoke its CLI. Flags here reflect Claude Code 2.1.x;
 // verify on the target machine (esp. the workspace-trust prompt + permissions).
 
+// Each `implement`/`review` returns { args, promptVia } where promptVia is:
+//   'stdin' — the prompt is piped to the CLI's stdin (quote-safe; claude)
+//   'arg'   — the prompt is appended as the final argv element (codex `exec <prompt>`)
+// The adapter handles the actual delivery (and the --harness-stdin override).
 export const HARNESS_PRESETS = {
   claude_code: {
     command: 'claude',
     family: 'anthropic',
     supportsResume: true, // native session resume → ⑤ for free
-    // prompt via stdin; flags only in args.
     implement: ({ sessionId, resume }) => ({
       args: [
         '-p', '--output-format', 'json', '--permission-mode', 'acceptEdits',
         ...(resume ? ['--resume', sessionId] : ['--session-id', sessionId]),
       ],
-      viaStdin: true,
+      promptVia: 'stdin',
     }),
-    review: () => ({ args: ['-p', '--output-format', 'json'], viaStdin: true }),
+    review: () => ({ args: ['-p', '--output-format', 'json'], promptVia: 'stdin' }),
     // claude -p --output-format json prints a JSON envelope.
     extractText: (stdout) => { try { return JSON.parse(stdout).result ?? ''; } catch { return stdout; } },
     extractMeta: (stdout) => {
@@ -64,8 +67,12 @@ export const HARNESS_PRESETS = {
     command: 'codex',
     family: 'openai',
     supportsResume: false, // soft-resume: the worktree carries prior state
-    implement: ({ spec }) => ({ args: ['exec', spec], viaStdin: false }),
-    review: ({ prompt }) => ({ args: ['exec', prompt], viaStdin: false }),
+    // `codex exec <prompt>` — prompt appended as an arg (works cleanly with
+    // shell:false, e.g. macOS). On Windows you'll likely need --harness-shell
+    // (to run codex.cmd) plus --harness-stdin (to dodge shell quoting); verify
+    // per docs/08-providers.md.
+    implement: () => ({ args: ['exec'], promptVia: 'arg' }),
+    review: () => ({ args: ['exec'], promptVia: 'arg' }),
     extractText: (stdout) => stdout,
     extractMeta: () => ({}),
   },
@@ -129,8 +136,9 @@ function parseReviewMarkers(text) {
  * @param {string} cfg.vendor      - 'claude_code' | 'codex' (or a key in presets)
  * @param {string} cfg.repoPath    - repo root, to resolve relative worktrees
  * @param {object} [cfg.preset]    - override the preset (default: HARNESS_PRESETS[vendor])
- * @param {string} [cfg.command]   - override the CLI command (e.g. 'claude.cmd' on Windows)
- * @param {boolean} [cfg.shell]    - spawn via shell (default false)
+ * @param {string} [cfg.command]   - override the CLI command (e.g. 'codex.cmd' on Windows)
+ * @param {boolean} [cfg.shell]    - spawn via shell (default false; needed for .cmd on Windows)
+ * @param {boolean} [cfg.forceStdin] - always send the prompt via stdin (dodge shell quoting)
  * @param {Function} [cfg.runner]  - injectable runner (tests)
  * @param {string} [cfg.baseRef]   - base branch for review diffs (default 'main')
  */
@@ -142,11 +150,21 @@ export function createHarnessAdapter(cfg) {
 
   const command = cfg.command ?? preset.command;
   const shell = cfg.shell ?? false;
+  const forceStdin = cfg.forceStdin ?? false;
   const runner = cfg.runner ?? defaultRunner;
   const baseRef = cfg.baseRef ?? 'main';
   const absWt = (wt) => (isAbsolute(wt) ? wt : join(cfg.repoPath, wt));
 
   let counter = 0;
+
+  // Turn a preset's { args, promptVia } + the prompt into the final spawn inputs.
+  function deliver(built, prompt) {
+    const via = forceStdin ? 'stdin' : (built.promptVia ?? 'stdin');
+    return {
+      args: via === 'arg' ? [...built.args, prompt] : built.args,
+      input: via === 'stdin' ? prompt : undefined,
+    };
+  }
 
   return {
     vendor,
@@ -157,10 +175,8 @@ export function createHarnessAdapter(cfg) {
       const sessionId = task.resumeConvId
         ?? (preset.supportsResume ? randomUUID() : `conv_${vendor}_${task.itemId ?? 'item'}_${counter += 1}`);
 
-      const { args, viaStdin } = preset.implement({ spec: task.spec, sessionId, resume });
-      const { code, stdout, stderr } = await runner({
-        command, args, cwd: root, shell, input: viaStdin ? task.spec : undefined,
-      });
+      const { args, input } = deliver(preset.implement({ spec: task.spec, sessionId, resume }), task.spec);
+      const { code, stdout, stderr } = await runner({ command, args, cwd: root, shell, input });
       if (code !== 0) {
         return { ok: false, convId: sessionId, summary: `${vendor} exited ${code}: ${String(stderr).slice(0, 300)}`, commits: [], usage: newUsage() };
       }
@@ -186,10 +202,8 @@ export function createHarnessAdapter(cfg) {
       try { diff = git(root, ['diff', `${baseRef}...HEAD`]); } catch { diff = git(root, ['diff', 'HEAD~1']); }
       const prompt = buildReviewPrompt(task.spec, diff);
 
-      const { args, viaStdin } = preset.review({ prompt });
-      const { code, stdout, stderr } = await runner({
-        command, args, cwd: root, shell, input: viaStdin ? prompt : undefined,
-      });
+      const { args, input } = deliver(preset.review({ prompt }), prompt);
+      const { code, stdout, stderr } = await runner({ command, args, cwd: root, shell, input });
       const convId = `conv_${vendor}_rev_${task.itemId ?? 'item'}`;
       if (code !== 0) {
         return { ok: false, convId, verdict: 'BLOCKING', findings: [{ severity: 'error', where: '-', what: `${vendor} exited ${code}: ${String(stderr).slice(0, 200)}` }], usage: newUsage() };
