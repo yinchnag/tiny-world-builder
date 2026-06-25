@@ -80,6 +80,7 @@ Read them in order. Each builds on the last.
 | 05 | [Workflow Walkthrough](docs/05-workflow-walkthrough.md) | One item, start to finish, as a tutorial |
 | 06 | [Roadmap](docs/06-roadmap.md) | Build order: the minimal closed loop first, then extras |
 | 08 | [Providers](docs/08-providers.md) | Multi-vendor reference (DeepSeek, OpenAI, MiniMax, …) + config |
+| 09 | [Scaling Roadmap](docs/09-scaling-roadmap.md) | **Design only** — plan to support large, long-running, interdependent projects (S1–S5) |
 | — | [Glossary](docs/07-glossary.md) | Every term defined in one place |
 | — | [Derivation](docs/DERIVATION.md) | How each design choice maps to a concrete trace in the repo |
 

@@ -54,6 +54,27 @@
 
 ---
 
+## Next era: scaling to large projects (DESIGN DONE, not built)
+
+The roadmap + all six post-roadmap enhancements are complete. The next body of
+work is making Polly handle **large, long-running, interdependent** projects.
+**It is designed (docs/09-scaling-roadmap.md) but not started** — build it one
+phase at a time, same discipline as Phases 1–5.
+
+| Phase | What | Status |
+|-------|------|--------|
+| **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ⬜ **next** |
+| **S2** | Merge-conflict handling (rebase before merge; conflict → BLOCKED/agent-resolve) | ⬜ |
+| **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ⬜ |
+| **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ |
+| **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ |
+
+Order: **S1 → S2 → S3 → S4 → S5** (S1 is the foundation for safe concurrency on a
+real shared codebase). All additive — the registry/state-machine/adapter
+contracts and existing tests stay intact. Honest scope: this makes Polly a much
+stronger *engine*, not an autopilot — a human/planner still owns strategy and
+triages BLOCKED items. See [docs/09](docs/09-scaling-roadmap.md).
+
 ## Phase checklist
 
 | Phase | What | Status | Session-sized? |
@@ -117,6 +138,17 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 18 (DESIGN: scaling roadmap for large projects)
+- Per the user: design first, don't code. Wrote `docs/09-scaling-roadmap.md` — the
+  plan to evolve Polly from an independent-task engine into something that handles
+  large, long-running, interdependent projects. Five additive phases:
+  S1 task dependencies + merge ordering (FIRST), S2 merge-conflict handling,
+  S3 cost/capability routing, S4 planner (decompose a goal), S5 project memory.
+  Order S1→S2→S3→S4→S5; all additive (registry/state-machine/adapter contracts +
+  existing tests stay intact). Honest scope: a stronger engine, not an autopilot.
+- README index + PROGRESS "Next era" section updated. **No code written** — next
+  build session starts S1 only.
 
 ### 2026-06-25 — Session 17 (review history / audit trail)
 - Motivated by a real run (Claude wrote a pong game; DeepSeek BLOCKED it 3 rounds →
