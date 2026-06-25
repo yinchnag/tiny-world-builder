@@ -63,8 +63,8 @@ phase at a time, same discipline as Phases 1–5.
 
 | Phase | What | Status |
 |-------|------|--------|
-| **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ⬜ **next** |
-| **S2** | Merge-conflict handling (rebase before merge; conflict → BLOCKED/agent-resolve) | ⬜ |
+| **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ✅ done |
+| **S2** | Merge-conflict handling (rebase before merge; conflict → BLOCKED/agent-resolve) | ⬜ **next** |
 | **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ⬜ |
 | **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ |
 | **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ |
@@ -138,6 +138,21 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 19 (S1: task dependencies + merge ordering)
+- `state-machine.mjs`: `depGate(item, statusById)` → ready/waiting/failed (pure).
+- `planner.mjs`: items carry `dependsOn`; backlog entries may set an explicit `id`
+  (lowercase alnum) so deps can reference it; `validateDependencies` +
+  `detectCycle` reject unknown deps + cycles at seed time.
+- `orchestrator.mjs`: gates `PLANNED → BUILDING` on deps — waiting deps stay
+  PLANNED; an abandoned/missing dep cascades the dependent to BLOCKED (inline,
+  no agent call). Merge ordering falls out (start forks off latest base).
+- `status.mjs`: "WAITING on dependencies" section; wider id column for explicit ids.
+- `test/dependencies.test.mjs`: depGate, cycle/unknown-dep rejection, dependent
+  waits for dep, abandoned-dep cascade, independent items still parallel.
+  **91 tests, all offline.**
+- **Handoff:** next = S2 (merge-conflict handling). Backlog files can now express
+  `{ id, title, spec, dependsOn }`.
 
 ### 2026-06-25 — Session 18 (DESIGN: scaling roadmap for large projects)
 - Per the user: design first, don't code. Wrote `docs/09-scaling-roadmap.md` — the

@@ -18,11 +18,11 @@ const padL = (s, n) => String(s ?? '').padStart(n);
 
 /** One row per item: id | status | impl→reviewer | pr | rounds | tokens. */
 function itemTable(items) {
-  const head = `  ${pad('id', 5)} ${pad('status', 22)} ${pad('impl→reviewer', 22)} ${pad('pr', 5)} ${pad('rnd', 4)} ${padL('tokens', 8)}`;
+  const head = `  ${pad('id', 10)} ${pad('status', 22)} ${pad('impl→reviewer', 22)} ${pad('pr', 5)} ${pad('rnd', 4)} ${padL('tokens', 8)}`;
   const rows = items.map((it) => {
     const roles = it.implementer ? `${it.implementer}→${it.reviewer ?? '?'}` : '—';
     const tokens = it.cost?.totalTokens ?? 0;
-    return `  ${pad(it.id, 5)} ${pad(it.status, 22)} ${pad(roles, 22)} ${pad(it.pr ?? '—', 5)} ${pad(it.reviewRound ?? 0, 4)} ${padL(tokens, 8)}`;
+    return `  ${pad(it.id, 10)} ${pad(it.status, 22)} ${pad(roles, 22)} ${pad(it.pr ?? '—', 5)} ${pad(it.reviewRound ?? 0, 4)} ${padL(tokens, 8)}`;
   });
   return [head, ...rows].join('\n');
 }
@@ -43,6 +43,20 @@ function catchUp(items) {
   if (failed.length) {
     lines.push(`ABANDONED (${failed.length}):`);
     for (const i of failed) lines.push(`  • ${i.id} ${i.title}`);
+  }
+
+  // S1 — items still waiting on unmerged dependencies.
+  const mergedIds = new Set(items.filter((i) => i.status === STATES.MERGED).map((i) => i.id));
+  const waiting = items.filter(
+    (i) => i.status === STATES.PLANNED && (i.dependsOn?.length ?? 0) > 0
+      && !i.dependsOn.every((d) => mergedIds.has(d)),
+  );
+  if (waiting.length) {
+    lines.push(`WAITING on dependencies (${waiting.length}):`);
+    for (const i of waiting) {
+      const unmet = i.dependsOn.filter((d) => !mergedIds.has(d));
+      lines.push(`  • ${i.id} ${i.title} — waiting on [${unmet.join(', ')}]`);
+    }
   }
   return lines.join('\n');
 }

@@ -97,6 +97,28 @@ export function nextAction(item, policy = {}) {
 }
 
 /**
+ * S1 — dependency gate. Given an item and a map of id→status for the registry,
+ * decide whether the item may START:
+ *   'ready'   — all dependsOn are MERGED (or there are none) → may start
+ *   'waiting' — some dependency hasn't merged yet (incl. a BLOCKED dep a human
+ *               might still resolve) → leave it PLANNED
+ *   'failed'  — a dependency is ABANDONED or missing → the dependent can never
+ *               proceed → the orchestrator marks it BLOCKED
+ * Pure: the orchestrator supplies the status map (cross-item info isn't in nextAction).
+ */
+export function depGate(item, statusById) {
+  const deps = item.dependsOn ?? [];
+  if (deps.length === 0) return { state: 'ready' };
+  for (const d of deps) {
+    const s = statusById[d];
+    if (s === undefined) return { state: 'failed', dep: d, reason: `dependency "${d}" not found` };
+    if (s === STATES.ABANDONED) return { state: 'failed', dep: d, reason: `dependency "${d}" was abandoned` };
+  }
+  const allMerged = deps.every((d) => statusById[d] === STATES.MERGED);
+  return allMerged ? { state: 'ready' } : { state: 'waiting' };
+}
+
+/**
  * Assign implementer + reviewer to an item. HARD RULE: they must differ, and we
  * prefer a reviewer from a *different model family* so the review is genuinely
  * independent (docs/00 section 2, docs/04 section 4).

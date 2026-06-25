@@ -22,6 +22,7 @@ import {
   applyResult,
   assignRoles,
   fixSpecFromReview,
+  depGate,
 } from './state-machine.mjs';
 
 /**
@@ -127,18 +128,31 @@ export function createOrchestrator({
     const cap = policy.concurrency ?? Infinity;
 
     let active = reg.items.filter((it) => ACTIVE.includes(it.status)).length;
+    const statusById = Object.fromEntries(reg.items.map((it) => [it.id, it.status]));
     const pending = [];
+    let changedInline = false;
     for (let i = 0; i < reg.items.length; i += 1) {
       const item = reg.items[i];
       const action = nextAction(item, policy);
       if (!action) continue;
       if (action === ACTIONS.START) {
+        // S1 — dependency gate: only start once all deps are MERGED.
+        const gate = depGate(item, statusById);
+        if (gate.state === 'failed') {
+          reg.items[i] = { ...item, status: STATES.BLOCKED, blockedOn: `Blocked by dependency: ${gate.reason}` };
+          changedInline = true;
+          continue;
+        }
+        if (gate.state === 'waiting') continue; // deps not merged yet — stay PLANNED
         if (active >= cap) continue; // WIP limit reached — leave it PLANNED
         active += 1; // reserve a slot for the item we're about to start
       }
       pending.push({ i, item, action });
     }
-    if (pending.length === 0) return false;
+    if (pending.length === 0) {
+      if (changedInline) store.save(registryPath, reg);
+      return changedInline;
+    }
 
     // Execute the steps concurrently (capped), then apply all results + save once.
     await mapPool(pending, cap, async (p) => {

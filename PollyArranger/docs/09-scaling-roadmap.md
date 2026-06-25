@@ -60,6 +60,13 @@ Ordered so each unlocks the next and the riskiest-but-foundational comes first.
 
 ### S1 — Task dependencies + merge ordering  *(do first)*
 
+> **Status: DONE.** `dependsOn` on items + explicit backlog ids; the orchestrator
+> gates `PLANNED → BUILDING` via `depGate` (start only when all deps are MERGED;
+> a BLOCKED dep → keep waiting; an ABANDONED/missing dep → cascade the dependent
+> to BLOCKED). Cycles + unknown deps are rejected at seed time (`validateDependencies`).
+> `status` shows a "WAITING on dependencies" section. Merge ordering falls out of
+> start-gating + fork-off-latest-base (no separate scheduler). 91 tests, all offline.
+
 **Problem:** G1. **The foundation for safe concurrency on a real codebase.**
 
 **Design:**

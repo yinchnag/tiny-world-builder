@@ -116,8 +116,22 @@ npm run polly -- add     --repo <p> (--spec "..."|--backlog file.json)  # queue 
 - **daemon** — stay running and pick up work added later (via `add`).
 - **add** — append task(s) to the registry (e.g. to feed a running daemon).
 
-A backlog file is a JSON array of strings or `{ "title", "spec" }`
-(see [examples/backlog.example.json](examples/backlog.example.json)).
+A backlog file is a JSON array of strings or objects. An object may set an
+explicit `id` (lowercase alphanumeric) and `dependsOn` (ids that must be **merged
+first**), so you can order interdependent tasks:
+
+```json
+[
+  { "id": "schema", "title": "DB schema", "spec": "Create the users table…" },
+  { "id": "api", "title": "REST API", "spec": "Add /users…", "dependsOn": ["schema"] },
+  { "id": "ui",  "title": "Frontend",  "spec": "List users…", "dependsOn": ["api"] }
+]
+```
+
+Polly won't start a task until all its `dependsOn` are MERGED (independent tasks
+still run in parallel). Cycles / unknown deps are rejected up front. `polly status`
+shows a **WAITING on dependencies** section. See
+[examples/backlog.example.json](examples/backlog.example.json).
 
 ## 5. Choosing vendors (who writes, who reviews)
 

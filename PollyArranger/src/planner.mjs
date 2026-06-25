@@ -10,12 +10,13 @@
 import { STATES } from './state-machine.mjs';
 
 /** A complete, valid PLANNED item with all fields defaulted. */
-export function newPlannedItem({ id, title, spec, wave = null, createdAt = null }) {
+export function newPlannedItem({ id, title, spec, wave = null, createdAt = null, dependsOn = [] }) {
   return {
     id,
     wave,
     title,
     spec: spec ?? title,
+    dependsOn, // S1 — ids that must be MERGED before this starts
     branch: null, worktree: null, base: null, pr: null,
     implementer: null, reviewer: null, convId: null, reviewConvId: null,
     status: STATES.PLANNED, reviewRound: 0,
@@ -49,13 +50,64 @@ function maxIdNum(items, prefix) {
 export function seedItems(reg, entries, { wave = null, idPrefix = 'p', createdAt = null } = {}) {
   let n = maxIdNum(reg.items, idPrefix);
   const created = [];
+  const existingIds = new Set(reg.items.map((i) => i.id));
   for (const e of entries) {
-    n += 1;
     const title = typeof e === 'string' ? e : e.title;
     const spec = typeof e === 'string' ? e : (e.spec ?? e.title);
-    const item = newPlannedItem({ id: `${idPrefix}${n}`, title, spec, wave, createdAt });
+    const dependsOn = typeof e === 'string' ? [] : (e.dependsOn ?? []);
+    // Explicit id (so deps can reference it) or auto p<n>. Explicit ids must be
+    // branch-safe (lowercase alnum) since the branch is polly/<id>-<slug>.
+    let id;
+    if (typeof e === 'object' && e.id != null) {
+      id = String(e.id);
+      if (!/^[a-z0-9]+$/.test(id)) throw new Error(`item id "${id}" must be lowercase alphanumeric`);
+      if (existingIds.has(id)) throw new Error(`duplicate item id "${id}"`);
+    } else {
+      n += 1;
+      id = `${idPrefix}${n}`;
+    }
+    existingIds.add(id);
+    const item = newPlannedItem({ id, title, spec, wave, createdAt, dependsOn });
     reg.items.push(item);
     created.push(item);
   }
+  // S1 — reject unknown dependencies and cycles up front (fail fast at seed time).
+  validateDependencies(reg.items);
   return created;
+}
+
+/** Throw if any dependsOn references a missing item, or if there's a cycle. */
+export function validateDependencies(items) {
+  const ids = new Set(items.map((i) => i.id));
+  for (const it of items) {
+    for (const d of it.dependsOn ?? []) {
+      if (!ids.has(d)) throw new Error(`item "${it.id}" dependsOn unknown item "${d}"`);
+    }
+  }
+  const cycle = detectCycle(items);
+  if (cycle) throw new Error(`dependency cycle: ${cycle.join(' -> ')}`);
+}
+
+/** Return a cycle (array of ids) in the dependsOn graph, or null if acyclic. */
+export function detectCycle(items) {
+  const adj = new Map(items.map((i) => [i.id, (i.dependsOn ?? []).filter((d) => items.some((x) => x.id === d))]));
+  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const color = new Map([...adj.keys()].map((k) => [k, WHITE]));
+  const stack = [];
+  let found = null;
+  const dfs = (u) => {
+    color.set(u, GRAY);
+    stack.push(u);
+    for (const v of adj.get(u) ?? []) {
+      if (color.get(v) === GRAY) { found = [...stack.slice(stack.indexOf(v)), v]; return true; }
+      if (color.get(v) === WHITE && dfs(v)) return true;
+    }
+    color.set(u, BLACK);
+    stack.pop();
+    return false;
+  };
+  for (const k of adj.keys()) {
+    if (color.get(k) === WHITE && dfs(k)) return found;
+  }
+  return null;
 }
