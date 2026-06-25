@@ -5,9 +5,26 @@ gate** on any git repo: one AI writes the code, a *different* AI reviews it, and
 finished work is parked for you to merge (or auto-merged). This guide is how to
 point it at a project folder of your own.
 
-> **Mental model:** PollyArranger is the *tool* (lives in this folder). Your
+> **Mental model:** PollyArranger is the *tool* (lives in its own folder). Your
 > *target project* is a separate git repo. You run `npm run polly` from inside
 > PollyArranger and pass `--repo <path-to-your-project>`.
+>
+> **You do NOT put PollyArranger inside your project.** They stay separate:
+>
+> ```
+> ~/anywhere/PollyArranger/     ← the tool — run `npm run polly` here
+> ~/code/your-project/          ← a separate git repo — pass it via --repo
+> ```
+>
+> PollyArranger is fully **self-contained (zero npm dependencies)**, so you can
+> copy the `PollyArranger/` folder anywhere and use it as a standalone tool
+> pointed at any project:
+>
+> ```bash
+> cp -r tiny-world-builder/PollyArranger ~/tools/PollyArranger   # (+ your .env)
+> cd ~/tools/PollyArranger
+> npm run polly -- run --repo /path/to/any/project --spec "..."
+> ```
 
 ---
 
