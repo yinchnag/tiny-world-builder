@@ -23,7 +23,7 @@ import { createRealAdapters } from './adapters/factory.mjs';
 import { HARNESS_PRESETS } from './adapters/harness.mjs';
 import { createOrchestrator } from './orchestrator.mjs';
 import { createDaemon } from './daemon.mjs';
-import { formatStatus } from './status.mjs';
+import { formatStatus, formatHistory } from './status.mjs';
 import { ACTIVE } from './state-machine.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +40,7 @@ commands:
   daemon   keep running: process work and poll for newly-added items (Ctrl-C to stop)
   add      append items to a registry (e.g. to feed a running daemon)
   status   print the status of a registry
+  history  print the full implement<->review back-and-forth (--item <id> for one)
 
 run/daemon options:
   --repo <path>          target git repo (required)
@@ -104,6 +105,20 @@ function runStatus(opts) {
     return;
   }
   console.log(formatStatus(loadRegistry(path)));
+}
+
+// `history` — the full implement↔review back-and-forth for an item (or all).
+function runHistory(opts) {
+  const path = registryPathFor(opts);
+  if (!path || !existsSync(path)) {
+    console.error(`history: pass --registry <path> (or --repo) to an existing registry.`);
+    process.exitCode = 1;
+    return;
+  }
+  const reg = loadRegistry(path);
+  const items = opts.item ? reg.items.filter((i) => i.id === opts.item) : reg.items;
+  if (items.length === 0) { console.error(`no item${opts.item ? ` "${opts.item}"` : 's'} found.`); process.exitCode = 1; return; }
+  console.log(items.map(formatHistory).join('\n\n'));
 }
 
 /** Where the registry lives: --registry, else <repo>/.polly/registry.json. */
@@ -234,6 +249,7 @@ export async function runCli(opts) {
     case 'daemon': return runDaemon(opts);
     case 'add': return runAdd(opts);
     case 'status': return runStatus(opts);
+    case 'history': return runHistory(opts);
     default:
       console.log(USAGE);
       if (opts.command && opts.command !== 'help' && opts.command !== '--help') process.exitCode = 1;

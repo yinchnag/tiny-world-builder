@@ -118,6 +118,19 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 
 ## Session log (newest first — append one entry per session)
 
+### 2026-06-25 — Session 17 (review history / audit trail)
+- Motivated by a real run (Claude wrote a pong game; DeepSeek BLOCKED it 3 rounds →
+  escalated): the registry only kept the LATEST review, so rounds 1–2 were lost.
+- `state-machine.mjs`: new `appendHistory`; every IMPLEMENT lap and REVIEW round is
+  appended to `item.history[]` (never overwritten) with {kind, by, verdict/summary,
+  findings/commits, round, at}. `item.review` still holds the latest for the table.
+- `status.mjs`: `formatHistory(item)` renders the implement↔review back-and-forth.
+- `cli.mjs`: new `history` command (`--item <id>` for one). USAGE updated.
+- `test/history.test.mjs`: order/contents preserved across laps; formatHistory renders.
+  **80 tests, all offline.** Demoed via demo:waves p3 (build→BLOCKING→fix→CLEAN).
+- Note: history is captured for runs AFTER this change; the earlier pingpang run
+  predates it (only its round-3 review survived).
+
 ### 2026-06-25 — Session 16 (USAGE.md + fully-local `--local-pr`)
 - `USAGE.md`: step-by-step guide for running Polly on **another project folder**
   (PollyArranger is the tool; `--repo` points at your repo). Vendors, gates,

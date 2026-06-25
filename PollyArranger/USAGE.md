@@ -88,10 +88,15 @@ locally; then it prints a status report. Inspect the result with `git log` /
 
 ```bash
 npm run polly -- run    --repo <p> (--spec "..."|--backlog file.json) [options]
-npm run polly -- status --registry <p>
-npm run polly -- daemon --repo <p> [--interval 5]      # keep running; Ctrl-C to stop
-npm run polly -- add    --repo <p> (--spec "..."|--backlog file.json)  # queue work
+npm run polly -- status  --registry <p>
+npm run polly -- history --registry <p> [--item p1]    # full implement<->review trail
+npm run polly -- daemon  --repo <p> [--interval 5]     # keep running; Ctrl-C to stop
+npm run polly -- add     --repo <p> (--spec "..."|--backlog file.json)  # queue work
 ```
+
+> **`history`** shows the whole back-and-forth — every implement lap and every
+> review round (each reviewer verdict + findings), not just the latest. Great for
+> seeing *why* an item ended up `BLOCKED` (e.g. what the reviewer kept flagging).
 
 > ⚠️ **Windows / PowerShell:** `npm run polly -- …` strips the `--flag` names
 > when forwarding (you'll get `--repo <path> is required`). Call the script

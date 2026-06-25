@@ -132,6 +132,16 @@ export function mergeCost(prev, usage) {
   };
 }
 
+/**
+ * Append an entry to an item's audit trail (`item.history`), never mutating.
+ * The history records every implement lap and every review round in order, so a
+ * BLOCKED/finished item carries the full back-and-forth (who did/said what each
+ * round) instead of only the latest review.
+ */
+export function appendHistory(item, entry, now) {
+  return [...(item.history ?? []), { at: now, ...entry }];
+}
+
 /** Build the fix instruction handed to the implementer on a fix lap. */
 export function fixSpecFromReview(item) {
   const findings = item.review?.findings ?? [];
@@ -177,6 +187,14 @@ export function applyResult(item, action, outcome, ctx = {}) {
       const gates = outcome.gates ?? null;
       const commits = res.commits ?? item.commits ?? [];
       const convId = res.convId ?? item.convId;
+      // Audit trail (review history): record this implement lap.
+      const history = appendHistory(item, {
+        kind: 'implement',
+        verb: item.status === STATES.BUILDING ? 'build' : 'fix',
+        by: item.implementer,
+        summary: res.summary ?? '',
+        commits: res.commits ?? [],
+      }, now);
 
       // ① RED GATE BLOCKS: a failing gate sends the item back to FIXING (never to
       // review, never opening a PR), bounded by maxGateRounds, then escalates to
@@ -191,13 +209,13 @@ export function applyResult(item, action, outcome, ctx = {}) {
         }];
         if (gateRound >= cap) {
           return {
-            ...item, cost, gates, gateRound,
+            ...item, cost, gates, gateRound, history,
             status: STATES.BLOCKED,
             blockedOn: `Gates still failing after ${gateRound} attempt(s) — escalated to a human.`,
           };
         }
         return {
-          ...item, cost, gates, gateRound, convId, commits,
+          ...item, cost, gates, gateRound, convId, commits, history,
           review: { verdict: 'BLOCKING', round: item.review?.round ?? 0, findings },
           status: STATES.FIXING,
         };
@@ -208,13 +226,13 @@ export function applyResult(item, action, outcome, ctx = {}) {
         // BUILDING, or a FIXING lap that recovered from an earlier red gate (no
         // PR yet) — the PR is opened now -> go to review.
         return {
-          ...item, cost, convId, commits, gates,
+          ...item, cost, convId, commits, gates, history,
           pr: outcome.pr ?? item.pr,
           status: STATES.IN_REVIEW,
         };
       }
       // A normal fix lap (PR already open) -> back to review.
-      return { ...item, cost, convId, commits, gates, status: STATES.RE_REVIEW };
+      return { ...item, cost, convId, commits, gates, history, status: STATES.RE_REVIEW };
     }
 
     case ACTIONS.REVIEW: {
@@ -226,6 +244,11 @@ export function applyResult(item, action, outcome, ctx = {}) {
         reviewConvId: r.convId ?? item.reviewConvId,
         reviewRound: round,
         review: { verdict: r.verdict, round, findings: r.findings ?? [] },
+        // Audit trail: append this review round (never overwrite prior rounds).
+        history: appendHistory(item, {
+          kind: 'review', round, by: item.reviewer,
+          verdict: r.verdict, findings: r.findings ?? [],
+        }, now),
       };
       if (r.verdict === 'BLOCKING') {
         const max = policy.maxReviewRounds ?? 3;

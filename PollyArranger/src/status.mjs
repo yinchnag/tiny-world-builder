@@ -47,6 +47,25 @@ function catchUp(items) {
   return lines.join('\n');
 }
 
+/** The full implement↔review back-and-forth for one item (audit trail). */
+export function formatHistory(item) {
+  const out = [`=== ${item.id} — ${item.title} (${item.status}) ===`];
+  const hist = item.history ?? [];
+  if (hist.length === 0) { out.push('  (no history recorded)'); return out.join('\n'); }
+  for (const h of hist) {
+    if (h.kind === 'implement') {
+      const sha = h.commits?.length ? ` [${h.commits.join(', ')}]` : '';
+      out.push(`  • ${h.verb} by ${h.by ?? '?'}: ${(h.summary || '(changes)').split('\n')[0]}${sha}`);
+    } else if (h.kind === 'review') {
+      out.push(`  • review #${h.round} by ${h.by ?? '?'}: ${h.verdict}`);
+      for (const f of h.findings ?? []) {
+        out.push(`      - [${f.severity}] ${f.where}: ${String(f.what ?? '').replace(/\s+/g, ' ').slice(0, 200)}`);
+      }
+    }
+  }
+  return out.join('\n');
+}
+
 /** Full status report as a string. */
 export function formatStatus(reg) {
   const c = costTotals(reg);
