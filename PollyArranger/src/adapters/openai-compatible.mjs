@@ -29,6 +29,7 @@ import {
   readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync,
 } from 'node:fs';
 import { isAbsolute, join, resolve, dirname, relative, sep } from 'node:path';
+import { createFileTranscriptStore } from '../transcripts.mjs';
 
 /** Known providers. Add one = a row here + a family in DEFAULT_FAMILIES. */
 export const PROVIDERS = {
@@ -111,6 +112,9 @@ function fn(name, description, properties, required = []) {
  * @param {number} [cfg.maxSteps]      - tool-loop safety cap (default 24)
  * @param {string} [cfg.baseRef]       - base branch for review diffs (default 'main')
  * @param {Function} [cfg.fetchImpl]   - injectable fetch (default global fetch)
+ * @param {object} [cfg.transcriptStore] - { load, save } per convId (⑤); default
+ *        is a file store under <repoPath>/.polly/transcripts. Pass null to disable.
+ * @param {string} [cfg.transcriptDir] - dir for the default file transcript store
  */
 export function createOpenAICompatibleAdapter(cfg) {
   const p = PROVIDERS[cfg.provider];
@@ -124,6 +128,10 @@ export function createOpenAICompatibleAdapter(cfg) {
   const maxSteps = cfg.maxSteps ?? 24;
   const baseRef = cfg.baseRef ?? 'main';
   const doFetch = cfg.fetchImpl ?? globalThis.fetch;
+  // Transcript persistence (⑤): default file store; `transcriptStore: null` disables.
+  const transcripts = 'transcriptStore' in cfg
+    ? cfg.transcriptStore
+    : createFileTranscriptStore(cfg.transcriptDir ?? join(cfg.repoPath, '.polly', 'transcripts'));
 
   const absWt = (worktreePath) =>
     isAbsolute(worktreePath) ? worktreePath : join(cfg.repoPath, worktreePath);
@@ -150,12 +158,19 @@ export function createOpenAICompatibleAdapter(cfg) {
 
     async implement(task) {
       const root = absWt(task.worktreePath);
-      const convId = `conv_${vendor}_${task.itemId ?? 'item'}_${Date.now()}`;
+      // ⑤ Reuse the convId on a fix lap so we resume the SAME conversation.
+      const convId = task.resumeConvId ?? `conv_${vendor}_${task.itemId ?? 'item'}_${Date.now()}`;
       const usage = newUsage();
-      const messages = [
-        { role: 'system', content: IMPLEMENT_SYSTEM },
-        { role: 'user', content: task.spec },
-      ];
+
+      // On resume, load the prior transcript and append the follow-up; otherwise
+      // start fresh. The model thus remembers everything it did on earlier laps.
+      const prior = task.resumeConvId && transcripts ? transcripts.load(convId) : null;
+      const messages = prior
+        ? [...prior, { role: 'user', content: `Follow-up task (same worktree, continue your work):\n${task.spec}` }]
+        : [
+            { role: 'system', content: IMPLEMENT_SYSTEM },
+            { role: 'user', content: task.spec },
+          ];
       let summary = '';
 
       for (let step = 0; step < maxSteps; step += 1) {
@@ -163,6 +178,7 @@ export function createOpenAICompatibleAdapter(cfg) {
         try {
           resp = await chat(messages, IMPLEMENT_TOOLS);
         } catch (err) {
+          transcripts?.save(convId, messages);
           return { ok: false, convId, summary: `model call failed: ${err.message}`, commits: [], usage };
         }
         addUsage(usage, resp.usage);
@@ -189,6 +205,9 @@ export function createOpenAICompatibleAdapter(cfg) {
         }
         if (finished) break;
       }
+
+      // Persist the full conversation so a later fix lap can truly resume (⑤).
+      transcripts?.save(convId, messages);
 
       // Commit whatever changed. No changes → the implement failed to do anything.
       const dirty = gitOut(root, ['status', '--porcelain']).length > 0;

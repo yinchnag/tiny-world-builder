@@ -29,7 +29,10 @@
   - ⬜ **② Harness adapters** (claude_code/codex) as config-only vendors.
   - ⬜ **③ Real-git concurrency lock** (repo-level lock around `git worktree`/push for real parallel runs; until then keep `--concurrency 1` on real repos).
   - ⬜ **④ Long-running daemon / scheduler** around `orch.run` (vs. one-shot).
-  - ⬜ **⑤ Persist agent transcripts** per `convId` for true fix-lap resume.
+  - ✅ **⑤ Persist agent transcripts** per `convId` (`src/transcripts.mjs`): the
+    implementer's full conversation is saved and re-loaded on a fix lap, so the
+    model truly continues (not soft-resume). Default file store under
+    `<repo>/.polly/transcripts`; `transcriptStore: null` disables.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -60,7 +63,7 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 59 tests (all offline): + gate-block (①), CLI (ⓠ)
+npm test               # 62 tests (all offline): + gate-block (①), CLI (ⓠ), transcripts (⑤)
 npm run polly          # the turnkey CLI: `npm run polly -- run --repo <p> --backlog <f>` / `--spec`
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
 npm run demo:waves     # OFFLINE: 5 items, concurrency=2, wave report (no network)
@@ -99,6 +102,21 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 10 (post-roadmap: ⑤ transcript persistence / true resume)
+- `src/transcripts.mjs`: file + in-memory transcript stores (load/save messages by
+  convId; atomic file writes).
+- `openai-compatible.mjs`: on a fix lap (resumeConvId set) the implementer now
+  reuses the SAME convId, LOADS the prior conversation, and appends the follow-up —
+  so the model genuinely continues (remembers its earlier tool calls), not a soft
+  re-read. Every lap saves the full transcript. Default file store under
+  `<repo>/.polly/transcripts`; `transcriptStore: null` disables; injectable for tests.
+- `test/transcripts.test.mjs`: store round-trip; resume lap re-sends the prior
+  conversation (same convId, prior spec carried + follow-up appended); fresh start
+  without resume. **62 tests, all offline.**
+- Live resume demo skipped on purpose: forcing a real fix lap needs a non-deterministic
+  BLOCKING review; the wiring is unit-verified and the live adapter path was proven earlier.
+- **Handoff:** remaining opt-in: ② harness adapters, ③ git concurrency lock, ④ daemon.
 
 ### 2026-06-25 — Session 9 (post-roadmap: ⓠ turnkey CLI + ① red-gate-blocks)
 - **ⓠ CLI** (`src/cli.mjs`, `npm run polly`): `run --repo <path> (--backlog <file>|--spec "...")`

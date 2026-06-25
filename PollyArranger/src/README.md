@@ -32,6 +32,7 @@
 | `cli-status.mjs` | `npm run status` | ✅ Phase 5 | renders a registry file's status |
 | `cli.mjs` | **Turnkey CLI** | ✅ post-roadmap ⓠ | `npm run polly -- run --repo <p> --backlog <f>` / `--spec`; `status` |
 | gate-blocking | red gate → FIXING/BLOCKED | ✅ post-roadmap ① | a failing gate never opens a PR (orchestrator + state-machine) |
+| `transcripts.mjs` | Conversation persistence | ✅ post-roadmap ⑤ | save/load messages per convId → true fix-lap resume |
 | harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
 
 ## Design rule
