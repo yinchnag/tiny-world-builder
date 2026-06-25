@@ -70,9 +70,12 @@ All the *logic* risk is retired here, cheaply and deterministically.
 >   against a throwaway local repo + bare remote (`test/git-services.test.mjs`),
 >   no GitHub/network. PR creation is injectable so the real push is tested while
 >   `gh` stays live-only.
-> - **Phase 2.2 — DeepSeek implementer adapter** ⬜ *next.* `adapters/openai-compatible.mjs`:
->   a tool-calling loop (read/write file, run command, commit) so DeepSeek can
->   actually edit a worktree. Needs `DEEPSEEK_API_KEY` (gitignored `.env`).
+> - **Phase 2.2 — DeepSeek implementer adapter** ✅ *done.* `adapters/openai-compatible.mjs`:
+>   a tool-calling loop (list/read/write file, run command, finish → commit) so
+>   DeepSeek actually edits a worktree; also a one-call `review()`. `fetchImpl` is
+>   injectable (unit-tested with no network). **Verified live on DeepSeek**
+>   (`npm run demo:deepseek`): the model wrote a working `greet()` module + README
+>   and committed it. Key in gitignored `.env`.
 
 Build:
 

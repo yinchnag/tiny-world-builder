@@ -17,7 +17,9 @@
 | `services/mock.mjs` | Mock worktree/git/gates | ✅ Phase 1 | Phase 2 replaces these behind the same interface |
 | `util/slug.mjs` | Branch/slug helpers | ✅ Phase 2.1 | shared by mock + real services |
 | `services/git.mjs` | **Real** worktree/git/gates | ✅ Phase 2.1 | `git` worktree + commit/push, PR via `gh`, gates run ([docs/01 §2.3/2.5](../docs/01-architecture.md)) |
-| `adapters/openai-compatible.mjs` | DeepSeek/OpenAI/… adapter | ⬜ Phase 2.2 | tool-calling loop; DeepSeek is the dev default ([docs/08](../docs/08-providers.md)) |
+| `util/env.mjs` | `.env` loader | ✅ Phase 2.2 | reads API keys from the gitignored `.env` |
+| `adapters/openai-compatible.mjs` | **Real** DeepSeek/OpenAI/… adapter | ✅ Phase 2.2 | tool-calling `implement` + `review`; verified live on DeepSeek ([docs/08](../docs/08-providers.md)) |
+| `demo-deepseek.mjs` | Live DeepSeek demo | ✅ Phase 2.2 | `npm run demo:deepseek` — real model writes + commits code |
 | `adapters/codex.mjs` (or another raw LLM) | Reviewer adapter | ⬜ Phase 3 | different-family reviewer |
 | `merge-gate.mjs` | Merge-gate policy | ⬜ Phase 3 | human/auto ([docs/01 §2.6](../docs/01-architecture.md)) |
 

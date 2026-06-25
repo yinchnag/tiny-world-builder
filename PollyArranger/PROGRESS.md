@@ -14,18 +14,19 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 2.1 complete → **Phase 2.2 not started.**
-- **Next session starts here:** Begin **Phase 2.2** — the DeepSeek implementer
-  adapter `src/adapters/openai-compatible.mjs`: a tool-calling loop (read file /
-  write file / run command / commit) so DeepSeek can actually edit a worktree,
-  exposing Polly's standard `implement()` (and `review()`) contract
-  ([docs/04 §2–3](docs/04-agent-adapters.md), [docs/08](docs/08-providers.md)).
-  Wire it as the implementer with the **real** git services
-  (`src/services/git.mjs`); reviewer stays mock until Phase 3. The key is in the
-  gitignored `.env` (`DEEPSEEK_API_KEY`) — load it (add a tiny `.env` reader or
-  use `process.env`). Do NOT change `orchestrator.mjs`. Target: a real `PLANNED`
-  item, implemented by DeepSeek, yields a real branch + commit + PR and parks at
-  `READY_FOR_HUMAN_MERGE`.
+- **Current phase:** Phase 2 complete (2.1 + 2.2) → **Phase 3 not started.**
+- **Next session starts here:** Begin [Phase 3](docs/06-roadmap.md#phase-3--real-cross-vendor-review--the-merge-gate) —
+  real **cross-vendor review** + the **merge gate**. The reviewer machinery
+  already exists: `openai-compatible.mjs` has a working `review()`. So Phase 3 is
+  mostly **wiring + an end-to-end run**: (1) configure a *different-family*
+  reviewer (e.g. `openai`/`kimi`/`glm`, or even DeepSeek-implements ↔
+  another-provider-reviews); (2) build the integration that runs the **real** git
+  services + real DeepSeek implementer + real reviewer through the orchestrator on
+  a throwaway repo, so an item goes `PLANNED → … → READY_FOR_HUMAN_MERGE` for real;
+  (3) wire the merge-gate policy (`human` parks; `auto` calls `gh pr merge`).
+  Note the known gap to consider closing: gates currently capture pass/fail but
+  don't block. Needs a second provider key for true cross-vendor (or reuse
+  DeepSeek for both as a cheap stand-in while wiring).
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -41,8 +42,8 @@
 | **0** | Decide stack; scaffold `package.json` + `src/` + continuity files | ✅ done | yes |
 | **1** | Closed loop with MOCK agents (store, state machine, loop, MockAdapter) | ✅ done | (1 session) |
 | **2.1** | Real git services (worktree/git/gates) behind the mock interface | ✅ done | (1 session) |
-| **2.2** | DeepSeek implementer adapter (tool-calling loop) | ⬜ next | **1 session** |
-| **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ⬜ | 1–2 sessions |
+| **2.2** | DeepSeek implementer adapter (tool-calling loop) | ✅ done | (1 session) |
+| **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ⬜ next | 1–2 sessions |
 | **4** | Parallelism + waves + planner entry point | ⬜ | 1–2 sessions |
 | **5** | Operability: status command / dashboard / cost accounting | ⬜ | 1 session |
 
@@ -54,8 +55,9 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test          # 30 tests: state machine, schema, store, orchestrator, real git services
-npm start         # runs the Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE
+npm test               # 34 tests (all offline): + the openai-compatible adapter tool loop
+npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
+npm run demo:deepseek  # LIVE: real DeepSeek writes + commits code (needs .env key, network)
 ```
 
 If anything above fails, FIX THAT before building new work. The contract is:
@@ -87,6 +89,22 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 5 (Phase 2.2: DeepSeek implementer adapter)
+- `src/adapters/openai-compatible.mjs` — generic adapter for any OpenAI-compatible
+  API (PROVIDERS: deepseek/openai/kimi/glm/openrouter). `implement()` runs a
+  tool-calling loop (list_files/read_file/write_file/run_command/finish), all
+  path-scoped to the worktree (escape attempts refused), then commits the diff;
+  `review()` is a single call returning the normalized verdict via a
+  `submit_review` tool. `fetchImpl` injectable → unit-tested with no network.
+- `src/util/env.mjs` — minimal `.env` loader (no dep).
+- `src/demo-deepseek.mjs` + `npm run demo:deepseek` — **LIVE-VERIFIED**: real
+  DeepSeek wrote a working `greet()` module + README and committed it (commit
+  bb2a1d9 in a throwaway repo). First real model writing real code through Polly.
+- **34 tests passing** (all offline; the 4 new adapter tests use a fake fetch).
+- **Handoff:** Phase 2 done. Next = Phase 3 (real cross-vendor review + merge
+  gate + a full real end-to-end orchestrator run). `review()` already exists, so
+  Phase 3 is mostly wiring. May want a 2nd provider key for true cross-vendor.
 
 ### 2026-06-25 — Session 4 (Phase 2.1: real git services)
 - `src/services/git.mjs` — REAL `worktree`/`git`/`gates` behind the mock

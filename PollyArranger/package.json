@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "start": "node src/index.mjs"
+    "start": "node src/index.mjs",
+    "demo:deepseek": "node src/demo-deepseek.mjs"
   },
   "keywords": [
     "orchestrator",
