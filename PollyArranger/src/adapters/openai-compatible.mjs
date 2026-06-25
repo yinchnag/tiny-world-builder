@@ -333,7 +333,7 @@ function writeWithin(root, p, content) {
 function runCommand(root, command, maxOut = 8000) {
   if (!command) return 'error: empty command';
   try {
-    const out = execSync(command, { cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 60000 });
+    const out = execSync(command, { cwd: root, encoding: 'utf8', stdio: 'pipe', timeout: 60000, maxBuffer: GIT_MAX_BUFFER });
     return `exit 0\n${out}`.slice(0, maxOut);
   } catch (err) {
     const out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
@@ -344,8 +344,10 @@ function runCommand(root, command, maxOut = 8000) {
 
 // ---- small helpers ---------------------------------------------------------
 
+const GIT_MAX_BUFFER = 64 * 1024 * 1024; // big diffs (e.g. a vendored lib) must not ENOBUFS
+
 function gitOut(cwd, args) {
-  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).toString().trim();
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: GIT_MAX_BUFFER }).toString().trim();
 }
 
 function pushToolResult(messages, toolCall, content) {

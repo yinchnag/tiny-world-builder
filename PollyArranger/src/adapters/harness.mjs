@@ -103,7 +103,7 @@ export function defaultRunner({ command, args, cwd, input, shell = false }) {
 }
 
 function git(cwd, args) {
-  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).toString().trim();
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).toString().trim();
 }
 
 function buildReviewPrompt(spec, diff) {
