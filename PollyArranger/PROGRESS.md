@@ -17,12 +17,15 @@
 - **Current phase:** Phase 1 complete → **Phase 2 not started.**
 - **Next session starts here:** Begin [Phase 2](docs/06-roadmap.md#phase-2--real-git--one-real-agent-implementer-only) —
   make the work physically happen on disk: real **worktree manager** + **git/gh
-  service** + **gates runner** + **one real implementer adapter** (`claude_code`
-  via `@anthropic-ai/claude-agent-sdk`). Reviewer stays mock for Phase 2. Swap
-  these in behind the SAME interfaces the mocks already use
-  (`src/services/mock.mjs`, `src/adapters/mock.mjs`) — the orchestrator must not
-  change. Target: a real `PLANNED` item produces a real branch + commit + PR and
-  parks at `READY_FOR_HUMAN_MERGE`.
+  service** + **gates runner** + **one real implementer adapter**. The implementer
+  is **DeepSeek** via a generic `adapters/openai-compatible.mjs` (a tool-calling
+  loop: read/write file, run command), **not** the Claude SDK — DeepSeek is the
+  cheap dev default ([docs/08](docs/08-providers.md), [docs/04 §3](docs/04-agent-adapters.md)).
+  Reviewer stays mock for Phase 2. Swap these in behind the SAME interfaces the
+  mocks already use (`src/services/mock.mjs`, `src/adapters/mock.mjs`) — the
+  orchestrator must not change. Needs `DEEPSEEK_API_KEY`. Target: a real
+  `PLANNED` item produces a real branch + commit + PR and parks at
+  `READY_FOR_HUMAN_MERGE`.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -68,6 +71,8 @@ If anything above fails, FIX THAT before building new work. The contract is:
 | 2026-06-24 | Docs/comments in **English** (technical terms stay English). | User preference. |
 | 2026-06-24 | Registry = **single source of truth**; orchestrator is stateless/resumable. | Crash-safety + auditability. ([docs/01](docs/01-architecture.md)) |
 | 2026-06-24 | Build with **mock agents first** (Phase 1) before any real model call. | Retire all logic risk cheaply + deterministically. |
+| 2026-06-24 | **Multi-vendor** via one generic `openai-compatible` adapter (DeepSeek/OpenAI/MiniMax/Kimi/Qwen/GLM); harnesses (Claude/Codex/Cursor) get their own adapters. | Polly's whole point is cross-vendor; most APIs are OpenAI-compatible, so one adapter covers many. ([docs/08](docs/08-providers.md)) |
+| 2026-06-24 | **DeepSeek is the dev/debug default**, not Claude. | Claude keys are hard to get + expensive; DeepSeek is cheap, OpenAI-compatible, tool-calling. Claude/others become config-only additions later. |
 
 ---
 
@@ -81,6 +86,23 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-24 — Session 3 (design: multi-vendor + DeepSeek-first)
+- Wrote the multi-vendor plan into the design docs:
+  - New [docs/08-providers.md](docs/08-providers.md): provider table, config shape,
+    add-a-provider checklist, DeepSeek-first posture.
+  - [docs/04](docs/04-agent-adapters.md): added the harness-vs-raw-API distinction,
+    the one-generic-`openai-compatible`-adapter approach, and the DeepSeek-first
+    decision; extended the §3 vendor table.
+  - [docs/06](docs/06-roadmap.md): Phase 2 implementer is now **DeepSeek via
+    `openai-compatible`** (not Claude SDK); Phase 3 reviewer is a different-family
+    raw LLM. Both cheap.
+  - Glossary + README index updated.
+- Code: extended `DEFAULT_FAMILIES` in `src/state-machine.mjs` with
+  deepseek/openai/minimax/kimi/qwen/glm (additive — no behavior change).
+- Tests still green (no logic changed). **Handoff unchanged in spirit:** next
+  session = Phase 2, but the first real adapter is DeepSeek, and you'll write
+  `adapters/openai-compatible.mjs` (tool loop) + real `services/{worktree,git,gates}.mjs`.
 
 ### 2026-06-24 — Session 2 (Phase 1: closed loop with mock agents)
 - Built the full closed loop, all pure-logic + mocks, no real models/git:

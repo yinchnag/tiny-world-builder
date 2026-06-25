@@ -16,8 +16,11 @@
 | **Reviewer** | The agent that reviews the implementer's PR. **Must be a different vendor/family.** ([00 §2](00-overview.md)) |
 | **Cross-vendor review** | The core idea: implementer and reviewer are different model families, so the review is genuinely independent (no shared blind spots). |
 | **Human merge gate** | The final checkpoint. Polly parks a clean item at `READY_FOR_HUMAN_MERGE`; a human merges. Default policy. ([01 §2.6](01-architecture.md)) |
-| **Vendor** | An agent backend: `claude_code`, `codex`, `cursor`, `openclaude`. Pluggable via adapters. |
+| **Vendor** | An agent backend: harnesses (`claude_code`, `codex`, `cursor`, `openclaude`) or raw LLM APIs (`deepseek`, `openai`, `minimax`, `kimi`, `qwen`, `glm`). Pluggable via adapters. ([08](08-providers.md)) |
 | **Agent adapter** | The uniform interface over one vendor (`implement` / `review`). Hides each vendor's real invocation mechanism. ([04](04-agent-adapters.md)) |
+| **openai-compatible adapter** | One generic adapter covering all providers that expose an OpenAI-style API + tool calling (DeepSeek, OpenAI, MiniMax, Kimi, Qwen, GLM, OpenRouter). Add a provider = config + a family entry. ([04 §3](04-agent-adapters.md), [08](08-providers.md)) |
+| **Coding-agent harness vs raw LLM API** | Harnesses (Claude Code, Codex, Cursor) already edit files/iterate. Raw APIs are just endpoints — easy as a reviewer (one call), need a tool loop as an implementer. ([04 §3](04-agent-adapters.md)) |
+| **Family** | A vendor's model lineage (anthropic, openai, deepseek, …). `assignRoles` picks a reviewer from a *different* family for genuinely independent review. |
 | **Verdict** | The normalized review outcome enum: `CLEAN` / `NON_BLOCKING` / `BLOCKING`. Drives the state machine branch. ([04 §2](04-agent-adapters.md)) |
 | **Finding** | One issue from a review: `{ severity, where, what }`. |
 | **State machine** | The fixed set of item states + legal transitions. The orchestrator's decision logic lives here. ([03](03-state-machine.md)) |

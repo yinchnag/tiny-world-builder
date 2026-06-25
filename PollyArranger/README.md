@@ -45,6 +45,7 @@ Read them in order. Each builds on the last.
 | 04 | [Agent Adapters](docs/04-agent-adapters.md) | How Polly talks to different vendor agents uniformly |
 | 05 | [Workflow Walkthrough](docs/05-workflow-walkthrough.md) | One item, start to finish, as a tutorial |
 | 06 | [Roadmap](docs/06-roadmap.md) | Build order: the minimal closed loop first, then extras |
+| 08 | [Providers](docs/08-providers.md) | Multi-vendor reference (DeepSeek, OpenAI, MiniMax, …) + config |
 | — | [Glossary](docs/07-glossary.md) | Every term defined in one place |
 | — | [Derivation](docs/DERIVATION.md) | How each design choice maps to a concrete trace in the repo |
 

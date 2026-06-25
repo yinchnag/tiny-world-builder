@@ -97,10 +97,11 @@ real invocation path.
 
 | Vendor | How Polly invokes it | Notes |
 |--------|----------------------|-------|
-| `claude_code` | `@anthropic-ai/claude-agent-sdk` (already a project dep) — programmatic agent session with tools, working dir = worktree | First-class; the SDK gives structured turns + tool use |
-| `codex` | Subprocess the Codex CLI; it's configured headless in `.codex/config.toml` (`approval_policy="never"`, `danger-full-access`) | CLI in, captured output out |
+| `claude_code` | `@anthropic-ai/claude-agent-sdk` — programmatic agent session with tools, working dir = worktree | First-class harness; structured turns + tool use. **But: account hard to obtain + expensive — not the dev default (see §6).** |
+| `codex` | Subprocess the Codex CLI (configured headless in `.codex/config.toml`) | CLI in, captured output out |
 | `cursor` | Cursor agent CLI / API subprocess | Seen in `Co-authored-by: Cursor` |
 | `openclaude` | OpenClaude harness subprocess | Seen in `Co-authored-by: OpenClaude (mimo-v2.5-pro)` |
+| `deepseek`, `openai`, `minimax`, `kimi`, `qwen`, `glm`, … | **One generic `openai-compatible` adapter**, configured per provider (base URL + key + model) — see §5 | The practical path to many vendors. DeepSeek is the dev default (§6). |
 
 > **Implementation tip.** Keep the model call in *one* function per adapter (the
 > original's own `ai-bots.mjs` does exactly this: *"The model call lives in ONE
@@ -116,6 +117,76 @@ Reviewers must return the `verdict` enum, not prose. Two ways:
    happens at the tool boundary; the model retries on a malformed call.
 2. **Prompt + parse** (fallback): instruct strict output, then parse. Less
    reliable; only for CLI vendors without tool-calling.
+
+### Two kinds of backend (this is the key distinction)
+
+Not all "agents" are equal. There are two families, and they differ a lot in
+effort:
+
+1. **Coding-agent harnesses** — Claude Code, Codex CLI, Cursor, OpenClaude. These
+   already *are* agents: they edit files, run commands, and iterate on their own.
+   Polly's adapter just hands them a task + a working dir.
+2. **Raw LLM APIs** — DeepSeek, OpenAI, MiniMax, Kimi (Moonshot), Qwen, GLM
+   (Zhipu). These are *just model endpoints*. To use one as an **implementer**
+   (which must edit the worktree), the adapter has to wrap it in a small agentic
+   loop (tool-calling: read file / write file / run command). As a **reviewer**,
+   no loop is needed — review is "read the diff, return a `verdict`", a single
+   API call.
+
+Consequence:
+
+| Role | Effort for a raw LLM API (DeepSeek/OpenAI/MiniMax/…) |
+|------|------------------------------------------------------|
+| **Reviewer** | **Easy** — one chat-completion call returning the `verdict` enum. Any of them works today. |
+| **Implementer** | **Medium** — needs a tool-calling agent loop around the API to actually edit files. |
+
+This is why the rollout plan adds API vendors **as reviewers first**, then builds
+the implementer loop (see [06-roadmap.md](06-roadmap.md)).
+
+### One adapter, many providers (OpenAI-compatible)
+
+The big lever: **most modern LLM APIs expose an OpenAI-compatible endpoint with
+function/tool calling** — DeepSeek, OpenAI, MiniMax, Kimi (Moonshot), Qwen, GLM,
+and aggregators like OpenRouter. So we write **one** adapter,
+`adapters/openai-compatible.mjs`, and configure it per provider:
+
+```js
+// conceptual — one adapter, many vendors, differing only by config
+const PROVIDERS = {
+  deepseek: { baseURL: 'https://api.deepseek.com', model: 'deepseek-chat',  keyEnv: 'DEEPSEEK_API_KEY', family: 'deepseek' },
+  openai:   { baseURL: 'https://api.openai.com/v1', model: 'gpt-...',       keyEnv: 'OPENAI_API_KEY',   family: 'openai' },
+  minimax:  { baseURL: 'https://api.minimax.chat/v1', model: 'abab...',     keyEnv: 'MINIMAX_API_KEY',  family: 'minimax' },
+  kimi:     { baseURL: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-...', keyEnv: 'MOONSHOT_API_KEY', family: 'kimi' },
+  // qwen, glm, openrouter, … follow the same shape
+};
+```
+
+The adapter's `review()` is a single call; its `implement()` runs the tool loop.
+Both still return Polly's standard `AgentResult` / `ReviewResult`, so the
+orchestrator and state machine never change — adding a provider is *just config +
+a family entry*. (The original project already ran multi-vendor incl. OpenRouter
+free models — see [DERIVATION.md](DERIVATION.md).)
+
+> **Caveat — verify per provider.** "OpenAI-compatible" is mostly true but not
+> universal: MiniMax has historically used its own request/tool-call format
+> (compatibility is improving), and tool-calling reliability varies by model.
+> Validate one provider end-to-end before assuming the next behaves identically.
+
+### Dev/debug posture: DeepSeek first
+
+**Decision:** during development and debugging, the **first real adapter is
+DeepSeek**, not Claude. Reasons:
+
+- Claude accounts/keys are harder to obtain and **significantly more expensive**
+  — a poor fit for the many iterations of building and debugging the loop.
+- DeepSeek is cheap, easy to sign up for, OpenAI-compatible, and supports tool
+  calling — ideal for shaking out the real git + agent integration.
+
+So Phase 2's "one real implementer adapter" is **DeepSeek via
+`openai-compatible`**, not `claude_code` via the SDK. Claude (and other premium
+vendors) become *optional, config-only* additions once the loop is proven cheaply
+on DeepSeek. Nothing about this is hard-coded: any provider can implement *or*
+review; the choice is config + the role-assignment policy (§4).
 
 ---
 

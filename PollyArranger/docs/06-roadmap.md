@@ -67,13 +67,22 @@ Build:
 
 5. **Worktree manager** — create/teardown worktrees + branches ([01 §2.3](01-architecture.md)).
 6. **Git/gh service** — commit, push, `gh pr create`, read PR number ([01 §2.5](01-architecture.md)).
-7. **One real implementer adapter** — `claude_code` via the Agent SDK
-   ([04 §3](04-agent-adapters.md)). Reviewer stays mock for now.
+7. **One real implementer adapter — `deepseek` via a generic `openai-compatible`
+   adapter** (NOT Claude). A raw-LLM implementer needs a small tool-calling loop
+   (read/write file, run command) around the API ([04 §3](04-agent-adapters.md),
+   [08-providers.md](08-providers.md)). DeepSeek is the dev default: cheap, easy
+   to obtain, OpenAI-compatible. Reviewer stays mock for now. Claude and other
+   premium vendors become config-only additions later.
 8. **Gates runner** — run the parent project's `npm test` and capture pass/fail.
 
-**Deliverable / demo:** a real `PLANNED` item produces a real branch, a real
-commit, a real PR — and parks at `READY_FOR_HUMAN_MERGE` (mock review passes).
-You merge it by hand.
+**Deliverable / demo:** a real `PLANNED` item, implemented by DeepSeek, produces a
+real branch, a real commit, a real PR — and parks at `READY_FOR_HUMAN_MERGE`
+(mock review passes). You merge it by hand.
+
+> Why the implementer (not the reviewer) is the hard part: editing the worktree
+> requires the agentic tool loop. A reviewer is just one API call. So Phase 2
+> spends its effort on that loop once, generically, so every OpenAI-compatible
+> provider can implement.
 
 ---
 
@@ -84,17 +93,21 @@ moment Polly becomes *Polly*.
 
 Build:
 
-9. **Second real adapter** — a different vendor (e.g. `codex` CLI) implementing
-   `review` with a normalized `verdict` enum ([04 §2](04-agent-adapters.md)).
+9. **A real reviewer adapter — a DIFFERENT-family raw LLM** (e.g. `openai`,
+   `kimi`, or `glm`) via the same `openai-compatible` adapter. Review is just one
+   call returning the normalized `verdict` enum ([04 §2](04-agent-adapters.md)),
+   so this is the *easy* half — most of the machinery already exists from Phase 2.
 10. **Role assignment** — enforce implementer ≠ reviewer, different family
-    ([04 §4](04-agent-adapters.md)).
+    ([04 §4](04-agent-adapters.md)). Default dev pairing: `deepseek` implements ↔
+    `openai`/`kimi`/`glm` reviews (two cheap, different families).
 11. **Merge-gate policy** — `human` mode (park + stop) wired up; `auto` mode as a
     flag ([01 §2.6](01-architecture.md)).
 12. **Retry/escalation** — `maxReviewRounds` cap → `BLOCKED` ([03 §4](03-state-machine.md)).
 
 **Deliverable / demo:** the full [walkthrough](05-workflow-walkthrough.md) with
-*real* agents: Claude implements, Codex finds a real issue, Claude fixes, Codex
-approves, you merge. End to end, mostly unattended.
+*real* agents, all cheap: DeepSeek implements, a different-family model finds a
+real issue, DeepSeek fixes, the reviewer approves, you merge. End to end, mostly
+unattended. (Claude/Codex/etc. drop in later as config-only vendors.)
 
 ---
 

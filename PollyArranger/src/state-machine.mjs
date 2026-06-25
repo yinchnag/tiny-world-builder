@@ -45,12 +45,25 @@ export const ACTIVE = Object.freeze([
   STATES.BUILDING, STATES.IN_REVIEW, STATES.FIXING, STATES.RE_REVIEW,
 ]);
 
-/** Default vendor -> model-family map, for cross-family role assignment. */
+/**
+ * Default vendor -> model-family map, for cross-family role assignment.
+ * Families exist so assignRoles() can pick a reviewer from a DIFFERENT family
+ * than the implementer (genuinely independent review — docs/00 section 2).
+ * Add a provider here when you add its adapter (docs/04 section 3).
+ */
 export const DEFAULT_FAMILIES = Object.freeze({
+  // coding-agent harnesses
   claude_code: 'anthropic',
   openclaude: 'anthropic',
   codex: 'openai',
   cursor: 'cursor',
+  // raw LLM APIs (via the openai-compatible adapter)
+  deepseek: 'deepseek',
+  openai: 'openai',
+  minimax: 'minimax',
+  kimi: 'kimi', // Moonshot
+  qwen: 'qwen', // Alibaba
+  glm: 'glm', // Zhipu
 });
 
 export function isTerminal(status) {
