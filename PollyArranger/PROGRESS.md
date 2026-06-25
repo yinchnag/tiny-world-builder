@@ -21,12 +21,19 @@
   resumable, auditable record; concurrency + waves work; `npm run status` gives an
   operability view; 50 tests pass offline. This is a functional equivalent of the
   original production line (the ~75–78%-feasible part — see docs/DERIVATION.md).
-- **Post-roadmap enhancements:**
+- **Post-roadmap enhancements (all ⓠ①②③④⑤ done):**
   - ✅ **ⓠ Turnkey CLI** — `npm run polly -- run --repo <path> --backlog <file>` (or `--spec`);
     `polly status`. Live-verified end-to-end (DeepSeek→Qwen→merge on a throwaway repo).
   - ✅ **① Red gate blocks the PR** — a failing gate routes the item to FIXING with the
     gate output (bounded by `maxGateRounds` → BLOCKED); no PR opens while gates are red.
-  - ⬜ **② Harness adapters** (claude_code/codex) as config-only vendors — the only one left.
+  - ✅ **② Harness adapters** (`src/adapters/harness.mjs`): drive an installed
+    `claude` / `codex` CLI as a subprocess — **passes NO key** (uses the CLI's own
+    auth, so it works even when you can't get a key). Prompt via stdin; review via
+    strict `POLLY_VERDICT`/`POLLY_FINDING` markers; claude uses native
+    `--session-id`/`--resume` (⑤ for free) and `--output-format json` (cost). Wired
+    into the factory. Offline-verified (fake runner + real-spawn fake CLI). **Real
+    `claude -p`/`codex exec` must be verified per machine** (workspace-trust prompt,
+    permission flags) — see docs/08-providers.md.
   - ✅ **③ Real-git concurrency lock** — the git service is now async (non-blocking)
     so `--concurrency > 1` delivers real parallelism; shared-repo ops (worktree
     add/remove, push, openPR, merge) serialize through a per-repo mutex
@@ -70,7 +77,7 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 68 tests (all offline): + gate-block (①), CLI (ⓠ), transcripts (⑤), mutex (③), daemon (④)
+npm test               # 75 tests (all offline): + gate-block ①, CLI ⓠ, transcripts ⑤, mutex ③, daemon ④, harness ②
 npm run polly          # CLI: run | daemon | add | status. e.g. `-- run --repo <p> --spec "..."`
                        #   daemon: `-- daemon --repo <p>` keeps running; feed it with `-- add --repo <p> --spec "..."`
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
@@ -110,6 +117,25 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 13 (post-roadmap: ② CLI-harness adapters — Claude Code / Codex)
+- `src/adapters/harness.mjs` (`createHarnessAdapter` + `HARNESS_PRESETS`): drives an
+  installed `claude`/`codex` CLI as a subprocess. **Passes NO API key** — uses the
+  CLI's own auth (works when the company won't give you a key). Prompt via stdin
+  (quote-safe); Polly commits the CLI's edits; review parsed from strict
+  `POLLY_VERDICT`/`POLLY_FINDING` markers (default BLOCKING if unparseable). claude
+  preset uses `-p --output-format json` (→ cost) + native `--session-id`/`--resume`
+  (= ⑤ without our transcript store). `defaultRunner` is injectable.
+- `src/adapters/factory.mjs`: routes API vendors → openai-compatible, harness
+  vendors (claude_code/codex) → harness adapter; unknown → clear error.
+- `test/harness.test.mjs`: implement→commit, no-change→ok:false, fix-lap→--resume,
+  review marker parse, unparseable→BLOCKING, **real spawn via a fake CLI over stdin**,
+  factory routing. **75 tests, all offline.**
+- NOT run here: real `claude -p` (spends the user's quota + workspace-trust prompt
+  is a per-machine unknown). User verifies on work machine (claude) + home (codex);
+  tune command/shell/permission flags via factory `harness` overrides if needed.
+- **All six post-roadmap enhancements (ⓠ①②③④⑤) are now done.** No work remains
+  unless new requirements appear.
 
 ### 2026-06-25 — Session 12 (post-roadmap: ④ daemon + `polly add`)
 - `src/daemon.mjs` (`createDaemon`): drain-then-poll loop over `orchestrator.tick`

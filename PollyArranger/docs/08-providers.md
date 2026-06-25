@@ -30,8 +30,8 @@ See [04 §3](04-agent-adapters.md) for the full discussion.
 | `qwen` (Alibaba) | qwen | raw API (OpenAI-compatible mode) | `openai-compatible` adapter | ✅ **live-verified** | ✅ | `DASHSCOPE_API_KEY` |
 | `glm` (Zhipu) | glm | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `ZHIPU_API_KEY` |
 | `openrouter` | (per model) | aggregator (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `OPENROUTER_API_KEY` |
-| `claude_code` | anthropic | harness | `@anthropic-ai/claude-agent-sdk` | ✅ | ✅ | `ANTHROPIC_API_KEY` |
-| `codex` | openai | harness (CLI) | Codex CLI subprocess | ✅ | ✅ | per CLI auth |
+| `claude_code` | anthropic | harness (CLI) | `claude -p` subprocess (`adapters/harness.mjs`) | ✅ | ✅ | **none — CLI's own auth** |
+| `codex` | openai | harness (CLI) | `codex exec` subprocess (`adapters/harness.mjs`) | ✅ | ✅ | **none — CLI's own auth** |
 | `cursor` | cursor | harness (CLI) | Cursor agent subprocess | ✅ | ✅ | per CLI auth |
 | `openclaude` | anthropic | harness | OpenClaude subprocess | ✅ | ✅ | per harness auth |
 
@@ -89,6 +89,29 @@ A natural early cross-vendor pairing for testing real review:
 families, both cheap.
 
 ---
+
+## 4b. Harness vendors (Claude Code / Codex) — no key required
+
+`claude_code` and `codex` are **installed agent CLIs**, not raw APIs. The harness
+adapter (`src/adapters/harness.mjs`) spawns the CLI as a subprocess and **passes no
+key** — the CLI uses whatever auth it was set up with (company SSO, a managed key,
+Bedrock…). So a harness vendor works even when you cannot obtain a key yourself.
+
+- **Pairing:** the work machine has `claude`, the home machine has `codex`; they're
+  never together. Pair the harness vendor with a cheap API vendor of a different
+  family, e.g. `--vendors claude_code,deepseek` (work) or `--vendors codex,deepseek`
+  (home). Both are genuine cross-vendor.
+- **Resume (⑤):** claude uses native `--session-id`/`--resume`; codex soft-resumes
+  via the worktree.
+- **Per-machine verification (do this once on each machine):** run a small real task
+  and confirm the CLI's headless mode works — the **workspace-trust prompt** and the
+  **permission flags** are the things that vary:
+  - claude: `claude -p --output-format json --permission-mode acceptEdits` (the
+    adapter's default). If a new worktree triggers a trust dialog, pre-accept it.
+  - codex: `codex exec "<task>"` (verify the exact non-interactive flag for your
+    version).
+  - Tune via the factory `harness` overrides (`command`, `shell`, custom `preset`)
+    if your install needs e.g. `claude.cmd` on Windows or `--dangerously-skip-permissions`.
 
 ## 5. Adding a new provider (checklist)
 

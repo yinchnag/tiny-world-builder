@@ -35,7 +35,7 @@
 | `daemon.mjs` | Long-running daemon | ✅ post-roadmap ④ | drain-then-poll loop; picks up new work; graceful stop |
 | gate-blocking | red gate → FIXING/BLOCKED | ✅ post-roadmap ① | a failing gate never opens a PR (orchestrator + state-machine) |
 | `transcripts.mjs` | Conversation persistence | ✅ post-roadmap ⑤ | save/load messages per convId → true fix-lap resume |
-| harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
+| `adapters/harness.mjs` | **CLI-harness adapter** (claude/codex) | ✅ post-roadmap ② | drives an installed CLI as a subprocess; **no key needed** (uses the CLI's own auth) |
 
 ## Design rule
 
