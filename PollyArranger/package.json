@@ -11,7 +11,8 @@
     "test": "node --test",
     "start": "node src/index.mjs",
     "demo:deepseek": "node src/demo-deepseek.mjs",
-    "demo:pipeline": "node src/demo-pipeline.mjs"
+    "demo:pipeline": "node src/demo-pipeline.mjs",
+    "demo:waves": "node src/demo-waves.mjs"
   },
   "keywords": [
     "orchestrator",

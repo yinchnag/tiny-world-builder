@@ -23,6 +23,10 @@
 | `adapters/factory.mjs` | Real adapter map builder | ✅ Phase 3 | vendor names → openai-compatible adapters |
 | `demo-pipeline.mjs` | Live cross-vendor pipeline | ✅ Phase 3 | `npm run demo:pipeline` — DeepSeek implements, Qwen reviews, real e2e |
 | merge gate | Merge-gate policy | ✅ Phase 3 | human parks / `auto` merges; `localMergeStrategy` for offline ([docs/01 §2.6](../docs/01-architecture.md)) |
+| `orchestrator.mjs` (concurrency) | Concurrent tick + WIP cap | ✅ Phase 4 | pool dispatch; only START while active < `concurrency` |
+| `planner.mjs` | Backlog seeder | ✅ Phase 4 | `seedItems(reg, specs, {wave})` → PLANNED items |
+| `report.mjs` | Wave/status reporter | ✅ Phase 4 | `waveProgress` / `formatReport` (computed, not stored) |
+| `demo-waves.mjs` | Offline wave demo | ✅ Phase 4 | `npm run demo:waves` — 5 items, concurrency=2, wave report |
 | harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
 
 ## Design rule

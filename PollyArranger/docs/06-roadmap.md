@@ -139,7 +139,13 @@ unattended. (Claude/Codex/etc. drop in later as config-only vendors.)
 
 **Goal:** make it a *production line*, not a single-file queue.
 
-Build:
+> **Status: DONE.** `npm run demo:waves` shows it: 5 items, `concurrency=2`,
+> auto-merge — items advance concurrently while WIP never exceeds the cap, one
+> item runs a fix loop, and the wave report ends `wave1: 5/5 merged`. Pieces:
+> the orchestrator tick now dispatches all ready items through a concurrency pool
+> with a WIP cap (`src/orchestrator.mjs`); `src/planner.mjs` seeds a backlog of
+> specs as PLANNED items; `src/report.mjs` computes wave/status progress. Covered
+> by `test/{concurrency,planner,report}.test.mjs` (45 tests total, all offline).
 
 13. **Concurrency** — advance N items at once with a cap (`policy.concurrency`);
     a worktree per item makes this safe ([01 §2.1](01-architecture.md)).

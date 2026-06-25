@@ -98,32 +98,54 @@ export function createOrchestrator({
     }
   }
 
-  // One pass over all items. Returns true if anything changed (drove progress).
+  // Run `arr` through `fn` with at most `limit` concurrent calls (Phase 4).
+  async function mapPool(arr, limit, fn) {
+    const n = arr.length;
+    if (n === 0) return;
+    let next = 0;
+    const worker = async () => {
+      while (next < n) {
+        const i = next;
+        next += 1;
+        await fn(arr[i]);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, n)) }, worker));
+  }
+
+  // One pass over all items. Every item with a pending action advances ONE step;
+  // up to `policy.concurrency` steps run AT ONCE (each item has its own worktree,
+  // so parallel steps are safe — docs/01 section 2.1). WIP is capped: we only
+  // START new items while the number of ACTIVE items is below the cap, so at most
+  // `concurrency` items are in flight. Returns true if anything changed.
   async function tick() {
     const reg = store.load(registryPath);
     const policy = { ...reg.policy, vendors: reg.vendors };
-    const concurrency = policy.concurrency ?? Infinity;
-    let changed = false;
+    const cap = policy.concurrency ?? Infinity;
 
+    let active = reg.items.filter((it) => ACTIVE.includes(it.status)).length;
+    const pending = [];
     for (let i = 0; i < reg.items.length; i += 1) {
       const item = reg.items[i];
       const action = nextAction(item, policy);
       if (!action) continue;
-
-      // Concurrency only gates STARTING new work — items already in flight always
-      // get to advance (docs/01 section 2.1).
       if (action === ACTIONS.START) {
-        const inFlight = reg.items.filter((it) => ACTIVE.includes(it.status)).length;
-        if (inFlight >= concurrency) continue;
+        if (active >= cap) continue; // WIP limit reached — leave it PLANNED
+        active += 1; // reserve a slot for the item we're about to start
       }
-
-      const outcome = await execute(action, item, policy);
-      reg.items[i] = applyResult(item, action, outcome, { now: clock, policy });
-      changed = true;
+      pending.push({ i, item, action });
     }
+    if (pending.length === 0) return false;
 
-    if (changed) store.save(registryPath, reg);
-    return changed;
+    // Execute the steps concurrently (capped), then apply all results + save once.
+    await mapPool(pending, cap, async (p) => {
+      p.outcome = await execute(p.action, p.item, policy);
+    });
+    for (const p of pending) {
+      reg.items[p.i] = applyResult(p.item, p.action, p.outcome, { now: clock, policy });
+    }
+    store.save(registryPath, reg);
+    return true;
   }
 
   // Run ticks until the line is stable (nothing left to do automatically).

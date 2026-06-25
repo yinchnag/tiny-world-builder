@@ -14,16 +14,15 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 3 complete → **Phase 4 not started.**
-- **Next session starts here:** Begin [Phase 4](docs/06-roadmap.md#phase-4--parallelism--waves) —
-  make it a *production line*: (1) concurrency (advance N items at once, capped by
-  `policy.concurrency`; worktrees already make it safe — but the orchestrator's
-  tick loop is currently sequential, so add concurrent dispatch); (2) waves (batch
-  items, report wave progress); (3) a planner entry point that seeds a backlog of
-  specs as items. Also consider closing the known gap: gates capture pass/fail but
-  don't block yet (decide whether a red gate should prevent the PR / force a fix).
-  Real cross-vendor (DeepSeek↔Qwen) is proven end-to-end; harness adapters
-  (claude_code/codex) remain optional config-only additions.
+- **Current phase:** Phase 4 complete → **Phase 5 not started.**
+- **Next session starts here:** Begin [Phase 5](docs/06-roadmap.md#phase-5--operability-optional-but-high-value) —
+  operability: (1) a read-only **status command / dashboard** that renders the
+  registry as a table (reuse `src/report.mjs`); (2) **notes-driven catch-up**
+  (`polly status` prints what's READY, what's BLOCKED + the open question, what
+  failed); (3) **token/cost accounting** per item (sum agent spend). This is the
+  last roadmap phase. Also still open: the known gap that gates capture pass/fail
+  but don't block — decide whether to close it here. Explicitly OUT of scope: the
+  canvas UI and contex server.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -41,8 +40,8 @@
 | **2.1** | Real git services (worktree/git/gates) behind the mock interface | ✅ done | (1 session) |
 | **2.2** | DeepSeek implementer adapter (tool-calling loop) | ✅ done | (1 session) |
 | **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ✅ done | (1 session) |
-| **4** | Parallelism + waves + planner entry point | ⬜ next | 1–2 sessions |
-| **5** | Operability: status command / dashboard / cost accounting | ⬜ | 1 session |
+| **4** | Parallelism + waves + planner entry point | ✅ done | (1 session) |
+| **5** | Operability: status command / dashboard / cost accounting | ⬜ next | 1 session |
 
 Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
@@ -52,8 +51,9 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 35 tests (all offline): + real-git auto-merge e2e (no LLM)
+npm test               # 45 tests (all offline): + concurrency/WIP cap, planner, report
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
+npm run demo:waves     # OFFLINE: 5 items, concurrency=2, wave report (no network)
 npm run demo:deepseek  # LIVE: real DeepSeek writes + commits code (needs .env, network)
 npm run demo:pipeline  # LIVE: DeepSeek implements + Qwen reviews, full real pipeline
 ```
@@ -88,6 +88,25 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 7 (Phase 4: concurrency + waves + planner)
+- `src/orchestrator.mjs` — tick now dispatches all ready items through a
+  concurrency pool (`mapPool`) with a **WIP cap**: only START new items while
+  active < `policy.concurrency`. Items already in flight always advance. Refactor
+  is behavior-preserving (prior 35 tests still green).
+- `src/planner.mjs` — `seedItems(reg, specs, {wave})` appends PLANNED items with
+  sequential ids; `newPlannedItem` helper.
+- `src/report.mjs` — `statusCounts` / `waveProgress` / `formatReport` (computed,
+  never stored).
+- `test/{concurrency,planner,report}.test.mjs` — **45 tests passing**, all
+  offline. Concurrency test asserts WIP never exceeds the cap.
+- `src/demo-waves.mjs` + `npm run demo:waves` — offline: 5 items, concurrency=2,
+  auto-merge; visibly caps WIP at 2, one item runs a fix loop, ends
+  "wave1: 5/5 merged".
+- **Handoff:** Phase 4 done. Next = Phase 5 (operability: status/dashboard,
+  notes-driven catch-up, cost accounting) — the last roadmap phase. `report.mjs`
+  is the foundation for the status command. Known gap still open: gates capture
+  pass/fail but don't block.
 
 ### 2026-06-25 — Session 6 (Phase 3: real cross-vendor pipeline)
 - Added Qwen as the reviewer vendor (key in `.env`; verified on DashScope
