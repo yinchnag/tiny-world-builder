@@ -87,6 +87,7 @@ locally; then it prints a status report. Inspect the result with `git log` /
 ## 4. The commands
 
 ```bash
+npm run polly -- plan   --repo <p> --goal "..." [--planner <v>] [--out <file>]
 npm run polly -- run    --repo <p> (--spec "..."|--backlog file.json) [options]
 npm run polly -- status  --registry <p>
 npm run polly -- history --registry <p> [--item p1]    # full implement<->review trail
@@ -111,6 +112,13 @@ npm run polly -- add     --repo <p> (--spec "..."|--backlog file.json)  # queue 
 > cd D:\path\to\project ; git init -b main ; git commit --allow-empty -m init
 > ```
 
+- **plan** — ask an agent to decompose a goal into a backlog file (with ids,
+  `dependsOn`, `tags`) for you to **review/edit**, then run it:
+  ```bash
+  npm run polly -- plan --repo /path/to/project --goal "Add user auth (signup, login, JWT)" --planner deepseek
+  # edit <repo>/.polly/plan.json, then:
+  npm run polly -- run  --repo /path/to/project --backlog /path/to/project/.polly/plan.json --vendors claude_code,deepseek --local-pr
+  ```
 - **run** — seed the task(s), process until idle, print status.
 - **status** — print the current state (items, what's ready/blocked, cost).
 - **daemon** — stay running and pick up work added later (via `add`).

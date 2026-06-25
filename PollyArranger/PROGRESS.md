@@ -66,8 +66,8 @@ phase at a time, same discipline as Phases 1–5.
 | **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ✅ done |
 | **S2** | Merge-conflict handling (conflict → BLOCKED; agent-resolve is future) | ✅ done |
 | **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ✅ done |
-| **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ **next** |
-| **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ |
+| **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ✅ done |
+| **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ **next (last)** |
 
 Order: **S1 → S2 → S3 → S4 → S5** (S1 is the foundation for safe concurrency on a
 real shared codebase). All additive — the registry/state-machine/adapter
@@ -138,6 +138,22 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 22 (S4: planner / task decomposition)
+- `src/plan.mjs`: `createPlan({adapter, repoPath, goal})` → gatherContext (git
+  ls-files + README/CLAUDE/AGENTS) → adapter.plan → `validatePlan` (title/spec,
+  lowercase-alnum ids, dep resolution, cycle check). Helpers: PLAN_SYSTEM,
+  buildPlanUser, SUBMIT_PLAN_TOOL (openai), buildPlanPromptText + parsePlanText (harness).
+- Adapters gained `plan()`: openai-compatible (forced submit_plan tool), harness
+  (claude/codex via CLI + JSON-marker parse, run in repo root), mock (canned via
+  `planItems`).
+- `cli.mjs`: `plan --goal "…"/--goal-file --planner <v> --out <file>` writes the
+  backlog to `<repo>/.polly/plan.json` (HUMAN reviews/edits) then `run --backlog`.
+  Refactored harness override into `harnessOverrideFor`.
+- `test/plan.test.mjs`: validatePlan good/bad, parsePlanText, mock createPlan →
+  seedItems, openai plan() via fake fetch. **106 tests, all offline.**
+- Real `polly plan` not run here (uses the user's quota; cheap on deepseek).
+  **Handoff:** next = S5 (project memory) — the LAST scaling phase.
 
 ### 2026-06-25 — Session 21 (S3: cost / capability routing)
 - `state-machine.mjs`: `routeRoles(item, vendors, {families, routing})` — `default`

@@ -144,6 +144,16 @@ auto-resolve or surface for a human.
 
 ### S4 — Planner (task decomposition)
 
+> **Status: DONE.** `src/plan.mjs`: `createPlan({adapter, repoPath, goal})` gathers
+> a read-only repo snapshot (`gatherContext`), asks an agent to decompose the goal,
+> and validates the backlog (`validatePlan` — title/spec/ids/deps/cycles). Adapters
+> gained a `plan()` method: openai-compatible forces a `submit_plan` tool; harness
+> (claude/codex) parses a JSON array from markers; mock returns a canned plan.
+> CLI `plan --goal "…" [--planner <v>] [--out <file>]` writes the backlog to
+> `<repo>/.polly/plan.json` for you to **review/edit**, then `run --backlog`.
+> 106 tests, all offline. Decomposition quality is prompt/know-how — the human
+> gate keeps it safe.
+
 **Problem:** G4 — turn a goal into a reviewable backlog.
 
 **Design:**

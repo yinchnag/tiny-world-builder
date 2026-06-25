@@ -30,6 +30,7 @@ import {
 } from 'node:fs';
 import { isAbsolute, join, resolve, dirname, relative, sep } from 'node:path';
 import { createFileTranscriptStore } from '../transcripts.mjs';
+import { PLAN_SYSTEM, buildPlanUser, SUBMIT_PLAN_TOOL } from '../plan.mjs';
 
 /** Known providers. Add one = a row here + a family in DEFAULT_FAMILIES. */
 export const PROVIDERS = {
@@ -246,6 +247,25 @@ export function createOpenAICompatibleAdapter(cfg) {
       const args = call ? safeParse(call.function.arguments) : {};
       const verdict = ['CLEAN', 'NON_BLOCKING', 'BLOCKING'].includes(args.verdict) ? args.verdict : 'BLOCKING';
       return { ok: true, convId, verdict, findings: args.findings ?? [], usage };
+    },
+
+    // S4 — decompose a goal into a backlog (single call, forced structured output).
+    async plan(task) {
+      const usage = newUsage();
+      const messages = [
+        { role: 'system', content: PLAN_SYSTEM },
+        { role: 'user', content: buildPlanUser(task.goal, task.context) },
+      ];
+      let resp;
+      try {
+        resp = await chat(messages, [SUBMIT_PLAN_TOOL], { type: 'function', function: { name: 'submit_plan' } });
+      } catch (err) {
+        return { ok: false, error: err.message, usage };
+      }
+      addUsage(usage, resp.usage);
+      const call = (resp.message.tool_calls ?? [])[0];
+      const args = call ? safeParse(call.function.arguments) : {};
+      return { ok: true, items: args.items ?? [], usage };
     },
   };
 }

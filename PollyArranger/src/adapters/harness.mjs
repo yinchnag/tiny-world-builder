@@ -21,6 +21,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { isAbsolute, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { buildPlanPromptText, parsePlanText } from '../plan.mjs';
 
 // ---- vendor presets --------------------------------------------------------
 // Each preset says how to invoke its CLI. Flags here reflect Claude Code 2.1.x;
@@ -212,6 +213,18 @@ export function createHarnessAdapter(cfg) {
       const { verdict, findings } = parseReviewMarkers(text);
       const usage = preset.extractMeta(stdout)?.usage ?? newUsage();
       return { ok: true, convId, verdict, findings, usage };
+    },
+
+    // S4 — decompose a goal into a backlog (run in the repo root, parse JSON markers).
+    async plan(task) {
+      const prompt = buildPlanPromptText(task.goal, task.context);
+      const { args, input } = deliver(preset.review({ prompt }), prompt);
+      const { code, stdout, stderr } = await runner({ command, args, cwd: cfg.repoPath, shell, input });
+      if (code !== 0) {
+        return { ok: false, error: `${vendor} exited ${code}: ${String(stderr).slice(0, 200)}`, usage: newUsage() };
+      }
+      const text = preset.extractText(stdout) || stdout;
+      return { ok: true, items: parsePlanText(text), usage: preset.extractMeta(stdout)?.usage ?? newUsage() };
     },
   };
 }

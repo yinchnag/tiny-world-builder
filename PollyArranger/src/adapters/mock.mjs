@@ -23,7 +23,7 @@
  *        per-item queue of verdicts consumed in order, e.g. { p1: ['BLOCKING','CLEAN'] }.
  *        Use '*' as a wildcard for all items. Falls back to 'CLEAN'.
  */
-export function createMockAdapter({ vendor, failImplement = false, reviewPlan = {} } = {}) {
+export function createMockAdapter({ vendor, failImplement = false, reviewPlan = {}, planItems } = {}) {
   if (!vendor) throw new Error('createMockAdapter: vendor is required');
   let implementSeq = 0;
   const reviewCounts = Object.create(null); // itemId -> how many reviews so far
@@ -47,6 +47,15 @@ export function createMockAdapter({ vendor, failImplement = false, reviewPlan = 
         convId: task.resumeConvId ?? `conv_${vendor}_impl_${implementSeq}`,
         summary: `mock ${vendor}: ${String(task.spec ?? '').slice(0, 48)}`,
         commits: [`mock${implementSeq}`],
+      };
+    },
+
+    async plan(/* task */) {
+      // Canned backlog (override via createMockAdapter({ planItems })).
+      return {
+        ok: true,
+        items: planItems ?? [{ id: 't1', title: 'Mock task', spec: 'do the thing' }],
+        usage: { calls: 1, promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       };
     },
 

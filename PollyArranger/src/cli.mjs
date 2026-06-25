@@ -11,7 +11,7 @@
 // `parseArgs` and `loadBacklog` are exported and unit-tested; `main()` only runs
 // when the file is invoked directly.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,6 +23,7 @@ import { createRealAdapters } from './adapters/factory.mjs';
 import { HARNESS_PRESETS } from './adapters/harness.mjs';
 import { createOrchestrator } from './orchestrator.mjs';
 import { createDaemon } from './daemon.mjs';
+import { createPlan } from './plan.mjs';
 import { formatStatus, formatHistory } from './status.mjs';
 import { ACTIVE } from './state-machine.mjs';
 
@@ -36,6 +37,7 @@ Usage:
   polly status --registry <path>
 
 commands:
+  plan     decompose a goal into a backlog file for you to review, then run
   run      seed a backlog and process it until the line is idle, then print status
   daemon   keep running: process work and poll for newly-added items (Ctrl-C to stop)
   add      append items to a registry (e.g. to feed a running daemon)
@@ -66,6 +68,11 @@ harness tuning (for claude_code / codex vendors — no key needed, uses the CLI'
   --harness-command <c>  override the CLI command (e.g. codex.cmd on Windows)
   --harness-shell        spawn via a shell (needed to run a .cmd on Windows)
   --harness-stdin        send the prompt via stdin instead of an arg (dodges shell quoting)
+
+plan options:
+  --goal "<text>"        the goal to decompose (or --goal-file <file>)
+  --planner <v>          vendor that plans (default: deepseek)
+  --out <file>           where to write the backlog (default: <repo>/.polly/plan.json)
 `;
 
 /** Minimal argv parser: first token is the command; --key value / --flag after. */
@@ -169,6 +176,47 @@ function applyRouting(reg, opts) {
   if (autoEscalate) reg.policy.autoEscalate = true;
 }
 
+// Harness (claude/codex) tuning applied to any harness vendor — adapt to a
+// machine (e.g. codex.cmd on Windows) with zero code edits.
+function harnessOverrideFor(opts, vendors) {
+  const o = {};
+  if (typeof opts['harness-command'] === 'string') o.command = opts['harness-command'];
+  if (opts['harness-shell']) o.shell = true;
+  if (opts['harness-stdin']) o.forceStdin = true;
+  const map = {};
+  if (Object.keys(o).length) for (const v of vendors) if (HARNESS_PRESETS[v]) map[v] = o;
+  return map;
+}
+
+/** `plan` — decompose a goal into a backlog file for you to review, then run. */
+async function runPlan(opts) {
+  loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
+  if (!opts.repo) throw new Error('--repo <path> is required');
+  const goal = typeof opts.goal === 'string'
+    ? opts.goal
+    : (opts['goal-file'] ? readFileSync(resolve(opts['goal-file']), 'utf8') : null);
+  if (!goal) throw new Error('provide --goal "<text>" or --goal-file <file>');
+
+  const repoPath = resolve(opts.repo);
+  const planner = opts.planner ?? 'deepseek';
+  const adapters = createRealAdapters({ vendors: [planner], repoPath, harness: harnessOverrideFor(opts, [planner]) });
+
+  console.log(`Planning "${goal.split('\n')[0].slice(0, 60)}…" with ${planner}\n`);
+  const { items } = await createPlan({ adapter: adapters[planner], repoPath, goal });
+
+  const outPath = opts.out ? resolve(opts.out) : join(repoPath, '.polly', 'plan.json');
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, `${JSON.stringify(items, null, 2)}\n`, 'utf8');
+
+  console.log(`Planned ${items.length} task(s) → ${outPath}\n`);
+  for (const it of items) {
+    const deps = it.dependsOn?.length ? ` (after ${it.dependsOn.join(', ')})` : '';
+    const tags = it.tags?.length ? ` [${it.tags.join(', ')}]` : '';
+    console.log(`  ${it.id ?? '-'}  ${it.title}${deps}${tags}`);
+  }
+  console.log(`\nReview/edit it, then run:\n  polly run --repo ${repoPath} --backlog ${outPath}`);
+}
+
 /** Shared assembly for `run` and `daemon`: services + adapters + orchestrator. */
 function buildContext(opts) {
   loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
@@ -189,18 +237,7 @@ function buildContext(opts) {
       ? { createPullRequest: () => (prSeq += 1), mergePullRequest: localMergeStrategy, noPush: true }
       : {}),
   });
-  // Harness (claude/codex) tuning, applied to any harness vendor in --vendors.
-  // Lets you adapt to a machine (e.g. codex.cmd on Windows) with zero code edits.
-  const harness = {};
-  const hOverride = {};
-  if (typeof opts['harness-command'] === 'string') hOverride.command = opts['harness-command'];
-  if (opts['harness-shell']) hOverride.shell = true;
-  if (opts['harness-stdin']) hOverride.forceStdin = true;
-  if (Object.keys(hOverride).length) {
-    for (const v of vendors) if (HARNESS_PRESETS[v]) harness[v] = hOverride;
-  }
-
-  const adapters = createRealAdapters({ vendors, repoPath, harness });
+  const adapters = createRealAdapters({ vendors, repoPath, harness: harnessOverrideFor(opts, vendors) });
   const orchestrator = createOrchestrator({ store: createFileStore(), registryPath, adapters, services });
   return { repoPath, vendors, registryPath, concurrency, merge, orchestrator };
 }
@@ -280,6 +317,7 @@ function runAdd(opts) {
 export async function runCli(opts) {
   switch (opts.command) {
     case 'run': return runPipeline(opts);
+    case 'plan': return runPlan(opts);
     case 'daemon': return runDaemon(opts);
     case 'add': return runAdd(opts);
     case 'status': return runStatus(opts);
