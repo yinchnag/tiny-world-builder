@@ -62,7 +62,7 @@ export function seedItems(reg, entries, { wave = null, idPrefix = 'p', createdAt
     let id;
     if (typeof e === 'object' && e.id != null) {
       id = String(e.id);
-      if (!/^[a-z0-9]+$/.test(id)) throw new Error(`item id "${id}" must be lowercase alphanumeric`);
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) throw new Error(`item id "${id}" must be kebab-case (lowercase letters, digits, hyphens)`);
       if (existingIds.has(id)) throw new Error(`duplicate item id "${id}"`);
     } else {
       n += 1;

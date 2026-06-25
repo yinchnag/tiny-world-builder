@@ -19,7 +19,7 @@ import { detectCycle } from './planner.mjs';
 export const PLAN_SYSTEM = [
   'You are a software project planner.',
   'Decompose the GOAL into a backlog of small, independently reviewable coding tasks.',
-  'Each task has: a short lowercase-alphanumeric "id"; a "title"; a detailed "spec"',
+  'Each task has: a short kebab-case "id" (lowercase letters, digits, hyphens); a "title"; a detailed "spec"',
   '(what to build + acceptance criteria); "dependsOn" (ids of tasks that must merge',
   'first); and optional "tags". Order tasks so dependencies are satisfiable. Prefer',
   'many small tasks over a few large ones. Keep specs concrete and self-contained.',
@@ -80,6 +80,34 @@ export function parsePlanText(text) {
   try { return JSON.parse(arr ? arr[0] : region); } catch { return []; }
 }
 
+/** Make an id branch-safe: lowercase, kebab-case, never empty. */
+function slugId(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 't';
+}
+
+/**
+ * Normalize the planner's ids to branch-safe kebab-case and remap `dependsOn`
+ * to match, so a model returning e.g. "Proj Setup" or "proj_setup" still works
+ * instead of failing validation.
+ */
+export function normalizePlanIds(items) {
+  if (!Array.isArray(items)) return items;
+  const map = new Map();
+  const used = new Set();
+  for (const it of items) {
+    if (it?.id == null) continue;
+    let id = slugId(it.id);
+    while (used.has(id)) id = `${id}-x`;
+    used.add(id);
+    map.set(String(it.id), id);
+  }
+  return items.map((it) => ({
+    ...it,
+    id: it?.id != null ? map.get(String(it.id)) : it?.id,
+    dependsOn: (it?.dependsOn ?? []).map((d) => map.get(String(d)) ?? slugId(d)),
+  }));
+}
+
 /** Throw if the proposed backlog is malformed (structure / ids / deps / cycles). */
 export function validatePlan(items) {
   if (!Array.isArray(items) || items.length === 0) throw new Error('plan has no items');
@@ -89,7 +117,7 @@ export function validatePlan(items) {
       throw new Error('each plan item needs a string title and spec');
     }
     if (it.id != null) {
-      if (!/^[a-z0-9]+$/.test(String(it.id))) throw new Error(`plan item id "${it.id}" must be lowercase alphanumeric`);
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(String(it.id))) throw new Error(`plan item id "${it.id}" must be kebab-case (lowercase letters, digits, hyphens)`);
       if (ids.has(it.id)) throw new Error(`duplicate plan item id "${it.id}"`);
       ids.add(it.id);
     }
@@ -131,6 +159,7 @@ export async function createPlan({ adapter, repoPath, goal, context }) {
   const ctx = context ?? gatherContext(repoPath);
   const res = await adapter.plan({ goal, context: ctx });
   if (!res || res.ok === false) throw new Error(res?.error ?? 'planner failed');
-  validatePlan(res.items);
-  return { items: res.items, usage: res.usage };
+  const items = normalizePlanIds(res.items); // be lenient about id formatting
+  validatePlan(items);
+  return { items, usage: res.usage };
 }

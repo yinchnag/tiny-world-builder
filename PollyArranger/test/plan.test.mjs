@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { validatePlan, createPlan, parsePlanText } from '../src/plan.mjs';
+import { validatePlan, createPlan, parsePlanText, normalizePlanIds } from '../src/plan.mjs';
 import { createMockAdapter } from '../src/adapters/mock.mjs';
 import { createOpenAICompatibleAdapter } from '../src/adapters/openai-compatible.mjs';
 import { seedItems } from '../src/planner.mjs';
@@ -24,6 +24,22 @@ test('validatePlan accepts a good plan and rejects bad ones', () => {
     { id: 'a', title: 'A', spec: 'x', dependsOn: ['b'] },
     { id: 'b', title: 'B', spec: 'y', dependsOn: ['a'] },
   ]), /cycle/);
+});
+
+test('normalizePlanIds makes ids kebab-case and remaps dependsOn', () => {
+  const out = normalizePlanIds([
+    { id: 'proj-setup', title: 'Setup', spec: 'x' },        // kebab — kept
+    { id: 'API Layer', title: 'API', spec: 'y', dependsOn: ['proj-setup'] }, // spaces → kebab
+    { id: 'db_schema', title: 'DB', spec: 'z' },            // underscore → hyphen
+  ]);
+  assert.deepEqual(out.map((i) => i.id), ['proj-setup', 'api-layer', 'db-schema']);
+  assert.deepEqual(out[1].dependsOn, ['proj-setup']);
+  assert.doesNotThrow(() => validatePlan(out));
+});
+
+test('kebab-case ids pass validation', () => {
+  assert.doesNotThrow(() => validatePlan([{ id: 'proj-setup', title: 'A', spec: 'x' }]));
+  assert.throws(() => validatePlan([{ id: '-bad-', title: 'A', spec: 'x' }]), /kebab-case/);
 });
 
 test('parsePlanText extracts a JSON array (with or without markers)', () => {
