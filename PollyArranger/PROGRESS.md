@@ -27,7 +27,11 @@
   - ✅ **① Red gate blocks the PR** — a failing gate routes the item to FIXING with the
     gate output (bounded by `maxGateRounds` → BLOCKED); no PR opens while gates are red.
   - ⬜ **② Harness adapters** (claude_code/codex) as config-only vendors.
-  - ⬜ **③ Real-git concurrency lock** (repo-level lock around `git worktree`/push for real parallel runs; until then keep `--concurrency 1` on real repos).
+  - ✅ **③ Real-git concurrency lock** — the git service is now async (non-blocking)
+    so `--concurrency > 1` delivers real parallelism; shared-repo ops (worktree
+    add/remove, push, openPR, merge) serialize through a per-repo mutex
+    (`src/util/mutex.mjs`); gates + per-worktree commits stay parallel. Live-verified
+    with `--concurrency 2` (two items built + reviewed in parallel, both merged).
   - ⬜ **④ Long-running daemon / scheduler** around `orch.run` (vs. one-shot).
   - ✅ **⑤ Persist agent transcripts** per `convId` (`src/transcripts.mjs`): the
     implementer's full conversation is saved and re-loaded on a fix lap, so the
@@ -63,7 +67,7 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 62 tests (all offline): + gate-block (①), CLI (ⓠ), transcripts (⑤)
+npm test               # 65 tests (all offline): + gate-block (①), CLI (ⓠ), transcripts (⑤), mutex (③)
 npm run polly          # the turnkey CLI: `npm run polly -- run --repo <p> --backlog <f>` / `--spec`
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
 npm run demo:waves     # OFFLINE: 5 items, concurrency=2, wave report (no network)
@@ -102,6 +106,23 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 11 (post-roadmap: ③ real-git concurrency lock)
+- `src/util/mutex.mjs`: tiny async mutex (`createMutex` → `runExclusive`).
+- `src/services/git.mjs`: rewritten ASYNC (execFile/exec via promisify, non-blocking)
+  so `--concurrency > 1` actually parallelizes. Shared-repo ops — worktree
+  add/remove, push, openPR, merge (incl. localMergeStrategy's main-tree checkout) —
+  run through a per-repo mutex; gates (long, per-worktree) and per-worktree commits
+  stay parallel. defaultGh* + localMergeStrategy are now async.
+- `src/orchestrator.mjs`: `await`s the now-async service calls (backward-compatible
+  with sync mock services — await of a non-promise is a no-op).
+- Updated test helpers (git-services, openai-compatible, transcripts) to await the
+  async service; added `test/mutex.test.mjs` (serialization, no-wedge-on-failure).
+  **65 tests, all offline.**
+- **Live-verified `--concurrency 2`**: two items BUILDING in parallel, then both
+  IN_REVIEW in parallel, both MERGED — no git corruption (11 calls, 8499 tokens).
+- CLI `--concurrency` help updated (>1 now safe). **Handoff:** remaining opt-in:
+  ② harness adapters, ④ daemon.
 
 ### 2026-06-25 — Session 10 (post-roadmap: ⑤ transcript persistence / true resume)
 - `src/transcripts.mjs`: file + in-memory transcript stores (load/save messages by

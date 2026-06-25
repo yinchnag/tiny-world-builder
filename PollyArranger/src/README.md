@@ -16,7 +16,8 @@
 | `adapters/mock.mjs` | MockAdapter | ✅ Phase 1 | canned results for testing ([docs/04 §6](../docs/04-agent-adapters.md)) |
 | `services/mock.mjs` | Mock worktree/git/gates | ✅ Phase 1 | Phase 2 replaces these behind the same interface |
 | `util/slug.mjs` | Branch/slug helpers | ✅ Phase 2.1 | shared by mock + real services |
-| `services/git.mjs` | **Real** worktree/git/gates | ✅ Phase 2.1 | `git` worktree + commit/push, PR via `gh`, gates run ([docs/01 §2.3/2.5](../docs/01-architecture.md)) |
+| `services/git.mjs` | **Real** worktree/git/gates (async + repo-locked) | ✅ Phase 2.1 + ③ | non-blocking `git`/`gh`; shared ops serialized via mutex for safe `--concurrency > 1` |
+| `util/mutex.mjs` | Async repo mutex | ✅ post-roadmap ③ | `runExclusive` serializes shared-repo git ops |
 | `util/env.mjs` | `.env` loader | ✅ Phase 2.2 | reads API keys from the gitignored `.env` |
 | `adapters/openai-compatible.mjs` | **Real** DeepSeek/OpenAI/Qwen/… adapter | ✅ Phase 2.2 | tool-calling `implement` + `review`; live-verified ([docs/08](../docs/08-providers.md)) |
 | `demo-deepseek.mjs` | Live DeepSeek demo | ✅ Phase 2.2 | `npm run demo:deepseek` — real model writes + commits code |

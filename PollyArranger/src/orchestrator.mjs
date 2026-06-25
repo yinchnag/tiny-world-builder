@@ -48,7 +48,7 @@ export function createOrchestrator({
     switch (action) {
       case ACTIONS.START: {
         const roles = assignRoles(policy.vendors ?? Object.keys(adapters), families);
-        const location = services.worktree.create({ item, roles });
+        const location = await services.worktree.create({ item, roles });
         return { roles, location };
       }
 
@@ -69,12 +69,12 @@ export function createOrchestrator({
         // ① Run gates on EVERY lap. Open the PR only when gates are green and no
         // PR exists yet; a red gate must not produce a PR (the state machine
         // routes it back to FIXING). Once a PR exists, just push the fix.
-        const gates = services.gates.run({ item });
+        const gates = await services.gates.run({ item });
         if (gates.passed !== false && item.pr == null) {
-          const pr = services.git.openPR({ item });
+          const pr = await services.git.openPR({ item });
           return { agent, gates, pr };
         }
-        if (item.pr != null) services.git.push({ item });
+        if (item.pr != null) await services.git.push({ item });
         return { agent, gates };
       }
 
@@ -91,8 +91,8 @@ export function createOrchestrator({
       }
 
       case ACTIONS.MERGE: {
-        services.git.merge({ item });
-        services.worktree.teardown({ item });
+        await services.git.merge({ item });
+        await services.worktree.teardown({ item });
         return { mergedAt: clock() };
       }
 

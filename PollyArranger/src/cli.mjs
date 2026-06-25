@@ -41,7 +41,7 @@ run options:
   --base <branch>        base branch to fork from (default: main)
   --remote <name>        git remote to push to (default: origin)
   --gates "<cmd>"        gate command run in each worktree (default: npm test)
-  --concurrency <n>      items in flight at once (default: 1 — safe without a git lock)
+  --concurrency <n>      items in flight at once (default: 1; >1 is safe — git ops are repo-locked)
   --merge human|auto     merge policy (default: human — parks finished items for you)
   --wave <id>            tag the seeded items with a wave
   --registry <path>      where to store state (default: <repo>/.polly/registry.json)

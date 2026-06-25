@@ -18,7 +18,7 @@ function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).toString().trim();
 }
 
-function makeWorktree() {
+async function makeWorktree() {
   const root = mkdtempSync(join(tmpdir(), 'polly-ai-'));
   const work = join(root, 'work');
   execFileSync('git', ['init', work]);
@@ -28,7 +28,7 @@ function makeWorktree() {
   execFileSync('git', ['-C', work, 'commit', '--allow-empty', '-m', 'init']);
   const svc = createGitServices({ repoPath: work, baseRef: 'main' });
   const item = { id: 'p1', title: 'Demo task', branch: null, worktree: null };
-  const loc = svc.worktree.create({ item });
+  const loc = await svc.worktree.create({ item });
   return { root, work, worktreePath: loc.worktree };
 }
 
@@ -51,7 +51,7 @@ function toolCall(id, name, args) {
 }
 
 test('implement runs the tool loop, writes a file, and commits', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   try {
     const fetchImpl = fakeFetch([
       // step 1: the model writes a file
@@ -82,7 +82,7 @@ test('implement runs the tool loop, writes a file, and commits', async () => {
 });
 
 test('implement returns ok:false when the model changes nothing', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   try {
     const fetchImpl = fakeFetch([
       { role: 'assistant', content: null, tool_calls: [toolCall('c1', 'finish', { summary: 'nothing to do' })] },
@@ -99,7 +99,7 @@ test('implement returns ok:false when the model changes nothing', async () => {
 });
 
 test('write_file refuses to escape the worktree', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   try {
     const fetchImpl = fakeFetch([
       { role: 'assistant', content: null, tool_calls: [toolCall('c1', 'write_file', { path: '../../escape.txt', content: 'x' })] },
@@ -118,7 +118,7 @@ test('write_file refuses to escape the worktree', async () => {
 });
 
 test('review returns a structured verdict from a submit_review tool call', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   try {
     const fetchImpl = fakeFetch([
       { role: 'assistant', content: null, tool_calls: [toolCall('c1', 'submit_review', {

@@ -34,12 +34,12 @@ function makeRepo() {
   return { root, bare, work };
 }
 
-test('worktree.create makes a branch + isolated checkout off the base', () => {
+test('worktree.create makes a branch + isolated checkout off the base', async () => {
   const { root, work } = makeRepo();
   try {
     const svc = createGitServices({ repoPath: work, remote: 'origin', baseRef: 'main' });
     const item = { id: 'p1', title: 'Demo thing', branch: null, worktree: null };
-    const loc = svc.worktree.create({ item });
+    const loc = await svc.worktree.create({ item });
 
     assert.equal(loc.branch, 'polly/p1-demo-thing');
     assert.match(loc.base, /^main [0-9a-f]+$/);
@@ -49,7 +49,7 @@ test('worktree.create makes a branch + isolated checkout off the base', () => {
   }
 });
 
-test('commit + openPR pushes the branch to the remote and returns the PR number', () => {
+test('commit + openPR pushes the branch to the remote and returns the PR number', async () => {
   const { root, work } = makeRepo();
   try {
     const svc = createGitServices({
@@ -57,16 +57,16 @@ test('commit + openPR pushes the branch to the remote and returns the PR number'
       createPullRequest: () => 7, // stub — exercises the real push, fakes the PR
     });
     const item = { id: 'p1', title: 'Demo thing', branch: null, worktree: null };
-    const loc = svc.worktree.create({ item });
+    const loc = await svc.worktree.create({ item });
     item.branch = loc.branch;
     item.worktree = loc.worktree;
 
     // The implementer would do this; here we do it by hand.
     writeFileSync(join(work, loc.worktree, 'feature.txt'), 'hello\n');
-    const sha = svc.git.commit({ item, message: 'add feature' });
+    const sha = await svc.git.commit({ item, message: 'add feature' });
     assert.ok(sha.length > 0, 'commit returns a sha');
 
-    const pr = svc.git.openPR({ item });
+    const pr = await svc.git.openPR({ item });
     assert.equal(pr, 7);
 
     // The branch must now exist in the remote. Query it via ls-remote from the
@@ -78,20 +78,20 @@ test('commit + openPR pushes the branch to the remote and returns the PR number'
   }
 });
 
-test('gates capture pass/fail without throwing', () => {
+test('gates capture pass/fail without throwing', async () => {
   const { root, work } = makeRepo();
   try {
     const item = { id: 'p1', title: 'Demo thing', branch: null, worktree: null };
-    createGitServices({ repoPath: work, baseRef: 'main' }).worktree.create({ item });
+    await createGitServices({ repoPath: work, baseRef: 'main' }).worktree.create({ item });
     item.branch = 'polly/p1-demo-thing';
     item.worktree = '.worktrees/p1-demo-thing';
 
-    const pass = createGitServices({
+    const pass = await createGitServices({
       repoPath: work, gatesCommand: 'node -e "process.exit(0)"',
     }).gates.run({ item });
     assert.equal(pass.passed, true);
 
-    const fail = createGitServices({
+    const fail = await createGitServices({
       repoPath: work, gatesCommand: 'node -e "process.exit(1)"',
     }).gates.run({ item });
     assert.equal(fail.passed, false);
@@ -100,16 +100,16 @@ test('gates capture pass/fail without throwing', () => {
   }
 });
 
-test('teardown removes the worktree', () => {
+test('teardown removes the worktree', async () => {
   const { root, work } = makeRepo();
   try {
     const svc = createGitServices({ repoPath: work, baseRef: 'main' });
     const item = { id: 'p1', title: 'Demo thing', branch: null, worktree: null };
-    const loc = svc.worktree.create({ item });
+    const loc = await svc.worktree.create({ item });
     item.worktree = loc.worktree;
     assert.ok(existsSync(join(work, loc.worktree)));
 
-    svc.worktree.teardown({ item });
+    await svc.worktree.teardown({ item });
     assert.ok(!existsSync(join(work, loc.worktree)), 'worktree dir should be gone');
   } finally {
     rmSync(root, { recursive: true, force: true });

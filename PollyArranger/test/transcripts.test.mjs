@@ -15,7 +15,7 @@ function git(cwd, ...args) {
   return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }).toString().trim();
 }
 
-function makeWorktree() {
+async function makeWorktree() {
   const root = mkdtempSync(join(tmpdir(), 'polly-tx-'));
   const work = join(root, 'work');
   execFileSync('git', ['init', work]);
@@ -25,7 +25,7 @@ function makeWorktree() {
   execFileSync('git', ['-C', work, 'commit', '--allow-empty', '-m', 'init']);
   const svc = createGitServices({ repoPath: work, baseRef: 'main' });
   const item = { id: 'p1', title: 'Demo', branch: null, worktree: null };
-  const loc = svc.worktree.create({ item });
+  const loc = await svc.worktree.create({ item });
   return { root, work, worktreePath: loc.worktree };
 }
 
@@ -62,7 +62,7 @@ test('file transcript store round-trips messages', () => {
 });
 
 test('implement saves a transcript; a resume lap re-sends the prior conversation', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   const store = createMemoryTranscriptStore();
   try {
     // --- first lap: writes hello.txt, then finishes ---
@@ -103,7 +103,7 @@ test('implement saves a transcript; a resume lap re-sends the prior conversation
 });
 
 test('without resumeConvId the conversation starts fresh', async () => {
-  const { root, work, worktreePath } = makeWorktree();
+  const { root, work, worktreePath } = await makeWorktree();
   const store = createMemoryTranscriptStore();
   try {
     const req = [];
