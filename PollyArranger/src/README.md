@@ -18,10 +18,12 @@
 | `util/slug.mjs` | Branch/slug helpers | ✅ Phase 2.1 | shared by mock + real services |
 | `services/git.mjs` | **Real** worktree/git/gates | ✅ Phase 2.1 | `git` worktree + commit/push, PR via `gh`, gates run ([docs/01 §2.3/2.5](../docs/01-architecture.md)) |
 | `util/env.mjs` | `.env` loader | ✅ Phase 2.2 | reads API keys from the gitignored `.env` |
-| `adapters/openai-compatible.mjs` | **Real** DeepSeek/OpenAI/… adapter | ✅ Phase 2.2 | tool-calling `implement` + `review`; verified live on DeepSeek ([docs/08](../docs/08-providers.md)) |
+| `adapters/openai-compatible.mjs` | **Real** DeepSeek/OpenAI/Qwen/… adapter | ✅ Phase 2.2 | tool-calling `implement` + `review`; live-verified ([docs/08](../docs/08-providers.md)) |
 | `demo-deepseek.mjs` | Live DeepSeek demo | ✅ Phase 2.2 | `npm run demo:deepseek` — real model writes + commits code |
-| `adapters/codex.mjs` (or another raw LLM) | Reviewer adapter | ⬜ Phase 3 | different-family reviewer |
-| `merge-gate.mjs` | Merge-gate policy | ⬜ Phase 3 | human/auto ([docs/01 §2.6](../docs/01-architecture.md)) |
+| `adapters/factory.mjs` | Real adapter map builder | ✅ Phase 3 | vendor names → openai-compatible adapters |
+| `demo-pipeline.mjs` | Live cross-vendor pipeline | ✅ Phase 3 | `npm run demo:pipeline` — DeepSeek implements, Qwen reviews, real e2e |
+| merge gate | Merge-gate policy | ✅ Phase 3 | human parks / `auto` merges; `localMergeStrategy` for offline ([docs/01 §2.6](../docs/01-architecture.md)) |
+| harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
 
 ## Design rule
 

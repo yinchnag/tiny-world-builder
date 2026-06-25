@@ -36,6 +36,9 @@ export const PROVIDERS = {
   openai: { baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini', keyEnv: 'OPENAI_API_KEY', family: 'openai' },
   kimi: { baseURL: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k', keyEnv: 'MOONSHOT_API_KEY', family: 'kimi' },
   glm: { baseURL: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-flash', keyEnv: 'ZHIPU_API_KEY', family: 'glm' },
+  // Qwen / Alibaba DashScope (OpenAI-compatible mode). Mainland endpoint shown;
+  // international users: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+  qwen: { baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus', keyEnv: 'DASHSCOPE_API_KEY', family: 'qwen' },
   openrouter: { baseURL: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini', keyEnv: 'OPENROUTER_API_KEY', family: 'openrouter' },
 };
 

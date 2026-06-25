@@ -41,6 +41,7 @@ function capture(file, args, opts = {}) {
  * @param {string} [cfg.worktreeRoot]    - dir for worktrees, relative to repo (default '.worktrees')
  * @param {string} [cfg.gatesCommand]    - shell command for gates (default 'npm test')
  * @param {Function} [cfg.createPullRequest] - ({repoPath,worktree,branch,title,remote}) => prNumber
+ * @param {Function} [cfg.mergePullRequest]  - ({repoPath,worktree,branch,baseRef,remote}) => void
  */
 export function createGitServices({
   repoPath,
@@ -49,9 +50,11 @@ export function createGitServices({
   worktreeRoot = '.worktrees',
   gatesCommand = 'npm test',
   createPullRequest,
+  mergePullRequest,
 } = {}) {
   if (!repoPath) throw new Error('createGitServices: repoPath is required');
   const prCreator = createPullRequest ?? defaultGhCreatePR;
+  const prMerger = mergePullRequest ?? defaultGhMerge;
 
   // Resolve an item's worktree to an absolute path for operations inside it.
   const resolveWt = (item) =>
@@ -99,11 +102,11 @@ export function createGitServices({
         capture('git', ['-C', abs, 'push', '-u', remote, item.branch]);
         return prCreator({ repoPath, worktree: abs, branch: item.branch, title: item.title, remote });
       },
-      // Merge the PR (used under auto-merge policy).
+      // Merge the PR (used under auto-merge policy). Injectable: the default uses
+      // `gh`; localMergeStrategy merges into baseRef in the local repo (for
+      // offline tests/demos without GitHub).
       merge({ item }) {
-        capture('gh', ['pr', 'merge', item.branch, '--squash', '--delete-branch'], {
-          cwd: resolveWt(item),
-        });
+        prMerger({ repoPath, worktree: resolveWt(item), branch: item.branch, baseRef, remote });
       },
     },
 
@@ -131,4 +134,28 @@ function defaultGhCreatePR({ worktree, branch, title }) {
   );
   const m = out.match(/\/pull\/(\d+)/);
   return m ? Number(m[1]) : null;
+}
+
+/** Default merge via the `gh` CLI (squash + delete branch). */
+function defaultGhMerge({ worktree, branch }) {
+  capture('gh', ['pr', 'merge', branch, '--squash', '--delete-branch'], { cwd: worktree });
+}
+
+/**
+ * Offline merge strategy: fast-forward/merge the branch into baseRef in the LOCAL
+ * repo, no GitHub. Use as `mergePullRequest` for tests/demos.
+ * (Operates in the main repo's checkout, not the worktree, so it can move baseRef.)
+ */
+export function localMergeStrategy({ repoPath, branch, baseRef }) {
+  const at = (args) => capture('git', ['-C', repoPath, ...args]);
+  const current = at(['rev-parse', '--abbrev-ref', 'HEAD']);
+  at(['checkout', baseRef]);
+  try {
+    at(['merge', '--no-ff', '-m', `Polly merge ${branch}`, branch]);
+  } finally {
+    // Restore whatever branch the main checkout was on, if different.
+    if (current && current !== baseRef && current !== 'HEAD') {
+      try { at(['checkout', current]); } catch { /* ignore */ }
+    }
+  }
 }

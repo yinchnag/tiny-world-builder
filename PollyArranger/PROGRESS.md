@@ -14,19 +14,16 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 2 complete (2.1 + 2.2) → **Phase 3 not started.**
-- **Next session starts here:** Begin [Phase 3](docs/06-roadmap.md#phase-3--real-cross-vendor-review--the-merge-gate) —
-  real **cross-vendor review** + the **merge gate**. The reviewer machinery
-  already exists: `openai-compatible.mjs` has a working `review()`. So Phase 3 is
-  mostly **wiring + an end-to-end run**: (1) configure a *different-family*
-  reviewer (e.g. `openai`/`kimi`/`glm`, or even DeepSeek-implements ↔
-  another-provider-reviews); (2) build the integration that runs the **real** git
-  services + real DeepSeek implementer + real reviewer through the orchestrator on
-  a throwaway repo, so an item goes `PLANNED → … → READY_FOR_HUMAN_MERGE` for real;
-  (3) wire the merge-gate policy (`human` parks; `auto` calls `gh pr merge`).
-  Note the known gap to consider closing: gates currently capture pass/fail but
-  don't block. Needs a second provider key for true cross-vendor (or reuse
-  DeepSeek for both as a cheap stand-in while wiring).
+- **Current phase:** Phase 3 complete → **Phase 4 not started.**
+- **Next session starts here:** Begin [Phase 4](docs/06-roadmap.md#phase-4--parallelism--waves) —
+  make it a *production line*: (1) concurrency (advance N items at once, capped by
+  `policy.concurrency`; worktrees already make it safe — but the orchestrator's
+  tick loop is currently sequential, so add concurrent dispatch); (2) waves (batch
+  items, report wave progress); (3) a planner entry point that seeds a backlog of
+  specs as items. Also consider closing the known gap: gates capture pass/fail but
+  don't block yet (decide whether a red gate should prevent the PR / force a fix).
+  Real cross-vendor (DeepSeek↔Qwen) is proven end-to-end; harness adapters
+  (claude_code/codex) remain optional config-only additions.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -43,8 +40,8 @@
 | **1** | Closed loop with MOCK agents (store, state machine, loop, MockAdapter) | ✅ done | (1 session) |
 | **2.1** | Real git services (worktree/git/gates) behind the mock interface | ✅ done | (1 session) |
 | **2.2** | DeepSeek implementer adapter (tool-calling loop) | ✅ done | (1 session) |
-| **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ⬜ next | 1–2 sessions |
-| **4** | Parallelism + waves + planner entry point | ⬜ | 1–2 sessions |
+| **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ✅ done | (1 session) |
+| **4** | Parallelism + waves + planner entry point | ⬜ next | 1–2 sessions |
 | **5** | Operability: status command / dashboard / cost accounting | ⬜ | 1 session |
 
 Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
@@ -55,9 +52,10 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 34 tests (all offline): + the openai-compatible adapter tool loop
+npm test               # 35 tests (all offline): + real-git auto-merge e2e (no LLM)
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
-npm run demo:deepseek  # LIVE: real DeepSeek writes + commits code (needs .env key, network)
+npm run demo:deepseek  # LIVE: real DeepSeek writes + commits code (needs .env, network)
+npm run demo:pipeline  # LIVE: DeepSeek implements + Qwen reviews, full real pipeline
 ```
 
 If anything above fails, FIX THAT before building new work. The contract is:
@@ -76,6 +74,7 @@ If anything above fails, FIX THAT before building new work. The contract is:
 | 2026-06-24 | Build with **mock agents first** (Phase 1) before any real model call. | Retire all logic risk cheaply + deterministically. |
 | 2026-06-24 | **Multi-vendor** via one generic `openai-compatible` adapter (DeepSeek/OpenAI/MiniMax/Kimi/Qwen/GLM); harnesses (Claude/Codex/Cursor) get their own adapters. | Polly's whole point is cross-vendor; most APIs are OpenAI-compatible, so one adapter covers many. ([docs/08](docs/08-providers.md)) |
 | 2026-06-24 | **DeepSeek is the dev/debug default**, not Claude. | Claude keys are hard to get + expensive; DeepSeek is cheap, OpenAI-compatible, tool-calling. Claude/others become config-only additions later. |
+| 2026-06-25 | Cross-vendor pair = **DeepSeek (implement) ↔ Qwen (review)**. | Two cheap, different families; both keys verified working. Qwen uses the DashScope **mainland** endpoint (`dashscope.aliyuncs.com/compatible-mode/v1`); the intl endpoint 401s this key. |
 
 ---
 
@@ -89,6 +88,24 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 6 (Phase 3: real cross-vendor pipeline)
+- Added Qwen as the reviewer vendor (key in `.env`; verified on DashScope
+  mainland endpoint — intl 401s this key). DeepSeek↔Qwen = different families.
+- `src/adapters/factory.mjs` — `createRealAdapters({vendors, repoPath})` builds the
+  openai-compatible adapter map.
+- `src/services/git.mjs` — `merge` is now injectable (`mergePullRequest`); added
+  `localMergeStrategy` (offline merge into baseRef) so auto-merge works without
+  GitHub.
+- `test/pipeline-real-git.test.mjs` — offline e2e: orchestrator + REAL git +
+  auto-merge drives one item PLANNED→MERGED, landing a real file on `main`
+  (implementer = inline file-writer, reviewer = mock). **35 tests passing.**
+- `src/demo-pipeline.mjs` + `npm run demo:pipeline` — **LIVE-VERIFIED**: real
+  DeepSeek implemented `isEven()` + committed + pushed; real Qwen reviewed the
+  diff → CLEAN; parked at READY_FOR_HUMAN_MERGE. First real cross-vendor run.
+- **Handoff:** Phase 3 done — the core production line works end to end with real
+  models. Next = Phase 4 (concurrency + waves + a planner/backlog entry point).
+  Known gap still open: gates capture pass/fail but don't block.
 
 ### 2026-06-25 — Session 5 (Phase 2.2: DeepSeek implementer adapter)
 - `src/adapters/openai-compatible.mjs` — generic adapter for any OpenAI-compatible

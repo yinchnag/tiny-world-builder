@@ -23,11 +23,11 @@ See [04 §3](04-agent-adapters.md) for the full discussion.
 
 | Vendor key | Family | Backend kind | How wired | Reviewer | Implementer | Auth env |
 |------------|--------|--------------|-----------|:--------:|:-----------:|----------|
-| `deepseek` | deepseek | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ easy | ✅ (tool loop) | `DEEPSEEK_API_KEY` |
+| `deepseek` | deepseek | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ easy | ✅ **live-verified** | `DEEPSEEK_API_KEY` |
 | `openai` | openai | raw API | `openai-compatible` adapter | ✅ | ✅ | `OPENAI_API_KEY` |
 | `minimax` | minimax | raw API (verify format) | `openai-compatible` adapter* | ✅ | ✅ | `MINIMAX_API_KEY` |
 | `kimi` (Moonshot) | kimi | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `MOONSHOT_API_KEY` |
-| `qwen` (Alibaba) | qwen | raw API (OpenAI-compatible mode) | `openai-compatible` adapter | ✅ | ✅ | `DASHSCOPE_API_KEY` |
+| `qwen` (Alibaba) | qwen | raw API (OpenAI-compatible mode) | `openai-compatible` adapter | ✅ **live-verified** | ✅ | `DASHSCOPE_API_KEY` |
 | `glm` (Zhipu) | glm | raw API (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `ZHIPU_API_KEY` |
 | `openrouter` | (per model) | aggregator (OpenAI-compatible) | `openai-compatible` adapter | ✅ | ✅ | `OPENROUTER_API_KEY` |
 | `claude_code` | anthropic | harness | `@anthropic-ai/claude-agent-sdk` | ✅ | ✅ | `ANTHROPIC_API_KEY` |

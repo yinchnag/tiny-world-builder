@@ -105,6 +105,16 @@ real branch, a real commit, a real PR — and parks at `READY_FOR_HUMAN_MERGE`
 **Goal:** close the loop with a *real, different-vendor* reviewer. This is the
 moment Polly becomes *Polly*.
 
+> **Status: DONE (live-verified).** `npm run demo:pipeline` runs the whole line
+> for real: a **DeepSeek** implementer writes + commits `isEven()`, a **Qwen**
+> reviewer (different family) reviews the real diff and returns `CLEAN`, and the
+> item parks at `READY_FOR_HUMAN_MERGE`. Supporting pieces: `adapters/factory.mjs`
+> (build real adapters from vendor names), injectable `merge` + `localMergeStrategy`
+> in `services/git.mjs` (offline auto-merge), and an offline integration test
+> (`test/pipeline-real-git.test.mjs`) that drives real git + auto-merge to
+> `MERGED`, landing a real change on `main`. Qwen verified on the DashScope
+> mainland endpoint.
+
 Build:
 
 9. **A real reviewer adapter — a DIFFERENT-family raw LLM** (e.g. `openai`,
