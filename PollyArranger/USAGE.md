@@ -164,6 +164,8 @@ reviews. They must be different families.
 | `--implementer <v>` / `--reviewer <v>` | routed | Force default roles (e.g. `--implementer deepseek --reviewer qwen`). |
 | `--routing <file>` | — | Routing JSON: `{ "default": {...}, "rules": [{ "tag": "hard", "implementer": "claude_code" }] }`. Tag items in the backlog (`"tags": ["hard"]`) to route them. |
 | `--escalate-to <v>` | off | If review can't converge, retry once with vendor `<v>` (must be in `--vendors`) before BLOCKED. |
+| `--memory <file>` | `<repo>/.polly/memory.md` | Project memory injected into every implement/review prompt. Edit it to record conventions/decisions agents must respect. |
+| `--scribe` | off | Append a one-line record to memory when a task merges (so the project accrues memory). View with `polly memory --repo <p>`. |
 | `--base <branch>` | `main` | Base branch to fork from. |
 | `--wave <id>` | — | Tag tasks into a wave for grouped reporting. |
 | `--registry <path>` | `<repo>/.polly/registry.json` | Where state is stored. |

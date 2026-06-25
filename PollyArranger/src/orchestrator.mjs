@@ -24,6 +24,8 @@ import {
   fixSpecFromReview,
   depGate,
 } from './state-machine.mjs';
+import { dirname, join } from 'node:path';
+import { createFileMemory } from './memory.mjs';
 
 /**
  * @param {object} deps
@@ -41,8 +43,26 @@ export function createOrchestrator({
   services,
   now,
   families,
+  memory,
 }) {
   const clock = now ?? (() => new Date().toISOString());
+  // S5 — project memory (default: <registry-dir>/memory.md). Re-read each use so
+  // human edits are picked up immediately.
+  const mem = memory ?? createFileMemory(join(dirname(registryPath), 'memory.md'));
+
+  // Prepend the project memory to a task spec so agents respect prior decisions.
+  function withMemory(spec) {
+    const m = mem.read();
+    if (!m || !m.trim()) return spec;
+    return `PROJECT MEMORY — respect these existing decisions/conventions:\n${m.trim()}\n\n---\nTASK:\n${spec}`;
+  }
+
+  // One-line record appended on merge when policy.scribe is on (no extra model call).
+  function scribeNote(item) {
+    const impl = (item.history ?? []).filter((h) => h.kind === 'implement').pop();
+    const note = (impl?.summary ?? '').split('\n')[0] || item.title;
+    return `- [${item.id}] ${item.title}: ${note}`;
+  }
 
   // Perform an action's side effects and return a raw outcome for applyResult.
   async function execute(action, item, policy) {
@@ -58,7 +78,7 @@ export function createOrchestrator({
         const adapter = adapters[item.implementer];
         if (!adapter) throw new Error(`no adapter for implementer "${item.implementer}"`);
         const isFix = item.status === STATES.FIXING;
-        const spec = isFix ? fixSpecFromReview(item) : item.spec;
+        const spec = withMemory(isFix ? fixSpecFromReview(item) : item.spec); // S5 — inject memory
         const agent = await adapter.implement({
           itemId: item.id,
           spec,
@@ -86,7 +106,7 @@ export function createOrchestrator({
         const review = await adapter.review({
           itemId: item.id,
           prNumber: item.pr,
-          spec: item.spec,
+          spec: withMemory(item.spec), // S5 — reviewer also sees project memory
           worktreePath: item.worktree,
         });
         return { review };
@@ -100,6 +120,7 @@ export function createOrchestrator({
         if (result && result.ok === false) {
           return { mergeConflict: result };
         }
+        if (policy.scribe) { try { mem.append(scribeNote(item)); } catch { /* memory is best-effort */ } }
         await services.worktree.teardown({ item });
         return { mergedAt: clock() };
       }

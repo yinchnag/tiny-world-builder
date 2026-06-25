@@ -24,6 +24,7 @@ import { HARNESS_PRESETS } from './adapters/harness.mjs';
 import { createOrchestrator } from './orchestrator.mjs';
 import { createDaemon } from './daemon.mjs';
 import { createPlan } from './plan.mjs';
+import { createFileMemory } from './memory.mjs';
 import { formatStatus, formatHistory } from './status.mjs';
 import { ACTIVE } from './state-machine.mjs';
 
@@ -43,6 +44,7 @@ commands:
   add      append items to a registry (e.g. to feed a running daemon)
   status   print the status of a registry
   history  print the full implement<->review back-and-forth (--item <id> for one)
+  memory   print the project memory (.polly/memory.md)
 
 run/daemon options:
   --repo <path>          target git repo (required)
@@ -60,6 +62,8 @@ run/daemon options:
   --routing <file>       routing policy JSON ({ default, rules:[{tag,implementer,reviewer}] })
   --escalate-to <v>      on review-cap, escalate the implementer to <v> once (must be in --vendors)
   --registry <path>      where to store state (default: <repo>/.polly/registry.json)
+  --memory <file>        project memory injected into prompts (default: <repo>/.polly/memory.md)
+  --scribe               append a one-line record to memory when a task merges
   --local-pr             fully local: no gh, no remote/push — stub the PR + merge locally
   --env <path>           .env file with API keys (default: PollyArranger/.env)
   --interval <sec>       daemon idle poll interval (default: 5)
@@ -118,6 +122,16 @@ function runStatus(opts) {
   console.log(formatStatus(loadRegistry(path)));
 }
 
+// `memory` — print the project memory file.
+function runMemory(opts) {
+  const memoryPath = opts.memory ? resolve(opts.memory)
+    : opts.registry ? join(dirname(resolve(opts.registry)), 'memory.md')
+      : opts.repo ? join(resolve(opts.repo), '.polly', 'memory.md') : null;
+  if (!memoryPath) { console.error('memory: pass --repo or --memory <file>'); process.exitCode = 1; return; }
+  const text = createFileMemory(memoryPath).read();
+  console.log(text.trim() ? text : `(empty memory at ${memoryPath})`);
+}
+
 // `history` — the full implement↔review back-and-forth for an item (or all).
 function runHistory(opts) {
   const path = registryPathFor(opts);
@@ -169,11 +183,12 @@ function routingFromOpts(opts) {
   return { routing, autoEscalate };
 }
 
-/** Apply routing/escalation flags onto a registry's policy. */
+/** Apply routing/escalation/scribe flags onto a registry's policy. */
 function applyRouting(reg, opts) {
   const { routing, autoEscalate } = routingFromOpts(opts);
   if (routing) reg.policy.routing = routing;
   if (autoEscalate) reg.policy.autoEscalate = true;
+  if (opts.scribe) reg.policy.scribe = true; // S5 — append a record to memory on merge
 }
 
 // Harness (claude/codex) tuning applied to any harness vendor — adapt to a
@@ -238,8 +253,11 @@ function buildContext(opts) {
       : {}),
   });
   const adapters = createRealAdapters({ vendors, repoPath, harness: harnessOverrideFor(opts, vendors) });
-  const orchestrator = createOrchestrator({ store: createFileStore(), registryPath, adapters, services });
-  return { repoPath, vendors, registryPath, concurrency, merge, orchestrator };
+  const memoryPath = opts.memory ? resolve(opts.memory) : join(dirname(registryPath), 'memory.md');
+  const orchestrator = createOrchestrator({
+    store: createFileStore(), registryPath, adapters, services, memory: createFileMemory(memoryPath),
+  });
+  return { repoPath, vendors, registryPath, concurrency, merge, orchestrator, memoryPath };
 }
 
 // Print the item snapshot only when it changes.
@@ -322,6 +340,7 @@ export async function runCli(opts) {
     case 'add': return runAdd(opts);
     case 'status': return runStatus(opts);
     case 'history': return runHistory(opts);
+    case 'memory': return runMemory(opts);
     default:
       console.log(USAGE);
       if (opts.command && opts.command !== 'help' && opts.command !== '--help') process.exitCode = 1;

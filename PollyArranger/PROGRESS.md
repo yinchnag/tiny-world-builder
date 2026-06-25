@@ -67,7 +67,9 @@ phase at a time, same discipline as Phases 1–5.
 | **S2** | Merge-conflict handling (conflict → BLOCKED; agent-resolve is future) | ✅ done |
 | **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ✅ done |
 | **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ✅ done |
-| **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ **next (last)** |
+| **S5** | Project memory (persistent decisions/conventions in prompts) | ✅ done |
+
+**🎉 Scaling roadmap (S1–S5) complete.**
 
 Order: **S1 → S2 → S3 → S4 → S5** (S1 is the foundation for safe concurrency on a
 real shared codebase). All additive — the registry/state-machine/adapter
@@ -138,6 +140,20 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 23 (S5: project memory — SCALING ROADMAP COMPLETE)
+- `src/memory.mjs`: `createFileMemory` / `createInMemoryMemory` (read/append;
+  header on first write). Human-editable `<repo>/.polly/memory.md`.
+- `orchestrator.mjs`: injects memory into the implementer AND reviewer spec
+  (`withMemory`, re-read each use). On merge, if `policy.scribe`, appends a
+  one-line record (`scribeNote`, no extra model call — reuses implement summary).
+  Memory defaults to `<registry-dir>/memory.md`, injectable.
+- `cli.mjs`: `--memory <file>`, `--scribe`, and a `memory` command (print it).
+- `test/memory.test.mjs`: file round-trip + header; injection into implement spec;
+  no-memory passthrough; scribe appends on merge; off-by-default. **111 tests, all offline.**
+- **All scaling phases S1–S5 done.** Roadmap + 6 post-roadmap enhancements +
+  S1–S5 all complete. Next: user will try a complex full-stack project (plan →
+  review/edit backlog → run with claude_code↔deepseek, deps/tags/scribe).
 
 ### 2026-06-25 — Session 22 (S4: planner / task decomposition)
 - `src/plan.mjs`: `createPlan({adapter, repoPath, goal})` → gatherContext (git

@@ -174,6 +174,14 @@ iteration. The human-approval gate keeps it safe.
 
 ### S5 — Project memory
 
+> **Status: DONE — scaling roadmap complete.** `src/memory.mjs`
+> (`createFileMemory` / `createInMemoryMemory`): a human-editable
+> `<repo>/.polly/memory.md`. The orchestrator injects it into the implementer's
+> AND reviewer's spec (re-read each use, so edits apply immediately). With
+> `--scribe` (`policy.scribe`), a one-line record is appended on merge — no extra
+> model call (it reuses the implement summary). CLI: `--memory <file>`, `--scribe`,
+> and a `memory` command to print it. 111 tests, all offline.
+
 **Problem:** G5 — carry architecture/conventions across tasks over time.
 
 **Design:**
