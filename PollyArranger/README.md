@@ -34,6 +34,10 @@ for the trace-by-trace mapping.
 
 ## Use it (the turnkey CLI)
 
+> **Using Polly on a project of your own? Read [USAGE.md](USAGE.md)** — the full
+> step-by-step guide (point `--repo` at your folder, pick vendors, gates, merge
+> mode, cost notes, Mac/Windows codex, troubleshooting).
+
 Polly can run a backlog of specs through implement → cross-vendor review → merge
 gate on a real repo, with one command:
 

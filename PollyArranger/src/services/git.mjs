@@ -48,6 +48,7 @@ async function capture(file, args, opts = {}) {
  * @param {string} [cfg.gatesCommand]
  * @param {Function} [cfg.createPullRequest] - ({repoPath,worktree,branch,title,remote}) => prNumber
  * @param {Function} [cfg.mergePullRequest]  - ({repoPath,worktree,branch,baseRef,remote}) => void
+ * @param {boolean} [cfg.noPush] - skip pushing to a remote (fully local; no remote needed)
  * @param {Function} [cfg.lock] - shared repo mutex (runExclusive); default: a fresh one
  */
 export function createGitServices({
@@ -58,6 +59,7 @@ export function createGitServices({
   gatesCommand = 'npm test',
   createPullRequest,
   mergePullRequest,
+  noPush = false,
   lock,
 } = {}) {
   if (!repoPath) throw new Error('createGitServices: repoPath is required');
@@ -105,15 +107,17 @@ export function createGitServices({
         await capture('git', ['-C', abs, 'commit', '-m', message ?? `Polly: ${item.id}`]);
         return capture('git', ['-C', abs, 'rev-parse', '--short', 'HEAD']);
       },
-      // LOCKED: pushes update remote + remote-tracking refs.
+      // LOCKED: pushes update remote + remote-tracking refs. Skipped when noPush.
       push({ item }) {
+        if (noPush) return Promise.resolve();
         return runExclusive(() => capture('git', ['-C', resolveWt(item), 'push', '-u', remote, item.branch]));
       },
-      // LOCKED: push + open the PR as one critical section.
+      // LOCKED: push + open the PR as one critical section. With noPush (fully
+      // local), the push is skipped — the branch stays local and the PR is stubbed.
       openPR({ item }) {
         return runExclusive(async () => {
           const abs = resolveWt(item);
-          await capture('git', ['-C', abs, 'push', '-u', remote, item.branch]);
+          if (!noPush) await capture('git', ['-C', abs, 'push', '-u', remote, item.branch]);
           return prCreator({ repoPath, worktree: abs, branch: item.branch, title: item.title, remote });
         });
       },

@@ -53,7 +53,7 @@ run/daemon options:
   --merge human|auto     merge policy (default: human — parks finished items for you)
   --wave <id>            tag the seeded items with a wave
   --registry <path>      where to store state (default: <repo>/.polly/registry.json)
-  --local-pr             don't use gh — stub the PR + merge locally (offline testing)
+  --local-pr             fully local: no gh, no remote/push — stub the PR + merge locally
   --env <path>           .env file with API keys (default: PollyArranger/.env)
   --interval <sec>       daemon idle poll interval (default: 5)
 
@@ -140,7 +140,7 @@ function buildContext(opts) {
     baseRef: opts.base ?? 'main',
     gatesCommand: typeof opts.gates === 'string' ? opts.gates : 'npm test',
     ...(opts['local-pr']
-      ? { createPullRequest: () => (prSeq += 1), mergePullRequest: localMergeStrategy }
+      ? { createPullRequest: () => (prSeq += 1), mergePullRequest: localMergeStrategy, noPush: true }
       : {}),
   });
   // Harness (claude/codex) tuning, applied to any harness vendor in --vendors.

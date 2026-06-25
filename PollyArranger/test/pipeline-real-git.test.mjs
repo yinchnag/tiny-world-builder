@@ -52,6 +52,47 @@ function fileWritingImplementer(work) {
   };
 }
 
+test('fully-local mode (noPush) needs no remote and still merges locally', async () => {
+  // A bare repo with NO remote configured.
+  const root = mkdtempSync(join(tmpdir(), 'polly-local-'));
+  const work = join(root, 'work');
+  try {
+    execFileSync('git', ['init', work]);
+    git(work, 'config', 'user.email', 'polly@test.local');
+    git(work, 'config', 'user.name', 'Polly Test');
+    git(work, 'checkout', '-b', 'main');
+    writeFileSync(join(work, 'README.md'), 'init\n');
+    git(work, 'add', '-A');
+    git(work, 'commit', '-m', 'init');
+
+    const registryPath = join(work, '.polly-registry.json');
+    const reg = createEmptyRegistry({ vendors: ['deepseek', 'qwen'] });
+    reg.policy.merge = 'auto';
+    reg.items.push({
+      id: 'p1', title: 'Add feature', spec: 'Add feature.txt', status: STATES.PLANNED, reviewRound: 0,
+      branch: null, worktree: null, base: null, pr: null, implementer: null, reviewer: null,
+      review: null, gates: null, caveats: [],
+    });
+    saveRegistry(registryPath, reg);
+
+    const services = createGitServices({
+      repoPath: work, baseRef: 'main', gatesCommand: 'node -e "process.exit(0)"',
+      createPullRequest: () => 7, mergePullRequest: localMergeStrategy, noPush: true, // fully local
+    });
+    const orch = createOrchestrator({
+      store: createFileStore(), registryPath,
+      adapters: { deepseek: fileWritingImplementer(work), qwen: createMockAdapter({ vendor: 'qwen', reviewPlan: { p1: ['CLEAN'] } }) },
+      services, now: () => '2026-06-25T12:00:00Z',
+    });
+    await orch.run();
+    const item = createFileStore().load(registryPath).items[0];
+    assert.equal(item.status, STATES.MERGED, 'merged with no remote at all');
+    assert.match(git(work, 'ls-tree', '-r', '--name-only', 'main'), /feature\.txt/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('orchestrator + real git + auto-merge lands a real change on main', async () => {
   const { root, work } = makeRepo();
   try {

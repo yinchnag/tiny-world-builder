@@ -118,6 +118,16 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 
 ## Session log (newest first — append one entry per session)
 
+### 2026-06-25 — Session 16 (USAGE.md + fully-local `--local-pr`)
+- `USAGE.md`: step-by-step guide for running Polly on **another project folder**
+  (PollyArranger is the tool; `--repo` points at your repo). Vendors, gates,
+  merge modes, local-vs-real-PR, Mac/Windows codex, .gitignore (.polly/.worktrees),
+  cost, troubleshooting, cheat sheet. Linked from README.
+- Code: `--local-pr` is now **fully local** — added `noPush` to git.mjs so it
+  needs NO remote (was still pushing to origin). CLI sets it with `--local-pr`.
+  New test: orchestrator + real git + auto-merge on a repo with NO remote → MERGED.
+  **78 tests, all offline.**
+
 ### 2026-06-25 — Session 15 (LIVE: Claude Code implements ↔ DeepSeek reviews)
 - **First real harness run, verified end-to-end on this machine** (Claude Code
   2.1.185): `polly run --vendors claude_code,deepseek --local-pr --merge auto`
