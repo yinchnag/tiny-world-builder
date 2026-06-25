@@ -30,6 +30,20 @@ export function waveIds(reg) {
   return [...new Set(reg.items.map((i) => i.wave ?? null))];
 }
 
+/** Sum token usage across all items (Phase 5 cost accounting). */
+export function costTotals(reg) {
+  const t = { calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  for (const it of reg.items) {
+    const c = it.cost;
+    if (!c) continue;
+    t.calls += c.calls ?? 0;
+    t.promptTokens += c.promptTokens ?? 0;
+    t.completionTokens += c.completionTokens ?? 0;
+    t.totalTokens += c.totalTokens ?? 0;
+  }
+  return t;
+}
+
 /** A one-line-per-wave human summary. */
 export function formatReport(reg) {
   return waveIds(reg)

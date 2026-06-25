@@ -14,15 +14,19 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 4 complete → **Phase 5 not started.**
-- **Next session starts here:** Begin [Phase 5](docs/06-roadmap.md#phase-5--operability-optional-but-high-value) —
-  operability: (1) a read-only **status command / dashboard** that renders the
-  registry as a table (reuse `src/report.mjs`); (2) **notes-driven catch-up**
-  (`polly status` prints what's READY, what's BLOCKED + the open question, what
-  failed); (3) **token/cost accounting** per item (sum agent spend). This is the
-  last roadmap phase. Also still open: the known gap that gates capture pass/fail
-  but don't block — decide whether to close it here. Explicitly OUT of scope: the
-  canvas UI and contex server.
+- **Current phase:** Phase 5 complete → **ROADMAP COMPLETE.** 🎉
+- **What "done" means (achieved):** a backlog of specs can be seeded and run
+  largely unattended; review is genuinely cross-vendor (DeepSeek↔Qwen, verified);
+  the human's only routine action is approving merges; the registry is a complete,
+  resumable, auditable record; concurrency + waves work; `npm run status` gives an
+  operability view; 50 tests pass offline. This is a functional equivalent of the
+  original production line (the ~75–78%-feasible part — see docs/DERIVATION.md).
+- **Optional next directions (no longer roadmap-blocking):**
+  1. Close the known gap — make a red gate block the PR / force a fix (state-machine change).
+  2. Wire harness adapters (claude_code/codex) as config-only vendors.
+  3. Real-git concurrency safety (a repo-level lock around `git worktree`/push if running real agents in parallel).
+  4. A long-running daemon / scheduler around `orch.run` (vs. one-shot).
+  5. Persist agent transcripts per `convId` for true fix-lap resume.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -41,7 +45,9 @@
 | **2.2** | DeepSeek implementer adapter (tool-calling loop) | ✅ done | (1 session) |
 | **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ✅ done | (1 session) |
 | **4** | Parallelism + waves + planner entry point | ✅ done | (1 session) |
-| **5** | Operability: status command / dashboard / cost accounting | ⬜ next | 1 session |
+| **5** | Operability: status command / dashboard / cost accounting | ✅ done | (1 session) |
+
+**🎉 All roadmap phases complete.** See "Optional next directions" above for where to go beyond the plan.
 
 Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
@@ -51,9 +57,10 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 45 tests (all offline): + concurrency/WIP cap, planner, report
+npm test               # 50 tests (all offline): + cost accounting, status view
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
 npm run demo:waves     # OFFLINE: 5 items, concurrency=2, wave report (no network)
+npm run status         # OFFLINE: operability view of the last demo:waves registry
 npm run demo:deepseek  # LIVE: real DeepSeek writes + commits code (needs .env, network)
 npm run demo:pipeline  # LIVE: DeepSeek implements + Qwen reviews, full real pipeline
 ```
@@ -88,6 +95,22 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 8 (Phase 5: operability — ROADMAP COMPLETE)
+- Token cost accounting: `openai-compatible.mjs` captures `usage` from each API
+  response (across the implement tool loop + review); `applyResult` folds it into
+  each item's `cost` via `mergeCost` (mock path → no cost field). `report.costTotals`
+  sums it.
+- `src/status.mjs` (`formatStatus`) + `src/cli-status.mjs` (`npm run status`):
+  per-item table, catch-up (READY / BLOCKED+reason / ABANDONED), wave progress,
+  cost totals, recent notes — read-only, computed from the registry.
+- `test/cost-status.test.mjs` + adapter usage assertion. **50 tests, all offline.**
+- Verified: `npm run demo:waves && npm run status` renders the line's state.
+- **All 6 roadmap phases (0,1,2.1,2.2,3,4,5) are done.** Polly is a functional
+  equivalent of the original production line. See PROGRESS top for optional
+  next directions beyond the roadmap (gate-blocking, harness adapters, real-git
+  concurrency lock, daemon, transcript persistence). No phase is "next" — future
+  work is opt-in.
 
 ### 2026-06-25 — Session 7 (Phase 4: concurrency + waves + planner)
 - `src/orchestrator.mjs` — tick now dispatches all ready items through a

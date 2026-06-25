@@ -141,7 +141,8 @@ export function createOpenAICompatibleAdapter(cfg) {
       throw new Error(`${vendor} HTTP ${res.status}: ${body.slice(0, 400)}`);
     }
     const data = await res.json();
-    return data.choices[0].message;
+    // OpenAI-compatible responses carry token usage; return it for cost tracking.
+    return { message: data.choices[0].message, usage: data.usage ?? null };
   }
 
   return {
@@ -150,6 +151,7 @@ export function createOpenAICompatibleAdapter(cfg) {
     async implement(task) {
       const root = absWt(task.worktreePath);
       const convId = `conv_${vendor}_${task.itemId ?? 'item'}_${Date.now()}`;
+      const usage = newUsage();
       const messages = [
         { role: 'system', content: IMPLEMENT_SYSTEM },
         { role: 'user', content: task.spec },
@@ -157,12 +159,14 @@ export function createOpenAICompatibleAdapter(cfg) {
       let summary = '';
 
       for (let step = 0; step < maxSteps; step += 1) {
-        let msg;
+        let resp;
         try {
-          msg = await chat(messages, IMPLEMENT_TOOLS);
+          resp = await chat(messages, IMPLEMENT_TOOLS);
         } catch (err) {
-          return { ok: false, convId, summary: `model call failed: ${err.message}`, commits: [] };
+          return { ok: false, convId, summary: `model call failed: ${err.message}`, commits: [], usage };
         }
+        addUsage(usage, resp.usage);
+        const msg = resp.message;
         messages.push(msg);
 
         const calls = msg.tool_calls ?? [];
@@ -189,17 +193,18 @@ export function createOpenAICompatibleAdapter(cfg) {
       // Commit whatever changed. No changes → the implement failed to do anything.
       const dirty = gitOut(root, ['status', '--porcelain']).length > 0;
       if (!dirty) {
-        return { ok: false, convId, summary: summary || 'no file changes produced', commits: [] };
+        return { ok: false, convId, summary: summary || 'no file changes produced', commits: [], usage };
       }
       gitOut(root, ['add', '-A']);
       gitOut(root, ['commit', '-m', commitMessage(task, summary)]);
       const sha = gitOut(root, ['rev-parse', '--short', 'HEAD']);
-      return { ok: true, convId, summary: summary || 'changes committed', commits: [sha] };
+      return { ok: true, convId, summary: summary || 'changes committed', commits: [sha], usage };
     },
 
     async review(task) {
       const root = absWt(task.worktreePath);
       const convId = `conv_${vendor}_rev_${task.itemId ?? 'item'}_${Date.now()}`;
+      const usage = newUsage();
       // The diff of this branch vs its base.
       let diff = '';
       try {
@@ -211,16 +216,17 @@ export function createOpenAICompatibleAdapter(cfg) {
         { role: 'system', content: REVIEW_SYSTEM },
         { role: 'user', content: `TASK:\n${task.spec}\n\nDIFF:\n${diff.slice(0, 24000)}` },
       ];
-      let msg;
+      let resp;
       try {
-        msg = await chat(messages, REVIEW_TOOLS, { type: 'function', function: { name: 'submit_review' } });
+        resp = await chat(messages, REVIEW_TOOLS, { type: 'function', function: { name: 'submit_review' } });
       } catch (err) {
-        return { ok: false, convId, verdict: 'BLOCKING', findings: [{ severity: 'error', where: '-', what: `review failed: ${err.message}` }] };
+        return { ok: false, convId, verdict: 'BLOCKING', findings: [{ severity: 'error', where: '-', what: `review failed: ${err.message}` }], usage };
       }
-      const call = (msg.tool_calls ?? [])[0];
+      addUsage(usage, resp.usage);
+      const call = (resp.message.tool_calls ?? [])[0];
       const args = call ? safeParse(call.function.arguments) : {};
       const verdict = ['CLEAN', 'NON_BLOCKING', 'BLOCKING'].includes(args.verdict) ? args.verdict : 'BLOCKING';
-      return { ok: true, convId, verdict, findings: args.findings ?? [] };
+      return { ok: true, convId, verdict, findings: args.findings ?? [], usage };
     },
   };
 }
@@ -307,4 +313,20 @@ function safeParse(s) {
 function commitMessage(task, summary) {
   const title = summary?.split('\n')[0]?.slice(0, 72) || `implement ${task.itemId ?? 'item'}`;
   return title;
+}
+
+// ---- token usage accounting ------------------------------------------------
+
+function newUsage() {
+  return { calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+}
+
+// Fold one API response's `usage` block into the running total. `calls` counts
+// model round-trips even when a provider omits token counts.
+function addUsage(acc, u) {
+  acc.calls += 1;
+  if (!u) return;
+  acc.promptTokens += u.prompt_tokens ?? 0;
+  acc.completionTokens += u.completion_tokens ?? 0;
+  acc.totalTokens += u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0);
 }

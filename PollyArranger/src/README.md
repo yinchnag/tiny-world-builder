@@ -27,6 +27,9 @@
 | `planner.mjs` | Backlog seeder | ✅ Phase 4 | `seedItems(reg, specs, {wave})` → PLANNED items |
 | `report.mjs` | Wave/status reporter | ✅ Phase 4 | `waveProgress` / `formatReport` (computed, not stored) |
 | `demo-waves.mjs` | Offline wave demo | ✅ Phase 4 | `npm run demo:waves` — 5 items, concurrency=2, wave report |
+| `report.mjs` (costTotals) | Token cost totals | ✅ Phase 5 | sums per-item `cost` |
+| `status.mjs` | Operability view | ✅ Phase 5 | item table + catch-up + waves + cost + notes |
+| `cli-status.mjs` | `npm run status` | ✅ Phase 5 | renders a registry file's status |
 | harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
 
 ## Design rule

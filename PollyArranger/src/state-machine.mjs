@@ -116,6 +116,22 @@ export function assignRoles(vendors, families = DEFAULT_FAMILIES) {
   return { implementer, reviewer };
 }
 
+/**
+ * Fold an adapter's token usage into an item's running cost. Returns the prior
+ * cost unchanged when there's no usage (e.g. mock adapters), so a `cost` field
+ * only appears once a real model has been called.
+ */
+export function mergeCost(prev, usage) {
+  if (!usage) return prev;
+  const base = prev ?? { calls: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  return {
+    calls: base.calls + (usage.calls ?? 0),
+    promptTokens: base.promptTokens + (usage.promptTokens ?? 0),
+    completionTokens: base.completionTokens + (usage.completionTokens ?? 0),
+    totalTokens: base.totalTokens + (usage.totalTokens ?? 0),
+  };
+}
+
 /** Build the fix instruction handed to the implementer on a fix lap. */
 export function fixSpecFromReview(item) {
   const findings = item.review?.findings ?? [];
@@ -153,14 +169,16 @@ export function applyResult(item, action, outcome, ctx = {}) {
 
     case ACTIONS.IMPLEMENT: {
       const res = outcome.agent;
+      const cost = mergeCost(item.cost, res?.usage); // accrue tokens even on failure
       if (!res || !res.ok) {
         // The implementer hard-failed. Don't loop — abandon (docs/03 section 3).
-        return { ...item, status: STATES.ABANDONED };
+        return { ...item, cost, status: STATES.ABANDONED };
       }
       if (item.status === STATES.BUILDING) {
         // First build succeeded -> gates ran, PR opened -> go to review.
         return {
           ...item,
+          cost,
           convId: res.convId ?? item.convId,
           commits: res.commits ?? [],
           gates: outcome.gates ?? null,
@@ -171,6 +189,7 @@ export function applyResult(item, action, outcome, ctx = {}) {
       // Otherwise this was a FIXING lap -> fixes pushed -> back to review.
       return {
         ...item,
+        cost,
         convId: res.convId ?? item.convId,
         commits: res.commits ?? item.commits ?? [],
         status: STATES.RE_REVIEW,
@@ -182,6 +201,7 @@ export function applyResult(item, action, outcome, ctx = {}) {
       const round = (item.reviewRound ?? 0) + 1;
       const next = {
         ...item,
+        cost: mergeCost(item.cost, r?.usage),
         reviewConvId: r.convId ?? item.reviewConvId,
         reviewRound: round,
         review: { verdict: r.verdict, round, findings: r.findings ?? [] },

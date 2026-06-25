@@ -163,6 +163,14 @@ report "wave1: 3/5 merged, 1 in review, 1 blocked".
 
 **Goal:** make it pleasant to run unattended and to catch up on in the morning.
 
+> **Status: DONE — roadmap complete.** `npm run status` (`src/status.mjs` +
+> `src/cli-status.mjs`) renders the registry: a per-item table (id / status /
+> impl→reviewer / pr / rounds / tokens), a **catch-up** section (what's READY to
+> merge, what's BLOCKED + its open question, what was ABANDONED), wave progress,
+> token-cost totals, and recent notes. Cost accounting threads token `usage` from
+> the adapter (`openai-compatible.mjs`) through `applyResult` into each item's
+> `cost`, summed by `report.costTotals`. 50 tests passing, all offline.
+
 Build:
 
 16. **A read-only dashboard / status command** — render the registry as a table

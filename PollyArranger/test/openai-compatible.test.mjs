@@ -33,11 +33,15 @@ function makeWorktree() {
 }
 
 // Build a fake fetch that returns a queue of assistant messages as OpenAI JSON.
+// Each response also reports token usage, so cost tracking can be tested.
 function fakeFetch(messageQueue) {
   let i = 0;
   return async () => ({
     ok: true,
-    json: async () => ({ choices: [{ message: messageQueue[i++] }] }),
+    json: async () => ({
+      choices: [{ message: messageQueue[i++] }],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    }),
     text: async () => '',
   });
 }
@@ -69,6 +73,9 @@ test('implement runs the tool loop, writes a file, and commits', async () => {
     assert.match(readFileSync(absFile, 'utf8'), /hi from the agent/);
     // it was actually committed
     assert.match(git(join(work, worktreePath), 'log', '--oneline'), /created hello\.txt/);
+    // token usage was captured across the two model calls
+    assert.equal(res.usage.calls, 2);
+    assert.equal(res.usage.totalTokens, 30);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
