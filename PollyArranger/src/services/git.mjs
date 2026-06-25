@@ -25,6 +25,7 @@
 
 import { execFile, exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { rmSync, existsSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { slugify } from '../util/slug.mjs';
 import { createMutex } from '../util/mutex.mjs';
@@ -81,6 +82,12 @@ export function createGitServices({
           const branch = `polly/${item.id}-${slug}`;
           const rel = `${worktreeRoot}/${item.id}-${slug}`;
           const abs = join(repoPath, rel);
+          // Clean any stale worktree/branch/dir left by a previous run so a
+          // re-run doesn't fail with "already exists".
+          try { await capture('git', ['-C', repoPath, 'worktree', 'remove', '--force', abs]); } catch { /* not a worktree */ }
+          try { await capture('git', ['-C', repoPath, 'worktree', 'prune']); } catch { /* ignore */ }
+          try { await capture('git', ['-C', repoPath, 'branch', '-D', branch]); } catch { /* no such branch */ }
+          if (existsSync(abs)) { try { rmSync(abs, { recursive: true, force: true }); } catch { /* ignore */ } }
           const baseSha = await capture('git', ['-C', repoPath, 'rev-parse', '--short', baseRef]);
           await capture('git', ['-C', repoPath, 'worktree', 'add', '-b', branch, abs, baseRef]);
           return { branch, worktree: rel, base: `${baseRef} ${baseSha}` };
