@@ -93,6 +93,19 @@ npm run polly -- daemon --repo <p> [--interval 5]      # keep running; Ctrl-C to
 npm run polly -- add    --repo <p> (--spec "..."|--backlog file.json)  # queue work
 ```
 
+> ⚠️ **Windows / PowerShell:** `npm run polly -- …` strips the `--flag` names
+> when forwarding (you'll get `--repo <path> is required`). Call the script
+> **directly** instead, and quote comma values:
+>
+> ```powershell
+> node src/cli.mjs run --repo D:\path\to\project --spec "..." --vendors "claude_code,deepseek" --gates "node --version" --local-pr --merge auto
+> ```
+>
+> The target repo must already be a git repo with a `main` branch + one commit:
+> ```powershell
+> cd D:\path\to\project ; git init -b main ; git commit --allow-empty -m init
+> ```
+
 - **run** — seed the task(s), process until idle, print status.
 - **status** — print the current state (items, what's ready/blocked, cost).
 - **daemon** — stay running and pick up work added later (via `add`).
