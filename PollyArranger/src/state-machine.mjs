@@ -305,6 +305,12 @@ export function applyResult(item, action, outcome, ctx = {}) {
           verdict: r.verdict, findings: r.findings ?? [],
         }, now),
       };
+      // Advisory review: record the verdict + findings but NEVER block — always
+      // park for the human (good for creative/scaffolding work where a strict
+      // reviewer would otherwise loop forever). Findings stay in `history`.
+      if (policy.review === 'advisory') {
+        return { ...next, status: STATES.READY_FOR_HUMAN_MERGE };
+      }
       if (r.verdict === 'BLOCKING') {
         const max = policy.maxReviewRounds ?? 3;
         if (round >= max) {

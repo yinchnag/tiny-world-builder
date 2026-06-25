@@ -56,6 +56,7 @@ run/daemon options:
   --gates "<cmd>"        gate command run in each worktree (default: npm test)
   --concurrency <n>      items in flight at once (default: 1; >1 is safe — git ops are repo-locked)
   --merge human|auto     merge policy (default: human — parks finished items for you)
+  --review advisory      review records findings but never BLOCKS (good for creative/scaffolding work)
   --wave <id>            tag the seeded items with a wave
   --implementer <v>      force the default implementer vendor (S3 routing)
   --reviewer <v>         force the default reviewer vendor
@@ -189,6 +190,7 @@ function applyRouting(reg, opts) {
   if (routing) reg.policy.routing = routing;
   if (autoEscalate) reg.policy.autoEscalate = true;
   if (opts.scribe) reg.policy.scribe = true; // S5 — append a record to memory on merge
+  if (opts.review === 'advisory') reg.policy.review = 'advisory'; // review records but never blocks
 }
 
 // Harness (claude/codex) tuning applied to any harness vendor — adapt to a

@@ -67,6 +67,14 @@ test('without autoEscalate, the cap goes straight to BLOCKED', () => {
   assert.equal(item.status, STATES.BLOCKED);
 });
 
+test('advisory review never blocks — a BLOCKING verdict still parks for the human', () => {
+  const policy = { review: 'advisory', maxReviewRounds: 1 };
+  let item = { id: 'p1', status: STATES.IN_REVIEW, reviewRound: 0, implementer: 'deepseek', reviewer: 'qwen' };
+  item = applyResult(item, ACTIONS.REVIEW, { review: { verdict: 'BLOCKING', findings: [{ severity: 'blocking', where: 'x', what: 'y' }] } }, { policy });
+  assert.equal(item.status, STATES.READY_FOR_HUMAN_MERGE);
+  assert.equal(item.review.verdict, 'BLOCKING'); // findings still recorded
+});
+
 // ---- orchestrator integration ----------------------------------------------
 
 test('a tagged item is implemented by the routed vendor', () =>
