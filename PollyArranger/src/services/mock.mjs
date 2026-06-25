@@ -39,7 +39,7 @@ export function createMockServices({ prStart = 100 } = {}) {
         /* no-op in mock */
       },
       merge(/* { item } */) {
-        /* no-op in mock */
+        return { ok: true }; // mock always merges cleanly (override in tests to simulate a conflict)
       },
     },
     gates: {

@@ -64,8 +64,8 @@ phase at a time, same discipline as Phases 1–5.
 | Phase | What | Status |
 |-------|------|--------|
 | **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ✅ done |
-| **S2** | Merge-conflict handling (rebase before merge; conflict → BLOCKED/agent-resolve) | ⬜ **next** |
-| **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ⬜ |
+| **S2** | Merge-conflict handling (conflict → BLOCKED; agent-resolve is future) | ✅ done |
+| **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ⬜ **next** |
 | **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ |
 | **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ |
 
@@ -138,6 +138,20 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 20 (S2: merge-conflict handling)
+- Merge strategies now RETURN a result instead of throwing: `{ok:true}` or
+  `{ok:false, conflicts, reason}`. `services/git.mjs` `localMergeStrategy` aborts
+  on conflict (restores a clean base) and reports; `defaultGhMerge` catches gh
+  failures the same way; `services/mock.mjs` merge returns `{ok:true}`.
+- `orchestrator.mjs` MERGE: on `{ok:false}` keep the worktree and signal
+  `mergeConflict`; `state-machine.mjs` routes it to **BLOCKED** ("Merge conflict
+  with <base> in: <files>") instead of crashing.
+- `test/merge-conflict.test.mjs`: pure conflict→BLOCKED; mock-simulated conflict;
+  **real two-branch add/add conflict** (concurrency=2, both edit shared.txt →
+  one MERGED, one BLOCKED, base stays clean). **95 tests, all offline.**
+- Did option (b) per design; the agent-resolve lap (option a) is future, behind a flag.
+- **Handoff:** next = S3 (cost / capability routing).
 
 ### 2026-06-25 — Session 19 (S1: task dependencies + merge ordering)
 - `state-machine.mjs`: `depGate(item, statusById)` → ready/waiting/failed (pure).

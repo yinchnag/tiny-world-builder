@@ -289,6 +289,18 @@ export function applyResult(item, action, outcome, ctx = {}) {
     }
 
     case ACTIONS.MERGE: {
+      // S2 — a conflicting merge doesn't merge; it parks the item for a human
+      // (the worktree is kept so the conflict can be resolved).
+      if (outcome.mergeConflict) {
+        const files = outcome.mergeConflict.conflicts ?? [];
+        return {
+          ...item,
+          status: STATES.BLOCKED,
+          blockedOn: `Merge conflict with ${item.base ?? 'base'}`
+            + (files.length ? ` in: ${files.join(', ')}` : '')
+            + (outcome.mergeConflict.reason ? ` — ${outcome.mergeConflict.reason}` : ''),
+        };
+      }
       return {
         ...item,
         status: STATES.MERGED,

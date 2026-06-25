@@ -154,15 +154,27 @@ async function defaultGhCreatePR({ worktree, branch, title }) {
   return m ? Number(m[1]) : null;
 }
 
+// Merge strategies return a RESULT (never throw on a conflict) so the orchestrator
+// can route a conflict to BLOCKED instead of crashing (S2):
+//   { ok: true }                              — merged cleanly
+//   { ok: false, conflicts: [...], reason }   — conflict (or merge failure)
+
 /** Default merge via the `gh` CLI (squash + delete branch). */
 async function defaultGhMerge({ worktree, branch }) {
-  await capture('gh', ['pr', 'merge', branch, '--squash', '--delete-branch'], { cwd: worktree });
+  try {
+    await capture('gh', ['pr', 'merge', branch, '--squash', '--delete-branch'], { cwd: worktree });
+    return { ok: true };
+  } catch (err) {
+    // gh refuses to merge a non-mergeable (conflicting) PR — surface it as a conflict.
+    return { ok: false, conflicts: [], reason: String(err.stderr ?? err.message ?? 'gh merge failed').slice(0, 300) };
+  }
 }
 
 /**
  * Offline merge strategy: merge the branch into baseRef in the LOCAL repo, no
  * GitHub. Use as `mergePullRequest` for tests/demos. Runs in the main repo's
- * checkout — the mutex ensures only one of these runs at a time.
+ * checkout — the mutex ensures only one of these runs at a time. On conflict it
+ * aborts (restoring a clean base) and reports instead of throwing (S2).
  */
 export async function localMergeStrategy({ repoPath, branch, baseRef }) {
   const at = (args) => capture('git', ['-C', repoPath, ...args]);
@@ -170,6 +182,14 @@ export async function localMergeStrategy({ repoPath, branch, baseRef }) {
   await at(['checkout', baseRef]);
   try {
     await at(['merge', '--no-ff', '-m', `Polly merge ${branch}`, branch]);
+    return { ok: true };
+  } catch (err) {
+    let conflicts = [];
+    try {
+      conflicts = (await at(['diff', '--name-only', '--diff-filter=U'])).split('\n').filter(Boolean);
+    } catch { /* best effort */ }
+    try { await at(['merge', '--abort']); } catch { /* nothing to abort */ }
+    return { ok: false, conflicts, reason: String(err.stderr ?? err.message ?? 'merge conflict').slice(0, 300) };
   } finally {
     if (current && current !== baseRef && current !== 'HEAD') {
       try { await at(['checkout', current]); } catch { /* ignore */ }

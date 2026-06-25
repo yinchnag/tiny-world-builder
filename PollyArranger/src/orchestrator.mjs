@@ -92,7 +92,13 @@ export function createOrchestrator({
       }
 
       case ACTIONS.MERGE: {
-        await services.git.merge({ item });
+        // S2 — merge may conflict with the latest base. On conflict, keep the
+        // worktree (for inspection/resolution) and signal it; the state machine
+        // routes the item to BLOCKED instead of crashing.
+        const result = await services.git.merge({ item });
+        if (result && result.ok === false) {
+          return { mergeConflict: result };
+        }
         await services.worktree.teardown({ item });
         return { mergedAt: clock() };
       }

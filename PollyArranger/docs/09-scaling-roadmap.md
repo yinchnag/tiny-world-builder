@@ -93,6 +93,15 @@ still collide → that's S2.
 
 ### S2 — Merge-conflict handling
 
+> **Status: DONE (option b).** Merge strategies now return a result instead of
+> throwing: `{ok:true}` or `{ok:false, conflicts, reason}`. `localMergeStrategy`
+> attempts the merge and, on conflict, **aborts to restore a clean base** and
+> reports; `gh` merge failures are caught the same way. The orchestrator's MERGE
+> keeps the worktree on conflict and the state machine routes the item to
+> **BLOCKED** ("Merge conflict with <base> in: <files>") instead of crashing.
+> 95 tests, all offline (incl. a real two-branch add/add conflict). The optional
+> agent-resolve lap (option a) remains future work behind a flag.
+
 **Problem:** G2 — even "independent" items can touch the same code.
 
 **Design:**
