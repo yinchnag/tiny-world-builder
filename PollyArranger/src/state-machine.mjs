@@ -174,26 +174,47 @@ export function applyResult(item, action, outcome, ctx = {}) {
         // The implementer hard-failed. Don't loop — abandon (docs/03 section 3).
         return { ...item, cost, status: STATES.ABANDONED };
       }
-      if (item.status === STATES.BUILDING) {
-        // First build succeeded -> gates ran, PR opened -> go to review.
+      const gates = outcome.gates ?? null;
+      const commits = res.commits ?? item.commits ?? [];
+      const convId = res.convId ?? item.convId;
+
+      // ① RED GATE BLOCKS: a failing gate sends the item back to FIXING (never to
+      // review, never opening a PR), bounded by maxGateRounds, then escalates to
+      // BLOCKED. Mock gates lack a `passed` field → treated as pass → no block.
+      if (gates && gates.passed === false) {
+        const gateRound = (item.gateRound ?? 0) + 1;
+        const cap = policy.maxGateRounds ?? policy.maxReviewRounds ?? 3;
+        const findings = [{
+          severity: 'blocking',
+          where: gates.command ?? 'gates',
+          what: `gates failed${gates.output ? `:\n${gates.output}` : ''}`,
+        }];
+        if (gateRound >= cap) {
+          return {
+            ...item, cost, gates, gateRound,
+            status: STATES.BLOCKED,
+            blockedOn: `Gates still failing after ${gateRound} attempt(s) — escalated to a human.`,
+          };
+        }
         return {
-          ...item,
-          cost,
-          convId: res.convId ?? item.convId,
-          commits: res.commits ?? [],
-          gates: outcome.gates ?? null,
+          ...item, cost, gates, gateRound, convId, commits,
+          review: { verdict: 'BLOCKING', round: item.review?.round ?? 0, findings },
+          status: STATES.FIXING,
+        };
+      }
+
+      // Gates passed (or absent). First time the PR opens; thereafter re-review.
+      if (item.status === STATES.BUILDING || item.pr == null) {
+        // BUILDING, or a FIXING lap that recovered from an earlier red gate (no
+        // PR yet) — the PR is opened now -> go to review.
+        return {
+          ...item, cost, convId, commits, gates,
           pr: outcome.pr ?? item.pr,
           status: STATES.IN_REVIEW,
         };
       }
-      // Otherwise this was a FIXING lap -> fixes pushed -> back to review.
-      return {
-        ...item,
-        cost,
-        convId: res.convId ?? item.convId,
-        commits: res.commits ?? item.commits ?? [],
-        status: STATES.RE_REVIEW,
-      };
+      // A normal fix lap (PR already open) -> back to review.
+      return { ...item, cost, convId, commits, gates, status: STATES.RE_REVIEW };
     }
 
     case ACTIONS.REVIEW: {

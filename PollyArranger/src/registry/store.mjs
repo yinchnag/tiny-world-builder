@@ -21,7 +21,7 @@ export function createEmptyRegistry(overrides = {}) {
   return {
     version: 1,
     vendors: ['claude_code', 'codex'],
-    policy: { merge: 'human', maxReviewRounds: 3, concurrency: 4 },
+    policy: { merge: 'human', maxReviewRounds: 3, maxGateRounds: 3, concurrency: 4 },
     waves: [],
     items: [],
     notes: [],

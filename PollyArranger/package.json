@@ -10,6 +10,7 @@
   "scripts": {
     "test": "node --test",
     "start": "node src/index.mjs",
+    "polly": "node src/cli.mjs",
     "status": "node src/cli-status.mjs",
     "demo:deepseek": "node src/demo-deepseek.mjs",
     "demo:pipeline": "node src/demo-pipeline.mjs",

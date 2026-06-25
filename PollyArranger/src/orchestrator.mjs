@@ -65,14 +65,17 @@ export function createOrchestrator({
           resumeConvId: item.convId ?? undefined,
         });
         if (!agent.ok) return { agent };
-        if (isFix) {
-          services.git.push({ item });
-          return { agent };
-        }
-        // First successful build: run gates, open the PR.
+
+        // ① Run gates on EVERY lap. Open the PR only when gates are green and no
+        // PR exists yet; a red gate must not produce a PR (the state machine
+        // routes it back to FIXING). Once a PR exists, just push the fix.
         const gates = services.gates.run({ item });
-        const pr = services.git.openPR({ item });
-        return { agent, gates, pr };
+        if (gates.passed !== false && item.pr == null) {
+          const pr = services.git.openPR({ item });
+          return { agent, gates, pr };
+        }
+        if (item.pr != null) services.git.push({ item });
+        return { agent, gates };
       }
 
       case ACTIONS.REVIEW: {

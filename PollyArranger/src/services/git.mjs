@@ -111,15 +111,17 @@ export function createGitServices({
     },
 
     gates: {
-      // Run the gates command in the worktree; capture pass/fail (don't throw).
+      // Run the gates command in the worktree; capture pass/fail + output on
+      // failure (don't throw). The output is fed to the implementer on a red gate
+      // so it can fix the failing tests (docs ① — red gate blocks the PR).
       run({ item }) {
-        let passed = true;
         try {
-          execSync(gatesCommand, { cwd: resolveWt(item), stdio: 'ignore' });
-        } catch {
-          passed = false;
+          execSync(gatesCommand, { cwd: resolveWt(item), stdio: 'pipe', encoding: 'utf8' });
+          return { command: gatesCommand, passed: true };
+        } catch (err) {
+          const output = `${err.stdout ?? ''}${err.stderr ?? ''}`.slice(0, 4000);
+          return { command: gatesCommand, passed: false, output };
         }
-        return { command: gatesCommand, passed };
       },
     },
   };

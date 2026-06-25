@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Add a /health endpoint",
+    "spec": "Add an HTTP GET /health route that responds 200 with the JSON body {\"status\":\"ok\"}. Wire it into the existing server. Keep it minimal."
+  },
+  {
+    "title": "Document the CLI flags",
+    "spec": "Add a short '## Flags' section to README.md listing the main command-line flags, one per line."
+  },
+  "Fix the typo \"teh\" -> \"the\" in README.md"
+]

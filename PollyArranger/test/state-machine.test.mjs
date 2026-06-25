@@ -63,8 +63,8 @@ test('IMPLEMENT failure abandons the item (no infinite retry)', () => {
   assert.equal(out.status, STATES.ABANDONED);
 });
 
-test('IMPLEMENT from FIXING (ok) goes back to RE_REVIEW', () => {
-  const item = { id: 'p1', status: STATES.FIXING, convId: 'c1' };
+test('IMPLEMENT from FIXING (ok, PR already open) goes back to RE_REVIEW', () => {
+  const item = { id: 'p1', status: STATES.FIXING, convId: 'c1', pr: 42 };
   const out = applyResult(item, ACTIONS.IMPLEMENT, {
     agent: { ok: true, convId: 'c1', commits: ['a', 'b'] },
   }, ctx);

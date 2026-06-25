@@ -22,10 +22,11 @@ const WORKTREE_REQUIRED = new Set([
   STATES.RE_REVIEW, STATES.READY_FOR_HUMAN_MERGE,
 ]);
 
-// States that imply a PR has been opened (everything from FIXING onward, except
-// BLOCKED which can happen before a PR exists).
+// States that imply a PR has been opened. FIXING is NOT here: a red gate (①)
+// sends an item to FIXING *before* any PR exists. RE_REVIEW onward do require a
+// PR. BLOCKED is exempt (it can happen before a PR exists).
 const PR_REQUIRED = new Set([
-  STATES.FIXING, STATES.RE_REVIEW, STATES.READY_FOR_HUMAN_MERGE, STATES.MERGED,
+  STATES.RE_REVIEW, STATES.READY_FOR_HUMAN_MERGE, STATES.MERGED,
 ]);
 
 /** Validate one item. Returns an array of human-readable error strings (empty = ok). */

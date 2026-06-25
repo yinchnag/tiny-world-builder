@@ -21,12 +21,15 @@
   resumable, auditable record; concurrency + waves work; `npm run status` gives an
   operability view; 50 tests pass offline. This is a functional equivalent of the
   original production line (the ~75–78%-feasible part — see docs/DERIVATION.md).
-- **Optional next directions (no longer roadmap-blocking):**
-  1. Close the known gap — make a red gate block the PR / force a fix (state-machine change).
-  2. Wire harness adapters (claude_code/codex) as config-only vendors.
-  3. Real-git concurrency safety (a repo-level lock around `git worktree`/push if running real agents in parallel).
-  4. A long-running daemon / scheduler around `orch.run` (vs. one-shot).
-  5. Persist agent transcripts per `convId` for true fix-lap resume.
+- **Post-roadmap enhancements:**
+  - ✅ **ⓠ Turnkey CLI** — `npm run polly -- run --repo <path> --backlog <file>` (or `--spec`);
+    `polly status`. Live-verified end-to-end (DeepSeek→Qwen→merge on a throwaway repo).
+  - ✅ **① Red gate blocks the PR** — a failing gate routes the item to FIXING with the
+    gate output (bounded by `maxGateRounds` → BLOCKED); no PR opens while gates are red.
+  - ⬜ **② Harness adapters** (claude_code/codex) as config-only vendors.
+  - ⬜ **③ Real-git concurrency lock** (repo-level lock around `git worktree`/push for real parallel runs; until then keep `--concurrency 1` on real repos).
+  - ⬜ **④ Long-running daemon / scheduler** around `orch.run` (vs. one-shot).
+  - ⬜ **⑤ Persist agent transcripts** per `convId` for true fix-lap resume.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
   machine, registry store (atomic+validated), schema/invariants, MockAdapter,
@@ -57,7 +60,8 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test               # 50 tests (all offline): + cost accounting, status view
+npm test               # 59 tests (all offline): + gate-block (①), CLI (ⓠ)
+npm run polly          # the turnkey CLI: `npm run polly -- run --repo <p> --backlog <f>` / `--spec`
 npm start              # Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE (mocks)
 npm run demo:waves     # OFFLINE: 5 items, concurrency=2, wave report (no network)
 npm run status         # OFFLINE: operability view of the last demo:waves registry
@@ -95,6 +99,23 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 9 (post-roadmap: ⓠ turnkey CLI + ① red-gate-blocks)
+- **ⓠ CLI** (`src/cli.mjs`, `npm run polly`): `run --repo <path> (--backlog <file>|--spec "...")`
+  + `status`. Assembles seed→git services→real adapters→orchestrator→status.
+  Flags: --vendors/--base/--remote/--gates/--concurrency/--merge/--wave/--registry/
+  --local-pr/--env. `parseArgs`+`loadBacklog` unit-tested; examples/backlog.example.json.
+  **Live-verified**: one command drove DeepSeek→Qwen→auto-merge on a throwaway repo
+  (real tokens shown: 1926). Default concurrency=1 (no git lock yet — see ③).
+- **① Red gate blocks the PR**: gates now run on EVERY implement lap (orchestrator);
+  a `passed:false` gate routes the item to FIXING with the captured gate output as
+  the fix instruction, bounded by `policy.maxGateRounds` → BLOCKED; **no PR opens
+  while gates are red**. git.mjs gates.run captures failure output; schema relaxed
+  (FIXING no longer requires a PR — a red gate reaches FIXING pre-PR). Mock gates
+  lack `passed` → treated as pass → existing behavior unchanged.
+- **59 tests passing, all offline** (+ gate-block.test.mjs, cli.test.mjs).
+- **Handoff:** ② harness adapters, ③ git concurrency lock, ④ daemon, ⑤ transcript
+  persistence remain opt-in. Nothing is "next" by default.
 
 ### 2026-06-25 — Session 8 (Phase 5: operability — ROADMAP COMPLETE)
 - Token cost accounting: `openai-compatible.mjs` captures `usage` from each API

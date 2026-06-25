@@ -32,6 +32,32 @@ for the trace-by-trace mapping.
 
 ---
 
+## Use it (the turnkey CLI)
+
+Polly can run a backlog of specs through implement → cross-vendor review → merge
+gate on a real repo, with one command:
+
+```bash
+cd PollyArranger
+npm test                       # 59 tests, all offline — confirm it's healthy
+
+# put your API keys in .env (gitignored): DEEPSEEK_API_KEY, DASHSCOPE_API_KEY (Qwen)
+npm run polly -- run --repo /path/to/your/repo --spec "Add a /health endpoint returning 200"
+#   or a backlog file (see examples/backlog.example.json):
+npm run polly -- run --repo /path/to/your/repo --backlog backlog.json
+
+npm run polly -- status --registry /path/to/your/repo/.polly/registry.json
+```
+
+By default: DeepSeek implements, Qwen reviews (different families), `--concurrency 1`,
+and `--merge human` (it parks finished work at `READY_FOR_HUMAN_MERGE` for you to
+merge). A failing gate (`--gates`, default `npm test`) blocks the PR. Add
+`--local-pr` to try it offline against a throwaway repo (stubs the PR + merges
+locally). Run `npm run polly` with no args for all flags.
+
+> Try it with zero setup: `npm run demo:pipeline` (live DeepSeek↔Qwen) or
+> `npm run demo:waves` + `npm run status` (offline).
+
 ## How to read these docs
 
 Read them in order. Each builds on the last.

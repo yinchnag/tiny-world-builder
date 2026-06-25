@@ -30,6 +30,8 @@
 | `report.mjs` (costTotals) | Token cost totals | ✅ Phase 5 | sums per-item `cost` |
 | `status.mjs` | Operability view | ✅ Phase 5 | item table + catch-up + waves + cost + notes |
 | `cli-status.mjs` | `npm run status` | ✅ Phase 5 | renders a registry file's status |
+| `cli.mjs` | **Turnkey CLI** | ✅ post-roadmap ⓠ | `npm run polly -- run --repo <p> --backlog <f>` / `--spec`; `status` |
+| gate-blocking | red gate → FIXING/BLOCKED | ✅ post-roadmap ① | a failing gate never opens a PR (orchestrator + state-machine) |
 | harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |
 
 ## Design rule
