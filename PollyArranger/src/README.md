@@ -15,11 +15,10 @@
 | `orchestrator.mjs` | Orchestrator loop | ✅ Phase 1 | the tick loop; only I/O layer ([docs/01 §2.1](../docs/01-architecture.md)) |
 | `adapters/mock.mjs` | MockAdapter | ✅ Phase 1 | canned results for testing ([docs/04 §6](../docs/04-agent-adapters.md)) |
 | `services/mock.mjs` | Mock worktree/git/gates | ✅ Phase 1 | Phase 2 replaces these behind the same interface |
-| `adapters/claude-code.mjs` | Claude adapter | ⬜ Phase 2 | via `@anthropic-ai/claude-agent-sdk` |
-| `services/worktree.mjs` | Real worktree manager | ⬜ Phase 2 | git worktree create/teardown ([docs/01 §2.3](../docs/01-architecture.md)) |
-| `services/git.mjs` | Real git / gh service | ⬜ Phase 2 | commit/push/PR ([docs/01 §2.5](../docs/01-architecture.md)) |
-| `services/gates.mjs` | Real gates runner | ⬜ Phase 2 | runs parent `npm test` |
-| `adapters/codex.mjs` | Codex reviewer adapter | ⬜ Phase 3 | CLI subprocess |
+| `util/slug.mjs` | Branch/slug helpers | ✅ Phase 2.1 | shared by mock + real services |
+| `services/git.mjs` | **Real** worktree/git/gates | ✅ Phase 2.1 | `git` worktree + commit/push, PR via `gh`, gates run ([docs/01 §2.3/2.5](../docs/01-architecture.md)) |
+| `adapters/openai-compatible.mjs` | DeepSeek/OpenAI/… adapter | ⬜ Phase 2.2 | tool-calling loop; DeepSeek is the dev default ([docs/08](../docs/08-providers.md)) |
+| `adapters/codex.mjs` (or another raw LLM) | Reviewer adapter | ⬜ Phase 3 | different-family reviewer |
 | `merge-gate.mjs` | Merge-gate policy | ⬜ Phase 3 | human/auto ([docs/01 §2.6](../docs/01-architecture.md)) |
 
 ## Design rule

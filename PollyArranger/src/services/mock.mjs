@@ -9,14 +9,9 @@
 //   actually touches git. Phase 2 swaps in real implementations behind the exact
 //   same interface — the orchestrator never changes.
 
-/** Turn a title into a branch-safe slug: lowercase, alnum + single dashes. */
-export function slugify(title) {
-  return String(title)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-') || 'item';
-}
+import { slugify } from '../util/slug.mjs';
+
+export { slugify }; // re-exported so existing imports keep working
 
 /** Create the mock service bundle. PR numbers increment from a base. */
 export function createMockServices({ prStart = 100 } = {}) {

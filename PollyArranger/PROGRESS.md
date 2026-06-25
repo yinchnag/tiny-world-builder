@@ -14,17 +14,17 @@
 
 ## Where we are right now
 
-- **Current phase:** Phase 1 complete → **Phase 2 not started.**
-- **Next session starts here:** Begin [Phase 2](docs/06-roadmap.md#phase-2--real-git--one-real-agent-implementer-only) —
-  make the work physically happen on disk: real **worktree manager** + **git/gh
-  service** + **gates runner** + **one real implementer adapter**. The implementer
-  is **DeepSeek** via a generic `adapters/openai-compatible.mjs` (a tool-calling
-  loop: read/write file, run command), **not** the Claude SDK — DeepSeek is the
-  cheap dev default ([docs/08](docs/08-providers.md), [docs/04 §3](docs/04-agent-adapters.md)).
-  Reviewer stays mock for Phase 2. Swap these in behind the SAME interfaces the
-  mocks already use (`src/services/mock.mjs`, `src/adapters/mock.mjs`) — the
-  orchestrator must not change. Needs `DEEPSEEK_API_KEY`. Target: a real
-  `PLANNED` item produces a real branch + commit + PR and parks at
+- **Current phase:** Phase 2.1 complete → **Phase 2.2 not started.**
+- **Next session starts here:** Begin **Phase 2.2** — the DeepSeek implementer
+  adapter `src/adapters/openai-compatible.mjs`: a tool-calling loop (read file /
+  write file / run command / commit) so DeepSeek can actually edit a worktree,
+  exposing Polly's standard `implement()` (and `review()`) contract
+  ([docs/04 §2–3](docs/04-agent-adapters.md), [docs/08](docs/08-providers.md)).
+  Wire it as the implementer with the **real** git services
+  (`src/services/git.mjs`); reviewer stays mock until Phase 3. The key is in the
+  gitignored `.env` (`DEEPSEEK_API_KEY`) — load it (add a tiny `.env` reader or
+  use `process.env`). Do NOT change `orchestrator.mjs`. Target: a real `PLANNED`
+  item, implemented by DeepSeek, yields a real branch + commit + PR and parks at
   `READY_FOR_HUMAN_MERGE`.
 - **Stack:** Node.js ESM (`.mjs`). Decided, consistent with the parent project.
 - **What Phase 1 delivered (all in `src/`, 26 tests passing):** pure state
@@ -40,7 +40,8 @@
 | Design | All `docs/` + example registry | ✅ done | (was several steps) |
 | **0** | Decide stack; scaffold `package.json` + `src/` + continuity files | ✅ done | yes |
 | **1** | Closed loop with MOCK agents (store, state machine, loop, MockAdapter) | ✅ done | (1 session) |
-| **2** | Real git + 1 real implementer adapter; worktree mgr; gh; gates | ⬜ | 1–2 sessions |
+| **2.1** | Real git services (worktree/git/gates) behind the mock interface | ✅ done | (1 session) |
+| **2.2** | DeepSeek implementer adapter (tool-calling loop) | ⬜ next | **1 session** |
 | **3** | Real cross-vendor reviewer + merge gate + retry/escalation | ⬜ | 1–2 sessions |
 | **4** | Parallelism + waves + planner entry point | ⬜ | 1–2 sessions |
 | **5** | Operability: status command / dashboard / cost accounting | ⬜ | 1 session |
@@ -53,7 +54,7 @@ Full detail per phase: [docs/06-roadmap.md](docs/06-roadmap.md).
 
 ```bash
 cd PollyArranger
-npm test          # 26 tests: state machine, schema, store, full orchestrator integration
+npm test          # 30 tests: state machine, schema, store, orchestrator, real git services
 npm start         # runs the Phase 1 demo: one item PLANNED -> READY_FOR_HUMAN_MERGE
 ```
 
@@ -86,6 +87,22 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 4 (Phase 2.1: real git services)
+- `src/services/git.mjs` — REAL `worktree`/`git`/`gates` behind the mock
+  interface (orchestrator unchanged): `git worktree add/remove`, `commit`,
+  `push`, `openPR` (push + `gh pr create`, injectable), `gates.run` (captures
+  pass/fail). git/gh via execFileSync (no shell); gates via shell (Windows
+  `npm.cmd`).
+- `src/util/slug.mjs` — shared branch/slug helpers; `services/mock.mjs` refactored
+  to use it (re-exports `slugify` for compatibility).
+- `test/git-services.test.mjs` — runs against a throwaway local repo + bare
+  remote, NO GitHub/network; verifies create/commit/push(→remote)/gates/teardown.
+  (Found + handled `safe.bareRepository=explicit`: verify via `ls-remote`.)
+- **30 tests passing.** DeepSeek key stored in gitignored `.env` for 2.2.
+- Known gap (intentional): gates capture pass/fail but don't yet BLOCK the
+  pipeline (orchestrator transitions frozen for Phase 2) — refine later.
+- **Handoff:** next = Phase 2.2, the DeepSeek tool-calling implementer adapter.
 
 ### 2026-06-24 — Session 3 (design: multi-vendor + DeepSeek-first)
 - Wrote the multi-vendor plan into the design docs:

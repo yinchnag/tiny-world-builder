@@ -63,6 +63,17 @@ All the *logic* risk is retired here, cheaply and deterministically.
 
 **Goal:** make the work physically happen on disk, reviewed by mock.
 
+> **Split into two sub-phases (developed separately):**
+> - **Phase 2.1 — Real git services** ✅ *done.* `src/services/git.mjs` implements
+>   `worktree`/`git`/`gates` against real `git` + `gh`, behind the exact mock
+>   interface (worktree add/remove, commit, push, PR via `gh`, gates run). Tested
+>   against a throwaway local repo + bare remote (`test/git-services.test.mjs`),
+>   no GitHub/network. PR creation is injectable so the real push is tested while
+>   `gh` stays live-only.
+> - **Phase 2.2 — DeepSeek implementer adapter** ⬜ *next.* `adapters/openai-compatible.mjs`:
+>   a tool-calling loop (read/write file, run command, commit) so DeepSeek can
+>   actually edit a worktree. Needs `DEEPSEEK_API_KEY` (gitignored `.env`).
+
 Build:
 
 5. **Worktree manager** — create/teardown worktrees + branches ([01 §2.3](01-architecture.md)).
