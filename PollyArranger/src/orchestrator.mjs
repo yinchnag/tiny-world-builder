@@ -20,7 +20,7 @@ import {
   STATES,
   nextAction,
   applyResult,
-  assignRoles,
+  routeRoles,
   fixSpecFromReview,
   depGate,
 } from './state-machine.mjs';
@@ -48,7 +48,8 @@ export function createOrchestrator({
   async function execute(action, item, policy) {
     switch (action) {
       case ACTIONS.START: {
-        const roles = assignRoles(policy.vendors ?? Object.keys(adapters), families);
+        // S3 — route by the item's tags (default roles + per-tag overrides).
+        const roles = routeRoles(item, policy.vendors ?? Object.keys(adapters), { families, routing: policy.routing });
         const location = await services.worktree.create({ item, roles });
         return { roles, location };
       }

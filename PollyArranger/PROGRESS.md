@@ -65,8 +65,8 @@ phase at a time, same discipline as Phases 1–5.
 |-------|------|--------|
 | **S1** | Task dependencies + merge ordering (`dependsOn`, start-gating) | ✅ done |
 | **S2** | Merge-conflict handling (conflict → BLOCKED; agent-resolve is future) | ✅ done |
-| **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ⬜ **next** |
-| **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ |
+| **S3** | Cost / capability routing (cheap default, escalate hard tasks) | ✅ done |
+| **S4** | Planner (decompose a goal → reviewable backlog, human-approved) | ⬜ **next** |
 | **S5** | Project memory (persistent decisions/conventions in prompts) | ⬜ |
 
 Order: **S1 → S2 → S3 → S4 → S5** (S1 is the foundation for safe concurrency on a
@@ -138,6 +138,21 @@ the orchestrator exists) as a `BLOCKED` item in the registry.
 ---
 
 ## Session log (newest first — append one entry per session)
+
+### 2026-06-25 — Session 21 (S3: cost / capability routing)
+- `state-machine.mjs`: `routeRoles(item, vendors, {families, routing})` — `default`
+  roles + per-`tag` `rules`, stays in pool, keeps roles distinct. Auto-escalation
+  in applyResult REVIEW: at the review cap, if `autoEscalate` + `routing.escalateTo`,
+  switch implementer to the stronger vendor ONCE (reset reviewRound, mark escalated)
+  before BLOCKED.
+- `planner.mjs`: items carry `tags` (backlog entries read `tags`).
+- `orchestrator.mjs`: START uses `routeRoles` (was assignRoles).
+- `report.mjs`: per-wave token totals in the wave line.
+- `cli.mjs`: `--implementer` / `--reviewer` / `--routing <file>` / `--escalate-to <v>`
+  build `policy.routing` (+ autoEscalate) for run & daemon.
+- `test/routing.test.mjs`: routeRoles default/override/pool-fallback; escalate-once-
+  then-BLOCKED; tagged item routed to the right vendor. **101 tests, all offline.**
+- Note: `escalateTo` must be in `--vendors` (it needs an adapter). **Handoff:** next = S4 (planner).
 
 ### 2026-06-25 — Session 20 (S2: merge-conflict handling)
 - Merge strategies now RETURN a result instead of throwing: `{ok:true}` or

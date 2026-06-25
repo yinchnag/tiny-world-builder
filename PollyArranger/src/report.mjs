@@ -22,6 +22,7 @@ export function waveProgress(reg, waveId) {
     total: items.length,
     merged: items.filter((i) => i.status === STATES.MERGED).length,
     byStatus: statusCounts(items),
+    tokens: items.reduce((sum, i) => sum + (i.cost?.totalTokens ?? 0), 0), // S3 — spend per wave
   };
 }
 
@@ -50,7 +51,8 @@ export function formatReport(reg) {
     .map((w) => {
       const p = waveProgress(reg, w);
       const parts = Object.entries(p.byStatus).map(([s, n]) => `${n} ${s}`);
-      return `${w ?? '(no wave)'}: ${p.merged}/${p.total} merged — ${parts.join(', ')}`;
+      const cost = p.tokens ? ` · ${p.tokens} tokens` : '';
+      return `${w ?? '(no wave)'}: ${p.merged}/${p.total} merged — ${parts.join(', ')}${cost}`;
     })
     .join('\n');
 }

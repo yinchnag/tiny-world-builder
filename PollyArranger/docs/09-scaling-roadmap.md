@@ -120,6 +120,14 @@ auto-resolve or surface for a human.
 
 ### S3 — Cost / capability routing
 
+> **Status: DONE.** `routeRoles(item, vendors, {families, routing})` picks roles
+> from a `policy.routing` (`default` roles + per-`tag` `rules`), always staying in
+> the vendor pool and keeping implementer≠reviewer. Items carry `tags`. Auto-escalation
+> (`policy.autoEscalate` + `routing.escalateTo`) switches the implementer to a
+> stronger vendor ONCE at the review cap (fresh round budget) before BLOCKED.
+> Per-wave token spend shows in the wave report. CLI: `--implementer` / `--reviewer`
+> / `--routing <file>` / `--escalate-to <v>`. 101 tests, all offline.
+
 **Problem:** G3 — control spend and match model to difficulty.
 
 **Design:**

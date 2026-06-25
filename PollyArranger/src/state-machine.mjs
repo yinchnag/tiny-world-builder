@@ -139,6 +139,39 @@ export function assignRoles(vendors, families = DEFAULT_FAMILIES) {
 }
 
 /**
+ * S3 — capability/cost routing. Pick implementer + reviewer for an item, honoring
+ * a routing policy (default roles + per-tag overrides) on top of assignRoles.
+ * Roles always stay within the available `vendors` pool and distinct.
+ *
+ * routing = {
+ *   default: { implementer, reviewer },     // baseline (e.g. cheap deepseek↔qwen)
+ *   rules:   [ { tag, implementer, reviewer } ],  // later matches override
+ *   escalateTo: 'claude_code',              // used by auto-escalation (applyResult)
+ * }
+ */
+export function routeRoles(item, vendors, { families = DEFAULT_FAMILIES, routing } = {}) {
+  const base = assignRoles(vendors, families);
+  if (!routing) return base;
+  const tags = item.tags ?? [];
+  let impl = routing.default?.implementer ?? base.implementer;
+  let rev = routing.default?.reviewer ?? base.reviewer;
+  for (const rule of routing.rules ?? []) {
+    if (rule.tag && tags.includes(rule.tag)) {
+      if (rule.implementer) impl = rule.implementer;
+      if (rule.reviewer) rev = rule.reviewer;
+    }
+  }
+  // Keep within the pool, and keep reviewer distinct (prefer a different family).
+  if (!vendors.includes(impl)) impl = base.implementer;
+  if (!vendors.includes(rev) || rev === impl) {
+    const implFam = families[impl];
+    rev = vendors.find((v) => v !== impl && families[v] !== implFam)
+      ?? vendors.find((v) => v !== impl) ?? base.reviewer;
+  }
+  return { implementer: impl, reviewer: rev };
+}
+
+/**
  * Fold an adapter's token usage into an item's running cost. Returns the prior
  * cost unchanged when there's no usage (e.g. mock adapters), so a `cost` field
  * only appears once a real model has been called.
@@ -275,11 +308,24 @@ export function applyResult(item, action, outcome, ctx = {}) {
       if (r.verdict === 'BLOCKING') {
         const max = policy.maxReviewRounds ?? 3;
         if (round >= max) {
+          // S3 — auto-escalate ONCE to a stronger implementer before giving up.
+          const esc = policy.autoEscalate ? policy.routing?.escalateTo : null;
+          if (esc && !item.escalated && esc !== item.implementer && esc !== item.reviewer) {
+            return {
+              ...next,
+              implementer: esc,
+              escalated: true,
+              reviewRound: 0, // fresh budget for the stronger implementer
+              status: STATES.FIXING,
+            };
+          }
           // Don't loop forever (docs/03 section 4, rule 1) — escalate to a human.
           return {
             ...next,
             status: STATES.BLOCKED,
-            blockedOn: `Review still BLOCKING after ${round} round(s) — escalated to a human.`,
+            blockedOn: `Review still BLOCKING after ${round} round(s)`
+              + (item.escalated ? ` (already escalated to ${item.implementer})` : '')
+              + ' — escalated to a human.',
           };
         }
         return { ...next, status: STATES.FIXING };

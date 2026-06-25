@@ -153,6 +153,9 @@ reviews. They must be different families.
 | `--gates "<cmd>"` | `npm test` | Runs in each worktree; **a red gate blocks the PR** and sends the task back to fix it. For a project with no tests, use e.g. `--gates "node --version"` (always passes) or your real build/lint command. |
 | `--local-pr` | off | Fully local: no remote, no GitHub, merges locally. Drop it to open **real PRs** via `gh` (needs `gh` logged in + push access). |
 | `--concurrency <n>` | `1` | Run N tasks in parallel (safe — git ops are repo-locked). |
+| `--implementer <v>` / `--reviewer <v>` | routed | Force default roles (e.g. `--implementer deepseek --reviewer qwen`). |
+| `--routing <file>` | — | Routing JSON: `{ "default": {...}, "rules": [{ "tag": "hard", "implementer": "claude_code" }] }`. Tag items in the backlog (`"tags": ["hard"]`) to route them. |
+| `--escalate-to <v>` | off | If review can't converge, retry once with vendor `<v>` (must be in `--vendors`) before BLOCKED. |
 | `--base <branch>` | `main` | Base branch to fork from. |
 | `--wave <id>` | — | Tag tasks into a wave for grouped reporting. |
 | `--registry <path>` | `<repo>/.polly/registry.json` | Where state is stored. |

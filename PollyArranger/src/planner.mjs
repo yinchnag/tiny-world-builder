@@ -10,13 +10,14 @@
 import { STATES } from './state-machine.mjs';
 
 /** A complete, valid PLANNED item with all fields defaulted. */
-export function newPlannedItem({ id, title, spec, wave = null, createdAt = null, dependsOn = [] }) {
+export function newPlannedItem({ id, title, spec, wave = null, createdAt = null, dependsOn = [], tags = [] }) {
   return {
     id,
     wave,
     title,
     spec: spec ?? title,
     dependsOn, // S1 — ids that must be MERGED before this starts
+    tags, // S3 — routing input (tag → vendor)
     branch: null, worktree: null, base: null, pr: null,
     implementer: null, reviewer: null, convId: null, reviewConvId: null,
     status: STATES.PLANNED, reviewRound: 0,
@@ -55,6 +56,7 @@ export function seedItems(reg, entries, { wave = null, idPrefix = 'p', createdAt
     const title = typeof e === 'string' ? e : e.title;
     const spec = typeof e === 'string' ? e : (e.spec ?? e.title);
     const dependsOn = typeof e === 'string' ? [] : (e.dependsOn ?? []);
+    const tags = typeof e === 'string' ? [] : (e.tags ?? []);
     // Explicit id (so deps can reference it) or auto p<n>. Explicit ids must be
     // branch-safe (lowercase alnum) since the branch is polly/<id>-<slug>.
     let id;
@@ -67,7 +69,7 @@ export function seedItems(reg, entries, { wave = null, idPrefix = 'p', createdAt
       id = `${idPrefix}${n}`;
     }
     existingIds.add(id);
-    const item = newPlannedItem({ id, title, spec, wave, createdAt, dependsOn });
+    const item = newPlannedItem({ id, title, spec, wave, createdAt, dependsOn, tags });
     reg.items.push(item);
     created.push(item);
   }

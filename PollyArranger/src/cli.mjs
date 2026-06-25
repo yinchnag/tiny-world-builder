@@ -53,6 +53,10 @@ run/daemon options:
   --concurrency <n>      items in flight at once (default: 1; >1 is safe — git ops are repo-locked)
   --merge human|auto     merge policy (default: human — parks finished items for you)
   --wave <id>            tag the seeded items with a wave
+  --implementer <v>      force the default implementer vendor (S3 routing)
+  --reviewer <v>         force the default reviewer vendor
+  --routing <file>       routing policy JSON ({ default, rules:[{tag,implementer,reviewer}] })
+  --escalate-to <v>      on review-cap, escalate the implementer to <v> once (must be in --vendors)
   --registry <path>      where to store state (default: <repo>/.polly/registry.json)
   --local-pr             fully local: no gh, no remote/push — stub the PR + merge locally
   --env <path>           .env file with API keys (default: PollyArranger/.env)
@@ -138,6 +142,33 @@ function ensureRegistry(registryPath, { vendors, concurrency, merge }) {
   return reg;
 }
 
+/** S3 — build a routing policy from CLI flags (or a --routing JSON file). */
+function routingFromOpts(opts) {
+  let routing;
+  if (opts.routing) routing = JSON.parse(readFileSync(resolve(opts.routing), 'utf8'));
+  if (typeof opts.implementer === 'string' || typeof opts.reviewer === 'string') {
+    routing = routing ?? {};
+    routing.default = {
+      ...(routing.default ?? {}),
+      ...(typeof opts.implementer === 'string' ? { implementer: opts.implementer } : {}),
+      ...(typeof opts.reviewer === 'string' ? { reviewer: opts.reviewer } : {}),
+    };
+  }
+  if (typeof opts['escalate-to'] === 'string') {
+    routing = routing ?? {};
+    routing.escalateTo = opts['escalate-to'];
+  }
+  const autoEscalate = Boolean(opts['escalate-to'] || opts['auto-escalate']);
+  return { routing, autoEscalate };
+}
+
+/** Apply routing/escalation flags onto a registry's policy. */
+function applyRouting(reg, opts) {
+  const { routing, autoEscalate } = routingFromOpts(opts);
+  if (routing) reg.policy.routing = routing;
+  if (autoEscalate) reg.policy.autoEscalate = true;
+}
+
 /** Shared assembly for `run` and `daemon`: services + adapters + orchestrator. */
 function buildContext(opts) {
   loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
@@ -189,6 +220,7 @@ async function runPipeline(opts) {
   const reg = createEmptyRegistry({ vendors: ctx.vendors });
   reg.policy.concurrency = ctx.concurrency;
   reg.policy.merge = ctx.merge;
+  applyRouting(reg, opts); // S3 — routing/escalation
   seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
   saveRegistry(ctx.registryPath, reg);
 
@@ -202,7 +234,9 @@ async function runPipeline(opts) {
 
 async function runDaemon(opts) {
   const ctx = buildContext(opts);
-  ensureRegistry(ctx.registryPath, { vendors: ctx.vendors, concurrency: ctx.concurrency, merge: ctx.merge });
+  const reg = ensureRegistry(ctx.registryPath, { vendors: ctx.vendors, concurrency: ctx.concurrency, merge: ctx.merge });
+  applyRouting(reg, opts); // S3 — apply routing/escalation flags onto the registry
+  saveRegistry(ctx.registryPath, reg);
   const intervalMs = Number(opts.interval ?? 5) * 1000;
 
   console.log(`Polly daemon: polling ${ctx.registryPath} every ${intervalMs / 1000}s. Ctrl-C to stop.`);
