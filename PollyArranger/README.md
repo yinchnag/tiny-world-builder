@@ -47,6 +47,10 @@ npm run polly -- run --repo /path/to/your/repo --spec "Add a /health endpoint re
 npm run polly -- run --repo /path/to/your/repo --backlog backlog.json
 
 npm run polly -- status --registry /path/to/your/repo/.polly/registry.json
+
+# or run it as a daemon and feed it work from another shell:
+npm run polly -- daemon --repo /path/to/your/repo        # keeps running (Ctrl-C to stop)
+npm run polly -- add    --repo /path/to/your/repo --spec "Add a /metrics endpoint"
 ```
 
 By default: DeepSeek implements, Qwen reviews (different families), `--concurrency 1`,

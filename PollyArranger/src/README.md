@@ -31,7 +31,8 @@
 | `report.mjs` (costTotals) | Token cost totals | ✅ Phase 5 | sums per-item `cost` |
 | `status.mjs` | Operability view | ✅ Phase 5 | item table + catch-up + waves + cost + notes |
 | `cli-status.mjs` | `npm run status` | ✅ Phase 5 | renders a registry file's status |
-| `cli.mjs` | **Turnkey CLI** | ✅ post-roadmap ⓠ | `npm run polly -- run --repo <p> --backlog <f>` / `--spec`; `status` |
+| `cli.mjs` | **Turnkey CLI** | ✅ post-roadmap ⓠ+④ | `run` / `daemon` / `add` / `status` |
+| `daemon.mjs` | Long-running daemon | ✅ post-roadmap ④ | drain-then-poll loop; picks up new work; graceful stop |
 | gate-blocking | red gate → FIXING/BLOCKED | ✅ post-roadmap ① | a failing gate never opens a PR (orchestrator + state-machine) |
 | `transcripts.mjs` | Conversation persistence | ✅ post-roadmap ⑤ | save/load messages per convId → true fix-lap resume |
 | harness adapters (`claude_code`/`codex`) | optional vendors | ⬜ later | config-only additions |

@@ -21,6 +21,7 @@ import { seedItems } from './planner.mjs';
 import { createGitServices, localMergeStrategy } from './services/git.mjs';
 import { createRealAdapters } from './adapters/factory.mjs';
 import { createOrchestrator } from './orchestrator.mjs';
+import { createDaemon } from './daemon.mjs';
 import { formatStatus } from './status.mjs';
 import { ACTIVE } from './state-machine.mjs';
 
@@ -33,10 +34,16 @@ Usage:
   polly run --repo <path> --spec "<one task>"   [options]
   polly status --registry <path>
 
-run options:
+commands:
+  run      seed a backlog and process it until the line is idle, then print status
+  daemon   keep running: process work and poll for newly-added items (Ctrl-C to stop)
+  add      append items to a registry (e.g. to feed a running daemon)
+  status   print the status of a registry
+
+run/daemon options:
   --repo <path>          target git repo (required)
-  --backlog <file>       JSON array of "spec" strings or { title, spec } (or use --spec)
-  --spec "<text>"        a single inline task (instead of --backlog)
+  --backlog <file>       JSON array of "spec" strings or { title, spec } (run/add)
+  --spec "<text>"        a single inline task (run/add)
   --vendors a,b          implementer,reviewer (default: deepseek,qwen — different families)
   --base <branch>        base branch to fork from (default: main)
   --remote <name>        git remote to push to (default: origin)
@@ -47,6 +54,7 @@ run options:
   --registry <path>      where to store state (default: <repo>/.polly/registry.json)
   --local-pr             don't use gh — stub the PR + merge locally (offline testing)
   --env <path>           .env file with API keys (default: PollyArranger/.env)
+  --interval <sec>       daemon idle poll interval (default: 5)
 `;
 
 /** Minimal argv parser: first token is the command; --key value / --flag after. */
@@ -83,28 +91,41 @@ export function loadBacklog(opts) {
 }
 
 function runStatus(opts) {
-  const path = opts.registry;
+  const path = registryPathFor(opts);
   if (!path || !existsSync(path)) {
-    console.error(`status: pass --registry <path> to an existing registry.`);
+    console.error(`status: pass --registry <path> (or --repo) to an existing registry.`);
     process.exitCode = 1;
     return;
   }
   console.log(formatStatus(loadRegistry(path)));
 }
 
-async function runPipeline(opts) {
-  if (!opts.repo) throw new Error('--repo <path> is required');
-  loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
+/** Where the registry lives: --registry, else <repo>/.polly/registry.json. */
+function registryPathFor(opts) {
+  if (opts.registry) return resolve(opts.registry);
+  if (opts.repo) return join(resolve(opts.repo), '.polly', 'registry.json');
+  return null;
+}
 
+/** Create an empty registry file if it doesn't exist yet. */
+function ensureRegistry(registryPath, { vendors, concurrency, merge }) {
+  if (existsSync(registryPath)) return loadRegistry(registryPath);
+  const reg = createEmptyRegistry({ vendors });
+  reg.policy.concurrency = concurrency;
+  reg.policy.merge = merge;
+  saveRegistry(registryPath, reg);
+  return reg;
+}
+
+/** Shared assembly for `run` and `daemon`: services + adapters + orchestrator. */
+function buildContext(opts) {
+  loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
+  if (!opts.repo) throw new Error('--repo <path> is required');
   const repoPath = resolve(opts.repo);
   const vendors = String(opts.vendors ?? 'deepseek,qwen').split(',').map((s) => s.trim()).filter(Boolean);
-  const registryPath = opts.registry ? resolve(opts.registry) : join(repoPath, '.polly', 'registry.json');
-
-  const reg = createEmptyRegistry({ vendors });
-  reg.policy.concurrency = Number(opts.concurrency ?? 1);
-  reg.policy.merge = opts.merge === 'auto' ? 'auto' : 'human';
-  seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
-  saveRegistry(registryPath, reg);
+  const registryPath = registryPathFor(opts);
+  const concurrency = Number(opts.concurrency ?? 1);
+  const merge = opts.merge === 'auto' ? 'auto' : 'human';
 
   let prSeq = 1000;
   const services = createGitServices({
@@ -117,27 +138,84 @@ async function runPipeline(opts) {
       : {}),
   });
   const adapters = createRealAdapters({ vendors, repoPath });
-  const orch = createOrchestrator({ store: createFileStore(), registryPath, adapters, services });
+  const orchestrator = createOrchestrator({ store: createFileStore(), registryPath, adapters, services });
+  return { repoPath, vendors, registryPath, concurrency, merge, orchestrator };
+}
 
-  console.log(`Polly: ${reg.items.length} item(s), vendors=${vendors.join('→')}, ` +
-    `concurrency=${reg.policy.concurrency}, merge=${reg.policy.merge}`);
-  console.log(`Repo: ${repoPath}\nRegistry: ${registryPath}\n`);
-
+// Print the item snapshot only when it changes.
+function snapshotPrinter() {
   let prev = '';
-  await orch.run({
-    onTick: (r) => {
-      const active = r.items.filter((i) => ACTIVE.includes(i.status)).length;
-      const snap = r.items.map((i) => `${i.id}:${i.status}`).join('  ');
-      if (snap !== prev) { prev = snap; console.log(`(active=${active})  ${snap}`); }
-    },
+  return (r) => {
+    const active = r.items.filter((i) => ACTIVE.includes(i.status)).length;
+    const snap = r.items.map((i) => `${i.id}:${i.status}`).join('  ');
+    if (snap !== prev) { prev = snap; console.log(`(active=${active})  ${snap || '(empty)'}`); }
+  };
+}
+
+async function runPipeline(opts) {
+  const ctx = buildContext(opts);
+  const reg = createEmptyRegistry({ vendors: ctx.vendors });
+  reg.policy.concurrency = ctx.concurrency;
+  reg.policy.merge = ctx.merge;
+  seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
+  saveRegistry(ctx.registryPath, reg);
+
+  console.log(`Polly: ${reg.items.length} item(s), vendors=${ctx.vendors.join('→')}, ` +
+    `concurrency=${ctx.concurrency}, merge=${ctx.merge}`);
+  console.log(`Repo: ${ctx.repoPath}\nRegistry: ${ctx.registryPath}\n`);
+
+  await ctx.orchestrator.run({ onTick: snapshotPrinter() });
+  console.log('\n' + formatStatus(loadRegistry(ctx.registryPath)));
+}
+
+async function runDaemon(opts) {
+  const ctx = buildContext(opts);
+  ensureRegistry(ctx.registryPath, { vendors: ctx.vendors, concurrency: ctx.concurrency, merge: ctx.merge });
+  const intervalMs = Number(opts.interval ?? 5) * 1000;
+
+  console.log(`Polly daemon: polling ${ctx.registryPath} every ${intervalMs / 1000}s. Ctrl-C to stop.`);
+  console.log(`(feed it work from another shell: polly add --repo ${ctx.repoPath} --spec "...")\n`);
+
+  const print = snapshotPrinter();
+  const daemon = createDaemon({
+    orchestrator: ctx.orchestrator,
+    intervalMs,
+    onTick: () => print(loadRegistry(ctx.registryPath)),
+    onError: (err) => console.error(`tick error: ${err.message}`),
   });
 
-  console.log('\n' + formatStatus(loadRegistry(registryPath)));
+  let stopping = false;
+  process.on('SIGINT', () => {
+    if (stopping) return;
+    stopping = true;
+    console.log('\nstopping (finishing current tick)…');
+    daemon.stop();
+  });
+
+  await daemon.start();
+  console.log('\n' + formatStatus(loadRegistry(ctx.registryPath)));
+}
+
+function runAdd(opts) {
+  const registryPath = registryPathFor(opts);
+  if (!registryPath) throw new Error('add: pass --registry <path> or --repo <path>');
+  const vendors = String(opts.vendors ?? 'deepseek,qwen').split(',').map((s) => s.trim()).filter(Boolean);
+  const reg = ensureRegistry(registryPath, {
+    vendors,
+    concurrency: Number(opts.concurrency ?? 1),
+    merge: opts.merge === 'auto' ? 'auto' : 'human',
+  });
+  const created = seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
+  saveRegistry(registryPath, reg);
+  console.log(`Added ${created.length} item(s) to ${registryPath}:`);
+  for (const i of created) console.log(`  ${i.id}  ${i.title}`);
 }
 
 export async function runCli(opts) {
   switch (opts.command) {
     case 'run': return runPipeline(opts);
+    case 'daemon': return runDaemon(opts);
+    case 'add': return runAdd(opts);
     case 'status': return runStatus(opts);
     default:
       console.log(USAGE);
