@@ -13,24 +13,27 @@ import { openCodeSurf, defaultDataDir } from '../../src/index.mjs';
 const repo = dirname(fileURLToPath(import.meta.url)); // this examples folder = the agent's cwd
 const { store } = openCodeSurf();
 
-const meta = store.createWorkspace({ name: 'Basic Workflow', repositoryPath: repo });
-store.openWorkspace(meta.id);
-store.saveLayout(meta.id, {
+// idempotent: reuse the existing "Basic Workflow" workspace if present
+const existing = store.listWorkspaces({ includeArchived: true }).find((w) => w.name === 'Basic Workflow');
+const id = existing ? existing.id : store.createWorkspace({ name: 'Basic Workflow', repositoryPath: repo }).id;
+
+store.openWorkspace(id);
+store.saveLayout(id, {
   viewport: { x: 0, y: 0, zoom: 1 },
   tiles: [
     {
-      id: 'wf_notes', type: 'note', title: 'Instructions', x: 80, y: 120, w: 300, h: 200, status: 'idle',
-      data: { note: 'Basic workflow demo. The Agent tile runs `node agent.js`, which registers with Contex and reports progress. Start CodeSurf with --contex, then click ▶ on the Agent tile and watch its status dot.' },
+      id: 'wf_notes', type: 'note', title: 'What this does', x: 80, y: 120, w: 320, h: 230, status: 'idle',
+      data: { note: 'A coordinator-agent demo. Click ▶ on the Agent tile. The agent (1) registers with Contex — its status dot turns blue; (2) asks the canvas to spawn a "Worker" tile, linked to it (you\'ll see a new tile appear); (3) finishes — its dot turns green. Needs the Contex backend (the desktop app starts it automatically).' },
     },
     {
-      id: 'wf_agent', type: 'terminal', title: 'Agent', x: 460, y: 120, w: 480, h: 320, status: 'idle',
+      id: 'wf_agent', type: 'terminal', title: 'Agent', x: 480, y: 120, w: 480, h: 320, status: 'idle',
       data: { command: 'node agent.js' },
     },
   ],
   links: [{ id: 'wf_link', source: 'wf_notes', target: 'wf_agent', directed: true }],
 });
-store.closeWorkspace(meta.id);
+store.closeWorkspace(id);
 
-console.log(`Created workspace "${meta.name}" (${meta.id})`);
+console.log(`${existing ? 'Updated' : 'Created'} workspace "Basic Workflow" (${id})`);
 console.log(`Data dir: ${defaultDataDir()}`);
-console.log('Open it in the app:  npm run app -- --contex   →  pick "Basic Workflow"  →  click ▶ on the Agent tile.');
+console.log('Open it:  npm run app   →  pick "Basic Workflow"  →  click ▶ on the Agent tile.');

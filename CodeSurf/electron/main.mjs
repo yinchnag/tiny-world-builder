@@ -25,7 +25,9 @@ let httpServer = null;
 async function boot() {
   const { store } = openCodeSurf();
 
-  if (process.argv.includes('--contex')) {
+  // The desktop app is a coordination tool — launch Contex by default (opt out
+  // with --no-contex).
+  if (!process.argv.includes('--no-contex')) {
     const supervisor = new ContexSupervisor({});
     supervisor.on('error', (e) => console.error('Contex supervisor:', e.message));
     contex = new ContexConnection({ supervisor });
