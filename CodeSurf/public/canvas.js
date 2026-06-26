@@ -643,6 +643,10 @@ function flashTile(id) {
   setTimeout(() => el.classList.remove('flash'), 1200);
 }
 
+// Remove ANSI CSI/OSC + lone escapes (interim until xterm.js renders them).
+const ANSI_RE = /\u001B\][^\u0007\u001B]*(?:\u0007|\u001B\\)|[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-nqry=><~]|\u001B[=>]/g;
+function stripAnsi(s) { return s.replace(ANSI_RE, ''); }
+
 // ---- terminal tiles (M5) ------------------------------------------------
 const terminalStreams = new Map(); // tileId -> EventSource
 
@@ -664,7 +668,9 @@ function wireTerminal(el, tile) {
 
   const append = (chunk) => {
     const atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 4;
-    out.textContent += chunk;
+    // Strip ANSI/control sequences so plain-text agents read cleanly in the <pre>
+    // (a real terminal emulator / xterm.js is the proper renderer for full TUIs).
+    out.textContent += stripAnsi(chunk);
     if (atBottom) out.scrollTop = out.scrollHeight;
   };
   function openStream() {

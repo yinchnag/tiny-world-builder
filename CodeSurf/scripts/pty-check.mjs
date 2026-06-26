@@ -18,7 +18,8 @@ if (!ptyAvailable()) {
 const t = new Terminal('tile_pty_check', { pty: true });
 let out = '';
 t.on('data', (d) => { out += d; });
-t.start({ command: process.execPath, args: ['-e', 'process.stdout.write("isTTY=" + process.stdout.isTTY)'] });
+// bare `node` (not an absolute path) so this also guards PATH resolution under PTY
+t.start({ command: 'node', args: ['-e', 'process.stdout.write("isTTY=" + process.stdout.isTTY)'] });
 await once(t, 'exit');
 
 const ok = t.backend === 'pty' && /isTTY=true/.test(out);

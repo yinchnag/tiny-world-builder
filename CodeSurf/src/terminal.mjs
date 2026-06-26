@@ -14,7 +14,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { createRequire } from 'node:module';
 
 const DEFAULT_MAX_BUFFER = 200_000; // chars of scrollback retained per tile
@@ -56,6 +56,35 @@ export function ensureMcpConfig(cwd) {
   return file;
 }
 
+// Resolve a bare command to an absolute executable via PATH (+ Windows PATHEXT).
+// child_process does this implicitly, but node-pty does NOT, so a bare `node`
+// fails under a PTY. Returns the input unchanged if a path separator is present
+// or nothing matches (let spawn surface the error).
+function resolveExecutable(cmd, env) {
+  if (cmd.includes('/') || cmd.includes('\\') || isAbsolute(cmd)) return cmd;
+  const isWin = process.platform === 'win32';
+  const exts = isWin ? (env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').map((s) => s.trim()).filter(Boolean) : [''];
+  const PATH = env.PATH || env.Path || env.path || process.env.PATH || '';
+  for (const dir of PATH.split(isWin ? ';' : ':').filter(Boolean)) {
+    for (const ext of exts) {
+      const full = join(dir, cmd + ext);
+      if (existsSync(full)) return full;
+    }
+  }
+  return cmd;
+}
+
+// Turn (command, args) into a spawnable (file, args). On Windows a resolved
+// .cmd/.bat (e.g. the npm shim for `claude`/`codex`) can't be exec'd by
+// CreateProcess directly, so route it through cmd.exe /c.
+function resolveSpawn(command, args, env) {
+  const file = resolveExecutable(command, env);
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(file)) {
+    return { file: env.ComSpec || process.env.ComSpec || 'cmd.exe', args: ['/c', file, ...args] };
+  }
+  return { file, args };
+}
+
 /** One supervised child process bound to a tile. Uses a real PTY when enabled
  *  and node-pty is available, otherwise piped stdio. */
 export class Terminal extends EventEmitter {
@@ -92,9 +121,10 @@ export class Terminal extends EventEmitter {
   }
 
   _startPty(mod, { command, args, workdir, childEnv }) {
+    const spawnSpec = resolveSpawn(command, args, childEnv);
     let p;
     try {
-      p = mod.spawn(command, args, { name: 'xterm-256color', cols: this.cols, rows: this.rows, cwd: workdir, env: childEnv });
+      p = mod.spawn(spawnSpec.file, spawnSpec.args, { name: 'xterm-256color', cols: this.cols, rows: this.rows, cwd: workdir, env: childEnv });
     } catch (err) {
       this._append(`\n[spawn error: ${err.message}]\n`);
       this.status = 'exited';
@@ -117,7 +147,8 @@ export class Terminal extends EventEmitter {
   }
 
   _startPipe({ command, args, workdir, childEnv }) {
-    const child = spawn(command, args, { cwd: workdir, env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+    const spawnSpec = resolveSpawn(command, args, childEnv);
+    const child = spawn(spawnSpec.file, spawnSpec.args, { cwd: workdir, env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] });
     this.child = child;
     this.backend = 'pipe';
     this.status = 'running';
