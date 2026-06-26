@@ -102,6 +102,11 @@ try {
   await sleep(150);
   check('port-drag creates a link', (await page.locator('#links path:not(.temp)').count()) === 1);
   check('no temp link left after linking', (await page.locator('#links path.temp').count()) === 0);
+  check('link drag selected no text', (await page.evaluate(() => window.getSelection().toString())).trim() === '');
+
+  // head-drag across another tile's body must not select text either
+  await dragFrom(`.tile[data-id="${A}"] .head`, 80, 30);
+  check('tile drag selected no text', (await page.evaluate(() => window.getSelection().toString())).trim() === '');
 
   const p2 = center(await box(`.tile[data-id="${B}"] .port`));
   await page.mouse.move(p2.x, p2.y); await page.mouse.down();

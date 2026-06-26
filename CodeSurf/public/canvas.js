@@ -310,11 +310,12 @@ canvas.addEventListener('mousedown', (e) => {
     if (tileById(tileEl.dataset.id)?.pinned) return; // pinned tiles don't drag
     return startTileDrag(tileEl.dataset.id, e);
   }
-  if (tileEl) { select(tileEl.dataset.id); return; }
+  if (tileEl) { select(tileEl.dataset.id); return; } // body click → allow text selection
   // empty canvas → pan + clear selection
+  e.preventDefault();
   select(null);
   drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, ox: vp().x, oy: vp().y };
-  canvas.classList.add('panning');
+  canvas.classList.add('panning', 'dragging');
 });
 
 canvas.addEventListener('dblclick', (e) => {
@@ -354,19 +355,27 @@ window.addEventListener('mouseup', (e) => {
   } else if (drag.kind === 'tile' || drag.kind === 'resize') {
     scheduleSave();
   }
-  canvas.classList.remove('panning');
+  canvas.classList.remove('panning', 'dragging');
   drag = null;
 });
 
+// suppress native text-selection while a drag gesture is active
+function beginDrag(e) {
+  e.preventDefault();
+  canvas.classList.add('dragging');
+}
 function startTileDrag(id, e) {
+  beginDrag(e);
   const t = tileById(id);
   drag = { kind: 'tile', id, sx: e.clientX, sy: e.clientY, tx: t.x, ty: t.y };
 }
 function startResize(id, e) {
+  beginDrag(e);
   const t = tileById(id);
   drag = { kind: 'resize', id, sx: e.clientX, sy: e.clientY, tw: t.w, th: t.h };
 }
 function startLinkDrag(sourceId, e) {
+  beginDrag(e);
   const tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   tempPath.classList.add('temp');
   linksSvg.appendChild(tempPath);

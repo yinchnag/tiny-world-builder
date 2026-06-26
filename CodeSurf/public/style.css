@@ -55,6 +55,8 @@ input { cursor: text; }
   cursor: grab;
 }
 #canvas.panning { cursor: grabbing; }
+/* while dragging a tile/link/port/canvas, never start a text selection */
+#canvas.dragging, #canvas.dragging * { user-select: none; -webkit-user-select: none; }
 #world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
 #links { position: absolute; left: 0; top: 0; overflow: visible; width: 1px; height: 1px; pointer-events: none; }
 #links path { fill: none; stroke: var(--accent); stroke-width: 2; opacity: .8; }
