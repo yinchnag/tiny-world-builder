@@ -1,0 +1,18 @@
+{
+  "name": "codesurf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeSurf — infinite-canvas workspace for coordinating multiple AI agents around a software project, backed by the Contex MCP coordination service. Minimal usable GUI rebuild: zero-dependency Node backend + browser-native DOM/SVG canvas. Electron deferred.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "bin": {
+    "codesurf": "src/cli.mjs"
+  },
+  "scripts": {
+    "serve": "node src/cli.mjs serve",
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "AGPL-3.0-only"
+}

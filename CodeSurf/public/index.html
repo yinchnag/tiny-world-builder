@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CodeSurf</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <span class="brand">CodeSurf</span>
+    <select id="workspace-select" title="Workspace"></select>
+    <button id="new-workspace" title="New workspace">+ New</button>
+    <span class="spacer"></span>
+    <select id="tile-type" title="Tile type to add"></select>
+    <button id="add-tile" title="Add a tile (or double-click the canvas)">+ Tile</button>
+    <button id="fit" title="Zoom to fit">Fit</button>
+    <button id="reset-zoom" title="Reset zoom to 100%">100%</button>
+    <span id="contex" class="contex" title="Contex coordination backend">Contex: …</span>
+    <span id="status" class="status"></span>
+  </header>
+
+  <main id="canvas">
+    <div id="world">
+      <svg id="links" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <canvas id="minimap" width="200" height="140" title="Minimap — click to recenter"></canvas>
+  </main>
+
+  <!-- New-workspace dialog -->
+  <dialog id="new-dialog">
+    <form method="dialog">
+      <h3>New workspace</h3>
+      <label>Name <input id="nw-name" required /></label>
+      <label>Repository path <input id="nw-repo" required placeholder="d:\\path\\to\\repo" /></label>
+      <p id="nw-error" class="error"></p>
+      <menu>
+        <button value="cancel">Cancel</button>
+        <button id="nw-create" value="create">Create</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script type="module" src="/canvas.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+workspaces/
+*.lock
+*.corrupt
+.run/
+.env
