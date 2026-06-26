@@ -157,8 +157,17 @@ export function createDefaultRegistry() {
       : '<p class="muted">Note tile. Double-click to edit (M3+).</p>',
   });
   reg.register({
-    type: 'terminal', label: 'Terminal', defaultSize: { w: 360, h: 240 }, capabilities: ['terminal_input'],
-    renderBody: () => '<p class="muted">Terminal tile — a real agent process attaches in M5.</p>',
+    type: 'terminal', label: 'Terminal', defaultSize: { w: 420, h: 300 }, capabilities: ['terminal_input'],
+    // static shell; canvas.js wires the live process stream + stdin to these nodes
+    renderBody: (t) => `<div class="term">
+      <div class="term-bar">
+        <input class="term-cmd" placeholder="command e.g. node, claude, codex" value="${escapeHtml(t.data.command || '')}" />
+        <button class="term-start" title="Start process">▶</button>
+        <button class="term-stop" title="Stop process">■</button>
+      </div>
+      <pre class="term-out" tabindex="0"></pre>
+      <input class="term-input" placeholder="stdin — Enter to send" />
+    </div>`,
   });
   reg.register({
     type: 'chat', label: 'Chat', defaultSize: { w: 300, h: 240 }, capabilities: ['chat'],

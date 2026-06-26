@@ -86,6 +86,23 @@ input { cursor: text; }
 .tile .body .muted { color: var(--muted); }
 .tile .body pre, .tile .body pre.raw { margin: 0; font-size: 11px; white-space: pre-wrap; color: var(--text); }
 .tile .body.has-error { color: #ff8b8b; }
+
+/* terminal tile */
+.tile .body:has(.term) { padding: 0; }
+.term { display: flex; flex-direction: column; height: 100%; }
+.term-bar { display: flex; gap: 4px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+.term-bar .term-cmd { flex: 1; font-size: 12px; padding: 3px 6px; }
+.term-bar button { padding: 2px 8px; }
+.term-out {
+  flex: 1; margin: 0; padding: 6px 8px; overflow: auto;
+  font: 11px/1.4 ui-monospace, "Cascadia Code", Consolas, monospace;
+  color: #cfe3ff; background: #0c0e13; white-space: pre-wrap; word-break: break-word;
+}
+.term-out:focus { outline: none; }
+.term-input {
+  border: 0; border-top: 1px solid var(--line); border-radius: 0;
+  padding: 5px 8px; font: 11px/1.4 ui-monospace, Consolas, monospace; background: var(--panel-2);
+}
 .tile-error { color: #ff8b8b; font-size: 12px; }
 .tile:focus { outline: none; }
 .tile:focus-visible { box-shadow: 0 0 0 2px var(--accent); }

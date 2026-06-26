@@ -110,6 +110,17 @@ export class ContexConnection extends EventEmitter {
 
   async call(name, args) { return this._call(name, args); }
 
+  /** Env an in-tile agent process needs to self-register with Contex. SERVER-SIDE
+   *  ONLY — carries the bearer token, so it must never be sent to the browser. */
+  agentEnv() {
+    if (!this.client) return {};
+    return {
+      CONTEX_URL: this.url,
+      CONTEX_TOKEN: this.client.token,
+      CONTEX_WORKSPACE: this.workspaceId || '',
+    };
+  }
+
   async _call(name, args) {
     if (!this.client) throw new Error('not connected to Contex');
     try {

@@ -56,7 +56,7 @@ Data dir resolves to `%LOCALAPPDATA%/CodeSurf/workspaces` (win) or
 - [x] **M2 — infinite canvas** (loopback HTTP shell + DOM/SVG pan/zoom, tiles, links, minimap, fit, autosave)
 - [x] **M3 — generic tile host** (type registry, serialization, unknown-type preservation, error boundary, badges, minimize/pin, focus order)
 - [x] **M4 — Contex launcher + MCP client** (supervisor, MCP Streamable-HTTP client, connection orchestrator, link mirror, command-bus drain, status/events to browser)
-- [ ] M5 — terminal tile (real agent in a tile)
+- [x] **M5 (increment 1) — terminal tile** (piped child + env injection + live stream + stdin; real-PTY is a follow-up)
 
 ## M1 — workspace store + shell (this session)
 
@@ -257,9 +257,58 @@ Verified by a committed, opt-in harness `scripts/browser-smoke.mjs`
 minimize, pin, delete, reload-persist, zero console errors). It resolves a
 global Playwright and skips cleanly if absent, so `npm test` stays zero-dep.
 
+## M5 increment 1 — terminal tile (this session)
+
+A tile can now run a **real child process**, and that process can self-register
+with Contex — the first end-to-end **basic workflow**.
+
+- **Backend** (`src/terminal.mjs`, zero-dep): `Terminal` spawns a child with
+  **piped stdio** (NOT a PTY yet), injects env — `CARD_ID` = tile id plus the
+  Contex `CONTEX_URL`/`CONTEX_TOKEN`/`CONTEX_WORKSPACE` (from
+  `ContexConnection.agentEnv()`, **server-side only — the token never reaches the
+  browser**) — streams stdout/stderr, accepts stdin, `control` (interrupt/eof),
+  stop/restart, and keeps a bounded scrollback. `TerminalManager` owns one per
+  tile and re-emits tagged events.
+- **Server** (`src/server.mjs`): `POST /api/terminals/:id/start|input|control|stop`,
+  `GET /api/terminals/:id` (status + scrollback), `GET /api/terminals/:id/stream`
+  (SSE: scrollback + live data + exit). 503 when terminals aren't enabled.
+  `serve` always wires a `TerminalManager` (bound to the optional Contex conn).
+- **Frontend**: the `terminal` tile renders a live shell (command box, ▶/■,
+  output `<pre>`, stdin input). `canvas.js` wires the SSE stream + stdin, persists
+  the command, reattaches to a still-running process on reload, and stops the
+  process when the tile is deleted. `tiles.mjs` stays DOM-free (renders only the
+  static shell). Fixed a focus issue: `select()` only raises a tile on a real
+  selection change, so typing in a terminal input isn't interrupted.
+
+**Tests: 66 passing** (+8 terminal backend: env injection, stdin echo, stop,
+spawn-error, bounded scrollback, no-double-run, manager Contex-env, idle status;
++3 server-terminal: start/status/input/stop, SSE stream, 503-without-terminals).
+Browser harness now **16/16** (adds: terminal runs a process with CARD_ID +
+streamed output, stdin echoed).
+
+**Basic workflow verified against REAL Contex** (`scratchpad/live-workflow.mjs`,
+6/6): a terminal tile runs `node agent.js`; the agent reads its injected
+`CARD_ID` + `CONTEX_URL`/`CONTEX_TOKEN`, calls `peer_set_state`, and Contex then
+reports the tile **online + working** while the canvas status dot turns to
+`working` over SSE. Loop closed: **canvas → tile process → Contex → canvas**.
+
+**Deliberately deferred (M5 increment 2+):** a true PTY (node-pty / ConPTY) for
+fully interactive agent CLIs — piped stdio has no TTY (no raw-mode line editing,
+isatty=false), which is where Electron/native may re-enter; writing a `.mcp.json`
+(or equivalent) so a real Claude/Codex CLI auto-discovers Contex rather than a
+hand-rolled agent; command-arg quoting (current split is whitespace-only);
+project-trust prompt before running a command; ANSI/color rendering in the
+output pane.
+
 ## Next session
 
-**M5 — terminal tile.** Run a real agent process inside a tile: a PTY (or
+**M5 increment 2 / workflow polish.** Options, roughly in value order: (a) write
+a per-tile `.mcp.json` + `CLAUDE.md`/`CARD_ID` so a real `claude`/`codex` CLI
+launched in a tile auto-registers (turns the demo into a real agent); (b) wire
+the **canvas command bus consumer** so an agent's `canvas_create_tile` actually
+creates a tile on the canvas and completes the command (the other half of a
+self-driving workflow); (c) a real PTY backend for interactive fidelity. Decide
+with the user. Run a real agent process inside a tile: a PTY (or
 piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
 inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
 the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the

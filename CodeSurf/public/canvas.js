@@ -97,6 +97,7 @@ function makeTileEl(t) {
     <div class="body${body.ok ? '' : ' has-error'}">${body.html}</div>
     <div class="port" title="Drag to another tile to link"></div>
     <div class="resize" title="Resize"></div>`;
+  if (def.type === 'terminal') wireTerminal(el, t);
   return el;
 }
 
@@ -183,9 +184,10 @@ function syncTileEl(t) {
 
 // ---- selection ----------------------------------------------------------
 function select(id) {
+  const changed = app.selectedId !== id;
   app.selectedId = id;
   world.querySelectorAll('.tile').forEach((el) => el.classList.toggle('selected', el.dataset.id === id));
-  if (id) raiseTile(id);
+  if (id && changed) raiseTile(id); // only raise on a real selection change (keeps input focus stable)
 }
 
 // bring a tile to the front (DOM order = paint order; #links svg stays first/behind)
@@ -245,6 +247,8 @@ function deleteTile(id) {
   if (app.selectedId === id) app.selectedId = null;
   renderLinks(); renderMinimap(); scheduleSave();
   for (const l of removedLinks) contexMirrorLink('DELETE', l.source, l.target);
+  closeStream(id);
+  api('POST', `/api/terminals/${id}/stop`).catch(() => {}); // stop any process the tile owned
 }
 
 function addLink(source, target) {
@@ -492,6 +496,7 @@ async function openWorkspace(id) {
   }
   const { meta, layout, recovered } = await api('GET', `/api/workspaces/${id}`);
   app.workspaceId = meta.id;
+  app.repositoryPath = meta.repositoryPath; // terminals run here
   // normalize every tile through the registry (handles unknown types + defaults)
   app.layout = { ...layout, tiles: (layout.tiles || []).map((raw) => deserializeTile(raw, registry)) };
   app.selectedId = null;
@@ -583,6 +588,66 @@ function openContexStream() {
     es.addEventListener('tile_state', (e) => applyTileState(JSON.parse(e.data)));
     es.onerror = () => { /* EventSource retries on its own */ };
   } catch { /* no Contex endpoint — leave the pill as-is */ }
+}
+
+// ---- terminal tiles (M5) ------------------------------------------------
+const terminalStreams = new Map(); // tileId -> EventSource
+
+function closeStream(id) {
+  const es = terminalStreams.get(id);
+  if (es) { es.close(); terminalStreams.delete(id); }
+}
+
+function wireTerminal(el, tile) {
+  const out = el.querySelector('.term-out');
+  const cmd = el.querySelector('.term-cmd');
+  const input = el.querySelector('.term-input');
+  const startBtn = el.querySelector('.term-start');
+  const stopBtn = el.querySelector('.term-stop');
+  if (!out) return;
+
+  // keep canvas pan/drag/select from hijacking interactions inside the terminal
+  el.querySelector('.term')?.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  const append = (chunk) => {
+    const atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 4;
+    out.textContent += chunk;
+    if (atBottom) out.scrollTop = out.scrollHeight;
+  };
+  function openStream() {
+    closeStream(tile.id);
+    out.textContent = '';
+    const es = new EventSource(`/api/terminals/${tile.id}/stream`);
+    es.addEventListener('data', (e) => append(JSON.parse(e.data).chunk));
+    es.addEventListener('exit', (e) => append(`\n[process exited: ${JSON.parse(e.data).code ?? ''}]\n`));
+    es.onerror = () => { /* EventSource retries */ };
+    terminalStreams.set(tile.id, es);
+  }
+
+  startBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const line = (cmd.value || '').trim();
+    if (!line) return;
+    const parts = line.split(/\s+/);
+    tile.data = { ...tile.data, command: line };
+    scheduleSave();
+    try {
+      await api('POST', `/api/terminals/${tile.id}/start`, { command: parts[0], args: parts.slice(1), cwd: app.repositoryPath });
+      openStream();
+    } catch (err) { append(`\n[start failed: ${err.message}]\n`); }
+  });
+  stopBtn.addEventListener('click', (e) => { e.stopPropagation(); api('POST', `/api/terminals/${tile.id}/stop`).catch(() => {}); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    api('POST', `/api/terminals/${tile.id}/input`, { data: input.value + '\n' }).catch(() => {});
+    input.value = '';
+  });
+
+  // reattach to an already-running process (re-render / page reload)
+  fetch(`/api/terminals/${tile.id}`).then((r) => r.json()).then((s) => {
+    if (s.status === 'running' || (s.scrollback && s.scrollback.length)) openStream();
+  }).catch(() => {});
 }
 
 // ---- utils --------------------------------------------------------------

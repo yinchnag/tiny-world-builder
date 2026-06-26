@@ -98,7 +98,7 @@ async function serveStatic(res, urlPath) {
 /** Build the request handler bound to a WorkspaceStore and an optional
  *  ContexConnection (Contex integration is opt-in — CodeSurf runs canvas-only
  *  without it). */
-export function createHandler(store, contex = null) {
+export function createHandler(store, contex = null, terminals = null) {
   return async function handler(req, res) {
     try {
       if (!isLoopbackHost(req.headers.host)) {
@@ -126,6 +126,39 @@ export function createHandler(store, contex = null) {
       if (path === '/api/contex/events' && method === 'GET') {
         if (!contex) return sendJson(res, 503, { error: { code: 'CODESURF_NO_CONTEX', message: 'Contex not connected' } });
         return streamContexEvents(req, res, contex);
+      }
+
+      // ---- Terminal tiles (M5) ----
+      const term = path.match(/^\/api\/terminals\/([^/]+)(?:\/(start|input|control|stop|stream))?$/);
+      if (term) {
+        if (!terminals) return sendJson(res, 503, { error: { code: 'CODESURF_NO_TERMINALS', message: 'terminals not enabled' } });
+        const tileId = decodeURIComponent(term[1]);
+        const action = term[2];
+        if (!action && method === 'GET') {
+          return sendJson(res, 200, { ...terminals.status(tileId), scrollback: terminals.scrollback(tileId) });
+        }
+        if (action === 'stream' && method === 'GET') return streamTerminal(req, res, terminals, tileId);
+        if (action === 'start' && method === 'POST') {
+          const body = (await readBody(req)) || {};
+          if (!body.command) throw new CodeSurfError('CODESURF_BAD_REQUEST', 'command required');
+          const started = terminals.start(tileId, { command: body.command, args: body.args, cwd: body.cwd });
+          return sendJson(res, 200, { ok: true, command: started });
+        }
+        if (action === 'input' && method === 'POST') {
+          const body = (await readBody(req)) || {};
+          terminals.write(tileId, body.data ?? '');
+          return sendJson(res, 200, { ok: true });
+        }
+        if (action === 'control' && method === 'POST') {
+          const body = (await readBody(req)) || {};
+          terminals.control(tileId, body.action);
+          return sendJson(res, 200, { ok: true });
+        }
+        if (action === 'stop' && method === 'POST') {
+          terminals.stop(tileId);
+          return sendJson(res, 200, { ok: true });
+        }
+        return sendJson(res, 405, { error: { code: 'CODESURF_BAD_REQUEST', message: 'bad terminal route' } });
       }
 
       // ---- API ----
@@ -186,14 +219,36 @@ function streamContexEvents(req, res, contex) {
   });
 }
 
-/** Create (but do not listen on) an http.Server bound to a store + optional Contex. */
-export function createServer(store, contex = null) {
-  return httpCreateServer(createHandler(store, contex));
+/** Stream a terminal tile's scrollback + live output/exit to the browser via SSE. */
+function streamTerminal(req, res, terminals, tileId) {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  const status = terminals.status(tileId);
+  res.write(`event: status\ndata: ${JSON.stringify(status)}\n\n`);
+  const back = terminals.scrollback(tileId);
+  if (back) res.write(`event: data\ndata: ${JSON.stringify({ chunk: back })}\n\n`);
+  const onData = (e) => { if (e.tileId === tileId) res.write(`event: data\ndata: ${JSON.stringify({ chunk: e.data })}\n\n`); };
+  const onExit = (e) => { if (e.tileId === tileId) res.write(`event: exit\ndata: ${JSON.stringify(e)}\n\n`); };
+  const onStarted = (e) => { if (e.tileId === tileId) res.write(`event: status\ndata: ${JSON.stringify(terminals.status(tileId))}\n\n`); };
+  terminals.on('data', onData);
+  terminals.on('exit', onExit);
+  terminals.on('started', onStarted);
+  const keepalive = setInterval(() => res.write(': ping\n\n'), 20000);
+  req.on('close', () => {
+    clearInterval(keepalive);
+    terminals.off('data', onData);
+    terminals.off('exit', onExit);
+    terminals.off('started', onStarted);
+  });
+}
+
+/** Create (but do not listen on) an http.Server bound to a store + optional Contex + terminals. */
+export function createServer(store, contex = null, terminals = null) {
+  return httpCreateServer(createHandler(store, contex, terminals));
 }
 
 /** Start the loopback server. Resolves with { server, url, port }. */
-export function startServer({ store, contex = null, host = '127.0.0.1', port = 0 } = {}) {
-  const server = createServer(store, contex);
+export function startServer({ store, contex = null, terminals = null, host = '127.0.0.1', port = 0 } = {}) {
+  const server = createServer(store, contex, terminals);
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, host, () => {

@@ -38,8 +38,8 @@ test('normalizeTile fills defaults and clamps sizes to the minimum', () => {
 test('normalizeTile uses the type default size when w/h absent', () => {
   const reg = createDefaultRegistry();
   const t = normalizeTile({ type: 'terminal' }, reg);
-  assert.equal(t.w, 360);
-  assert.equal(t.h, 240);
+  assert.equal(t.w, 420);
+  assert.equal(t.h, 300);
 });
 
 test('normalizeTile flags an unknown type but keeps it usable', () => {

@@ -6,6 +6,7 @@ import { openCodeSurf, defaultDataDir } from './index.mjs';
 import { startServer } from './server.mjs';
 import { ContexSupervisor } from './contex.mjs';
 import { ContexConnection } from './contex-connection.mjs';
+import { TerminalManager } from './terminal.mjs';
 
 const [, , cmd, ...rest] = process.argv;
 
@@ -57,7 +58,8 @@ switch (cmd) {
         .then(({ url: cu }) => process.stderr.write(`Contex connected at ${cu}\n`))
         .catch((e) => process.stderr.write(`Contex failed to start: ${e.message}\n`));
     }
-    const { url } = await startServer({ store, contex, port });
+    const terminals = new TerminalManager({ contex }); // contex may be null; env injection no-ops then
+    const { url } = await startServer({ store, contex, terminals, port });
     process.stderr.write(`CodeSurf canvas serving at ${url}\n`);
     process.stderr.write(`Data dir: ${defaultDataDir()}\n`);
     if (!contex) process.stderr.write(`(Contex off — pass --contex to launch the coordination backend)\n`);

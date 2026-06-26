@@ -12,13 +12,14 @@
 // dir, so it touches nothing real. Exits non-zero if any check fails; exits 0
 // with a notice if Playwright isn't installed.
 
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { WorkspaceStore } from '../src/store.mjs';
 import { startServer } from '../src/server.mjs';
+import { TerminalManager } from '../src/terminal.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -44,8 +45,11 @@ const check = (name, pass) => { checks.push({ name, pass: !!pass }); };
 // --- boot a throwaway CodeSurf server ---
 const store = new WorkspaceStore(mkdtempSync(join(tmpdir(), 'cs-bsmoke-')));
 const repo = mkdtempSync(join(tmpdir(), 'cs-bsmoke-repo-'));
+writeFileSync(join(repo, 'echo.js'),
+  "process.stdout.write('CARD='+process.env.CARD_ID+'\\n');process.stdin.on('data',d=>process.stdout.write('ECHO:'+d));");
 const ws = store.createWorkspace({ name: 'BrowserSmoke', repositoryPath: repo });
-const { server, url } = await startServer({ store, port: 0 });
+const terminals = new TerminalManager();
+const { server, url } = await startServer({ store, terminals, port: 0 });
 const BASE = url.replace(/\/$/, '');
 
 const errors = [];
@@ -122,6 +126,22 @@ try {
   check('pin toggles state', (await page.locator(`.tile[data-id="${A}"].pinned`).count()) === 1);
   await page.click(`.tile[data-id="${A}"] .btn.pin`); await sleep(80);
 
+  // terminal tile: run a real process, stream output, send stdin
+  const T = await addTile('terminal');
+  await dragFrom(`.tile[data-id="${T}"] .head`, -40, 240);
+  const termOut = () => page.locator(`.tile[data-id="${T}"] .term-out`).textContent();
+  await page.fill(`.tile[data-id="${T}"] .term-cmd`, 'node echo.js');
+  await page.click(`.tile[data-id="${T}"] .term-start`);
+  let dl = Date.now() + 5000, sawCard = false;
+  while (Date.now() < dl) { if (/CARD=/.test(await termOut())) { sawCard = true; break; } await sleep(100); }
+  check('terminal runs a process (CARD_ID injected, output streamed)', sawCard);
+  await page.fill(`.tile[data-id="${T}"] .term-input`, 'ping');
+  await page.press(`.tile[data-id="${T}"] .term-input`, 'Enter');
+  dl = Date.now() + 5000; let sawEcho = false;
+  while (Date.now() < dl) { if (/ECHO:ping/.test(await termOut())) { sawEcho = true; break; } await sleep(100); }
+  check('terminal stdin is echoed back', sawEcho);
+  await page.click(`.tile[data-id="${T}"] .btn.close`, { force: true }); await sleep(200); // stops process + removes tile
+
   const cnt = (await ids()).length;
   await page.click(`.tile[data-id="${B}"] .btn.close`, { force: true }); await sleep(150);
   check('close button deletes a tile', (await ids()).length === cnt - 1);
@@ -132,6 +152,7 @@ try {
   check('no console errors', errors.length === 0);
 } finally {
   await browser.close();
+  terminals.stopAll();
   server.close();
 }
 
