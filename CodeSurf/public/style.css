@@ -87,6 +87,17 @@ input { cursor: text; }
 .tile .body pre, .tile .body pre.raw { margin: 0; font-size: 11px; white-space: pre-wrap; color: var(--text); }
 .tile .body.has-error { color: #ff8b8b; }
 
+/* chat tile */
+.tile .body:has(.chat) { padding: 0; }
+.chat { display: flex; flex-direction: column; height: 100%; }
+.chat-log { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
+.chat-log .msg { font-size: 12px; line-height: 1.35; max-width: 85%; padding: 4px 8px; border-radius: 8px; word-break: break-word; }
+.chat-log .msg .who { display: block; font-size: 10px; color: var(--muted); margin-bottom: 1px; }
+.chat-log .msg.me { align-self: flex-end; background: #294a73; color: #eaf2ff; }
+.chat-log .msg.them { align-self: flex-start; background: var(--panel-2); }
+.chat-bar { display: flex; gap: 4px; padding: 5px 6px; border-top: 1px solid var(--line); flex: 0 0 auto; }
+.chat-bar .chat-input { flex: 1; font-size: 12px; padding: 4px 7px; }
+
 /* terminal tile */
 .tile .body:has(.term) { padding: 0; }
 .term { display: flex; flex-direction: column; height: 100%; }

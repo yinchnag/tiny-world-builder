@@ -380,13 +380,40 @@ browser harness **16/16** and the basic-workflow **9/9** (both pinned to the
 This completes the interactive-terminal story: M5 + all three follow-ups (.mcp.json
 auto-discovery, command-bus consumer, real PTY) + xterm rendering.
 
+## Phase 6 — chat tile + human control loop (this session)
+
+The minimal-GUI milestones (M1–M5 + follow-ups) are done; this picks up the full
+`DEVELOPMENT_PLAN.md` at Phase 6. The human can now **talk to agents** from the
+canvas, not just watch them.
+
+- **Server** (`src/server.mjs`): `POST /api/contex/chat/:id/register` (registers
+  the chat tile as a Contex `chat` peer), `POST .../send` (`peer_send_message`
+  from the chat tile to each linked recipient — link-gated by Contex),
+  `GET .../messages` (`peer_read_messages` inbox). 503 without Contex.
+- **Chat tile** (`tiles.mjs` shell + `canvas.js` `wireChat`): a message log +
+  input; sends to the tile's **canvas-linked** peers; shows incoming replies.
+  Refreshes on `message_received` (the events SSE now also forwards raw
+  `notification`s, routed by `handleContexNotification`). **Human-attention**:
+  a `human_attention` notification flashes the tile and shows a topbar alert.
+- **Link mirroring on connect** (`mirrorAllLinks`): a saved workspace's canvas
+  links now become Contex peer edges when Contex connects (previously only
+  freshly-drawn links mirrored) — so a seeded chat↔agent link works immediately.
+
+**Tests: 72 passing** (+1 server-contex: chat register → send to 2 recipients →
+read inbox, over a mock MCP). Browser harness still 16/16. Live verified
+(`scratchpad/pw-chat.mjs`, 4/4): a chat tile linked to an agent terminal — the
+human sends a message, the agent (a real process) reads its inbox and replies,
+and the reply appears back in the chat tile over the live stream.
+
+**Deferred (Phase 6 stretch):** unread badges, attachments, objective/todo
+conversion, message search, per-recipient threads.
+
 ## Next session
 
-Polish / breadth, pick by need: make `--pty` the serve default now that ANSI
-renders; command-arg quoting (shell-style) in the terminal launcher; a
-project-trust prompt before running a command; or move up the DEVELOPMENT_PLAN
-(Phase 6 chat tile + human control loop / Phase 8 status+task board — both have
-their Contex backends ready). Run a real agent process inside a tile: a PTY (or
+Phase 6 stretch (unread badges / human-attention polish) or **Phase 8** (status
+tile + task board + file-claim/conflict overlays — Contex tasks/claims backend
+ready), or polish (`--pty` default, command-arg quoting, project-trust prompt,
+packaged `.exe`). Run a real agent process inside a tile: a PTY (or
 piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
 inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
 the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the

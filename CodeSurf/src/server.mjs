@@ -144,6 +144,33 @@ export function createHandler(store, contex = null, terminals = null) {
         return sendJson(res, 200, { ok: true, result: out });
       }
 
+      // ---- chat tiles (Phase 6: human ↔ agent) ----
+      const chat = path.match(/^\/api\/contex\/chat\/([^/]+)\/(register|send|messages)$/);
+      if (chat) {
+        if (!contex) return sendJson(res, 503, { error: { code: 'CODESURF_NO_CONTEX', message: 'Contex not connected' } });
+        const tileId = decodeURIComponent(chat[1]);
+        if (chat[2] === 'register' && method === 'POST') {
+          await contex.call('peer_set_state', { tile_id: tileId, tile_type: 'chat', status: 'idle', task: 'chat tile' });
+          return sendJson(res, 200, { ok: true });
+        }
+        if (chat[2] === 'send' && method === 'POST') {
+          const body = (await readBody(req)) || {};
+          if (!body.text) throw new CodeSurfError('CODESURF_BAD_REQUEST', 'text required');
+          const recipients = Array.isArray(body.recipients) ? body.recipients : (body.to ? [body.to] : []);
+          const results = [];
+          for (const to of recipients) {
+            try { await contex.call('peer_send_message', { from_tile_id: tileId, to_tile_id: to, text: body.text }); results.push({ to, ok: true }); }
+            catch (e) { results.push({ to, ok: false, error: e.message }); } // e.g. no canvas link to that peer
+          }
+          return sendJson(res, 200, { ok: true, delivered: results });
+        }
+        if (chat[2] === 'messages' && method === 'GET') {
+          const out = await contex.call('peer_read_messages', { tile_id: tileId, unread_only: false });
+          return sendJson(res, 200, { messages: out?.messages || [] });
+        }
+        return sendJson(res, 405, { error: { code: 'CODESURF_BAD_REQUEST', message: 'bad chat route' } });
+      }
+
       // ---- Terminal tiles (M5) ----
       const term = path.match(/^\/api\/terminals\/([^/]+)(?:\/(start|input|control|stop|stream|resize))?$/);
       if (term) {

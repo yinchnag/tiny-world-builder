@@ -98,6 +98,7 @@ function makeTileEl(t) {
     <div class="port" title="Drag to another tile to link"></div>
     <div class="resize" title="Resize"></div>`;
   if (def.type === 'terminal') wireTerminal(el, t);
+  if (def.type === 'chat') wireChat(el, t);
   return el;
 }
 
@@ -249,6 +250,7 @@ function deleteTile(id) {
   for (const l of removedLinks) contexMirrorLink('DELETE', l.source, l.target);
   closeStream(id);
   disposeTerminalUI(id);
+  chatTiles.delete(id);
   api('POST', `/api/terminals/${id}/stop`).catch(() => {}); // stop any process the tile owned
 }
 
@@ -547,9 +549,17 @@ const contexPill = $('#contex');
 let contexConnected = false;
 
 function setContexStatus(status) {
+  const was = contexConnected;
   contexConnected = status === 'connected';
   contexPill.textContent = 'Contex: ' + status;
   contexPill.className = 'contex ' + status;
+  if (contexConnected && !was) { mirrorAllLinks(); registerAllChatTiles(); } // sync canvas links + chat tiles when Contex comes up
+}
+
+// mirror every existing canvas link into Contex (so a saved workspace's links
+// become peer edges once Contex connects, not only freshly-drawn ones)
+function mirrorAllLinks() {
+  for (const l of links()) contexMirrorLink('POST', l.source, l.target, l.directed);
 }
 
 async function contexMirrorLink(method, source, target, directed) {
@@ -588,6 +598,7 @@ function openContexStream() {
     es.addEventListener('status', (e) => setContexStatus(JSON.parse(e.data).status));
     es.addEventListener('tile_state', (e) => applyTileState(JSON.parse(e.data)));
     es.addEventListener('command', (e) => handleCanvasCommand(JSON.parse(e.data)));
+    es.addEventListener('notification', (e) => handleContexNotification(JSON.parse(e.data)));
     es.onerror = () => { /* EventSource retries on its own */ };
   } catch { /* no Contex endpoint — leave the pill as-is */ }
 }
@@ -645,6 +656,83 @@ function flashTile(id) {
   if (!el) return;
   el.classList.add('flash');
   setTimeout(() => el.classList.remove('flash'), 1200);
+}
+
+// ---- chat tiles (Phase 6: human ↔ agent) -------------------------------
+const chatTiles = new Map(); // tileId -> { refresh }
+
+function linkedTileIds(id) {
+  const out = [];
+  for (const l of links()) {
+    if (l.source === id) out.push(l.target);
+    else if (l.target === id) out.push(l.source);
+  }
+  return out;
+}
+function shortId(id) { return String(id || '').replace(/^tile_/, '').slice(0, 6); }
+
+function registerChat(tileId) {
+  if (contexConnected) api('POST', `/api/contex/chat/${tileId}/register`).catch(() => {});
+}
+function registerAllChatTiles() {
+  for (const t of tiles()) if (t.type === 'chat') registerChat(t.id);
+  for (const c of chatTiles.values()) c.refresh?.();
+}
+
+function wireChat(el, tile) {
+  const log = el.querySelector('.chat-log');
+  const input = el.querySelector('.chat-input');
+  const sendBtn = el.querySelector('.chat-send');
+  if (!log) return;
+  el.querySelector('.chat')?.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  const seen = new Set();
+  const msgs = [];
+  const now = () => new Date().toISOString();
+  function render() {
+    msgs.sort((a, b) => (a.at || '').localeCompare(b.at || ''));
+    log.innerHTML = msgs.map((m) =>
+      `<div class="msg ${m.from === 'you' ? 'me' : 'them'}"><span class="who">${escapeHtml(m.from === 'you' ? 'you' : shortId(m.from))}</span>${escapeHtml(m.text)}</div>`).join('');
+    log.scrollTop = log.scrollHeight;
+  }
+  function add(m) { if (m.id && seen.has(m.id)) return; if (m.id) seen.add(m.id); msgs.push(m); render(); }
+
+  async function refresh() {
+    if (!contexConnected) return;
+    try {
+      const { messages } = await api('GET', `/api/contex/chat/${tile.id}/messages`);
+      for (const m of messages) add({ id: m.id, from: m.from_tile_id, text: m.text, at: m.created_at });
+    } catch { /* offline */ }
+  }
+  async function send() {
+    const text = (input.value || '').trim();
+    if (!text) return;
+    const recipients = linkedTileIds(tile.id);
+    if (recipients.length === 0) { add({ id: 'sys_' + Date.now(), from: 'you', text: '(link this chat to an agent tile first)', at: now() }); return; }
+    input.value = '';
+    add({ id: 'local_' + Date.now(), from: 'you', text, at: now() });
+    if (!contexConnected) { add({ id: 'sys_' + Date.now(), from: 'you', text: '(Contex offline — not delivered)', at: now() }); return; }
+    try { await api('POST', `/api/contex/chat/${tile.id}/send`, { text, recipients }); }
+    catch (e) { add({ id: 'err_' + Date.now(), from: 'you', text: '(send failed: ' + e.message + ')', at: now() }); }
+  }
+
+  sendBtn.addEventListener('click', (e) => { e.stopPropagation(); send(); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+
+  chatTiles.set(tile.id, { refresh });
+  registerChat(tile.id);
+  refresh();
+}
+
+// route Contex notifications: refresh chats on new messages; flag human attention
+function handleContexNotification(n) {
+  const method = n?.method || '';
+  if (method.endsWith('message_received')) {
+    for (const c of chatTiles.values()) c.refresh?.();
+  } else if (method.endsWith('human_attention')) {
+    if (n.params?.tile_id) flashTile(n.params.tile_id);
+    setStatus('⚠ agent needs attention' + (n.params?.text ? ': ' + n.params.text : ''), 'recovered');
+  }
 }
 
 // Remove ANSI CSI/OSC + lone escapes (interim until xterm.js renders them).

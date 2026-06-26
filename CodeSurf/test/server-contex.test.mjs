@@ -80,6 +80,46 @@ test('Contex endpoints: status (no token), link mirror, SSE events', async () =>
   await mock.close();
 });
 
+test('chat: register, send to linked recipients, read messages', async () => {
+  const sent = [];
+  const mock = await startMockMcp({ tools: {
+    peer_set_state: (a) => ({ tile_id: a.tile_id, type: a.tile_type, status: a.status, version: 1 }),
+    peer_send_message: (a) => { sent.push(a); return { id: 'm_' + sent.length, ok: true }; },
+    peer_read_messages: () => ({ messages: [{ id: 'm1', from_tile_id: 'agent_1', text: 'hello human', created_at: '2026-06-26T00:00:00Z' }] }),
+    canvas_next_commands: () => ({ commands: [] }),
+  } });
+  const conn = new ContexConnection({ drainIntervalMs: 10_000 });
+  await conn.connectDirect({ url: mock.url, token: 'tok-a', workspace_id: 'ws_1' });
+  const store = new WorkspaceStore(tmp('cs-chat-'));
+  const { server, url } = await startServer({ store, contex: conn, port: 0 });
+  const base = url.replace(/\/$/, '');
+
+  // register the chat tile
+  let r = await fetch(`${base}/api/contex/chat/chat_1/register`, { method: 'POST' });
+  assert.equal(r.status, 200);
+
+  // send to two linked recipients → two peer_send_message calls from the chat tile
+  r = await fetch(`${base}/api/contex/chat/chat_1/send`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'do the thing', recipients: ['agent_1', 'agent_2'] }),
+  });
+  assert.equal(r.status, 200);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[0].from_tile_id, 'chat_1');
+  assert.equal(sent[0].to_tile_id, 'agent_1');
+  assert.equal(sent[0].text, 'do the thing');
+
+  // read the chat tile's inbox
+  const msgs = await (await fetch(`${base}/api/contex/chat/chat_1/messages`)).json();
+  assert.equal(msgs.messages.length, 1);
+  assert.equal(msgs.messages[0].from_tile_id, 'agent_1');
+  assert.equal(msgs.messages[0].text, 'hello human');
+
+  server.close();
+  await conn.stop();
+  await mock.close();
+});
+
 test('command bus: command is forwarded over SSE and completed via the endpoint', async () => {
   const completed = [];
   const mock = await startMockMcp({ tools: {

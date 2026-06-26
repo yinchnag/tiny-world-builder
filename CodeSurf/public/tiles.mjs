@@ -170,8 +170,15 @@ export function createDefaultRegistry() {
     </div>`,
   });
   reg.register({
-    type: 'chat', label: 'Chat', defaultSize: { w: 300, h: 240 }, capabilities: ['chat'],
-    renderBody: () => '<p class="muted">Chat tile — human ↔ agent thread (M4 wires Contex).</p>',
+    type: 'chat', label: 'Chat', defaultSize: { w: 340, h: 300 }, capabilities: ['chat'],
+    // shell; canvas.js wires it to Contex messaging (send to linked agents, show replies)
+    renderBody: () => `<div class="chat">
+      <div class="chat-log"></div>
+      <div class="chat-bar">
+        <input class="chat-input" placeholder="message linked agents — Enter to send" />
+        <button class="chat-send" title="Send">Send</button>
+      </div>
+    </div>`,
   });
   reg.register({
     type: 'status', label: 'Status', defaultSize: { w: 260, h: 180 }, capabilities: [],
