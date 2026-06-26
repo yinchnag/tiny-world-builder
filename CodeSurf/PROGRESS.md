@@ -408,6 +408,33 @@ and the reply appears back in the chat tile over the live stream.
 **Deferred (Phase 6 stretch):** unread badges, attachments, objective/todo
 conversion, message search, per-recipient threads.
 
+## Chat demo + claude-bridge (this session)
+
+A ready-made canvas demo that proves the human↔agent loop end-to-end, in
+`examples/chat-demo/`:
+
+- `create-workspace.mjs` seeds a **"Chat Demo"** workspace — a **Chat** tile
+  linked to an **Agent** terminal. Pick it in the app, click **▶** on the Agent,
+  type in the Chat tile, get a reply.
+- Two agents ship:
+  - **`claude-bridge.js` (default) — a REAL agent.** It forwards each chat
+    message to the actual **`claude` CLI** (`claude -p <msg> --output-format json`,
+    headless), sends Claude's real answer back to the Chat tile, and keeps the
+    conversation thread via the returned `session_id` (`--resume`). It speaks raw
+    MCP over HTTP to Contex (initialize → `peer_set_state` → `link_tiles` → poll
+    `peer_read_messages(unread)` → ask claude → `peer_send_message` → idle),
+    resolves `claude` on `PATH` (PATHEXT-aware for Windows `.CMD`), and runs
+    Claude in a neutral `mkdtemp` dir so this repo's `CLAUDE.md`/`.mcp.json` don't
+    steer it (point `WORK` at a repo to let it actually read/edit files). Each
+    message is a real Claude API call (tokens + a few seconds).
+  - **`chat-agent.js`** — a free/instant **canned-reply** stub (no AI), to show
+    the messaging plumbing without spending tokens.
+
+No new app code — the demo exercises the Phase 6 chat/control-loop paths already
+built. Commits: chat-demo = `afa5f9f`, claude-bridge (接真 Claude, 不再是回声) =
+`080e91f`. Branch `codex/contex-codesurf-development` pushed to the `fork` remote
+(yinchnag) through `080e91f`; not pushed to `origin` (upstream jasonkneen).
+
 ## Next session
 
 Phase 6 stretch (unread badges / human-attention polish) or **Phase 8** (status
