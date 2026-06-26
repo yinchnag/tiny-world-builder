@@ -26,7 +26,10 @@ Requires Node >= 22.5 (built-in `node:sqlite`). **Zero runtime dependencies.**
 - [x] **Phase 1 — real MCP Streamable HTTP transport** (sessions + SSE notifications)
 - [x] **Phase 2 — workspace lifecycle + MCP resource views** (`context://` reads)
 - [x] **Phase 3 — canvas links + peer discovery** (directed tool-flow, opt-in workspace discovery)
-- [ ] Phase 5 — tasks (open→assigned→in_progress→review→done) + first-gen aliases
+- [x] **Phase 4 — messaging + notifications** (chat adapters, notify, priority, retention, inbox resource)
+- [x] **Phase 5 — tasks + first-gen task tools** (state machine, create/update/pause_task, tasks resource)
+- [x] **Phase 6 — file claims + collision prevention** (path safety, stale/expiry, owner override)
+- [x] **Phase 7 — objectives, skills, context** (versioned objectives + reload signaling, get_context)
 - [ ] Phase 7 — versioned objectives + skills + reload signaling
 - [ ] Phase 8 — canvas command bus (`canvas_create_tile`, `terminal_send_input`)
 - [ ] Phase 9 — audit replay / workspace export
@@ -155,6 +158,117 @@ two-way tools, directed one-way tools + two-way visibility, offline peers hidden
 by default / shown with include_offline, and a `peer_link_changed` notification
 received over the SSE stream).
 
+## Phase 4 — messaging + notifications (this session)
+
+Persistent inbox, direct messages, acknowledgement, unread reads, reply/
+correlation ids, and the notification stream were already in place (Round 1 +
+Phase 1). This session added the chat adapters and the remaining behaviors:
+
+- **Chat adapters**: `chat_send_message` (human-readable message; target must be
+  a chat tile, still link-gated) and `chat_acknowledge` (only the recipient may
+  ack; stamps acknowledged_at).
+- **`notify`** tool: workspace notification; `level: 'human_attention'` raises a
+  `notifications/context/human_attention` SSE notification (other levels →
+  `notice`), and every notify is audited.
+- **Priority ordering** (`urgent→high→normal→low`, then chronological) and
+  **offset pagination** in `peer_read_messages`.
+- **Retention**: `purgeExpiredMessages` drops messages past the window
+  (default 30 days, DATA_MODEL §7).
+- **Inbox resource**: `context://tile/{id}/inbox` (the Phase-2-deferred view).
+
+Exit criterion met: a terminal agent asks a linked chat tile a question and reads
+the reply (covered end-to-end over MCP).
+
+**Tests: 54 passing** (+10: chat send/ack, priority order, offline-then-read,
+idempotent duplicate send, notify human_attention via SSE, retention purge, inbox
+resource, and the terminal↔chat exit scenario).
+
+Still deferred: retention runs on-demand only (no background sweep in `serve`
+yet); `tasks` resource + task state machine are Phase 5.
+
+## Phase 5 — tasks + first-gen task tools (this session)
+
+Mostly new work: the `task` entity had no domain logic (only todos existed).
+
+- **`task` table** added to the schema (SCHEMA_VERSION → 2) — DATA_MODEL.md was
+  missing it in Round 1; `CREATE TABLE IF NOT EXISTS` picks it up on next open.
+- **Task state machine** (`domain/tasks.mjs`): `open → assigned → in_progress →
+  review → done`, with `paused`/`blocked`/`cancelled` branches; invalid moves →
+  `CONTEXT_INVALID_TRANSITION`, concurrent edits → `CONTEXT_VERSION_CONFLICT`.
+  Pause stores the reason as the blocker; resuming clears it; `done` stamps
+  `completed_at`.
+- **First-gen tools**: `create_task` (channel = a tile id or the workspace),
+  `update_task`, `pause_task`. The historical `mcp__contex__` prefix is applied
+  by the MCP client, so server-side names stay bare.
+- **Per-channel views** (`listTasks` channel filter), **task_changed**
+  notifications, and **`importTaskState`** (recovered `state.json` → tasks).
+- **Tasks resource**: `context://workspace/{id}/tasks` ({ tasks, todos }).
+
+Exit criterion met: a recovered `state.json` imports and is represented through
+the tasks resource.
+
+**Tests: 64 passing** (+10: happy-path lifecycle, invalid transitions,
+optimistic concurrency, pause/resume blocker, assign-to-offline-tile, per-channel
+views, state.json import, tasks resource, and create_task → task_changed SSE).
+
+## Phase 6 — file claims + collision prevention (this session)
+
+Claim publication, read/edit/exclusive modes, conflict derivation, and conflict
+notifications already shipped (Round 1 + Phase 1). This session added the
+security + lifecycle pieces:
+
+- **Path safety** (`domain/claims.mjs` `normalizeClaimPath`): claim paths are
+  normalized relative to the workspace `repository_path`; `../` traversal and
+  absolute paths outside the root are rejected (`CONTEXT_BAD_REQUEST`).
+  Validated up-front in `peer_set_state` so an escaping path rejects the whole
+  update with no partial claim. Contex still never reads file contents.
+- **Stale-claim expiry**: a claim only counts toward a conflict when its owning
+  tile is online and the claim's `expires_at` (optional, per `files[]` entry)
+  hasn't passed — offline/expired claims no longer block. `purgeExpiredClaims`
+  releases lapsed claims.
+- **Owner override**: `releaseClaim({ tile_id, path? })` releases a tile's
+  claim(s) and emits a `file_conflict` update; resolves the conflict.
+
+**Tests: 71 passing** (+7: path normalization incl. Windows paths, traversal/
+out-of-root rejection, escaping path leaves no claim, normalized storage,
+offline-claim-is-stale, expiry + purge, conflict resolves after release).
+
+Exit criterion already held (two linked editors get a warning before writing);
+this phase hardens the safety around it.
+
+## Phase 7 — objectives, skills, context (this session)
+
+New work — these entities had no schema/logic. Added `objective_version`,
+`objective_ack`, `skill_assignment`, `context_attachment` tables
+(SCHEMA_VERSION → 3).
+
+- **Versioned objectives** (`domain/objectives.mjs`): each `set_objective` stores
+  an immutable new version; the current one is never overwritten. A tile needs a
+  reload while latest version > its acknowledged version.
+- **Reload signaling + ack**: `set_objective` emits
+  `notifications/context/objective_reload_required`; `reload_objective` fetches
+  the latest and acknowledges its version. Acking an older version is reported as
+  `stale` (reload still required).
+- **Skills** (`domain/skills.mjs`): per-tile enable/disable (upsert), rendered as
+  the historical `skills.json` ({ enabled, disabled }).
+- **Context attachments** (`domain/attachments.mjs`): references (kind/label/uri/
+  hash), never inline content.
+- **`get_context`**: objective + skills + peers + tasks(channel) + attachment
+  references + reload_required, in one call.
+- **Virtual files as resources**: `context://tile/{id}/objective` (objective.md)
+  and `/skills` (skills.json) — the Phase-2-deferred views.
+
+Tools: `set_objective`, `set_skill`, `add_context_attachment`, `get_context`,
+`reload_objective`. Exit criterion met: CodeSurf alters a tile objective and the
+running agent is prompted to reload (covered end-to-end over MCP).
+
+**Tests: 77 passing** (+6: versioning + reload-required, stale ack, skills
+enable/disable, get_context assembly, objective.md/skills.json resources, and the
+set_objective → objective_reload_required → reload_objective SSE flow).
+
+Deferred: optional `.contex/tile-*` import/export (Phase 7 stretch); exact
+byte-match of historical objective.md fixtures awaits Phase 0 fixtures.
+
 ## Deliberate simplifications (revisit in later phases)
 
 - SSE streams have **no resumability/replay** (Last-Event-ID is emitted but not
@@ -170,9 +284,9 @@ received over the SSE stream).
 
 ## Next session
 
-Phases 1–3 done (transport, presence, resources, links/discovery). Candidates:
-**Phase 4** (messaging+notifications — mostly done in Round 1; gaps are
-chat adapters, `notify`/human-attention, priority ordering, retention),
-**Phase 5** (tasks state machine + first-gen `create_task` aliases), **Phase 8**
-(canvas command bus — CodeSurf needs first), or **scopes/rate-limits**. Worth
-doing once: the user-side real-client smoke (`.mcp.json` above).
+Phases 1–7 done (transport, presence, resources, links/discovery, messaging,
+tasks, claims, objectives/skills/context). Next in order is **Phase 8** (canvas
+command bus — persistent command queue, `canvas_create_tile`, terminal input,
+focus/highlight/connect, result callbacks; CodeSurf consumes these). Then
+**Phase 9** (audit replay/export) and **Phase 10** (CodeSurf integration
+hardening). Worth doing once: the user-side real-client smoke (`.mcp.json` above).

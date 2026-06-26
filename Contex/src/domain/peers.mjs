@@ -9,6 +9,7 @@
 import { getTile, getTileRow, normalizeTile, activeClaimsForTile, effectiveStatus, DEFAULT_HEARTBEAT_TIMEOUT_MS } from './tiles.mjs';
 import { linkedTileIds, canActOn } from './links.mjs';
 import { workspaceDiscoveryEnabled } from './workspace.mjs';
+import { isClaimLive } from './claims.mjs';
 import { err } from '../errors.mjs';
 
 // Tools a peer of a given type exposes to a linked neighbor. Mirrors the
@@ -88,8 +89,12 @@ export function getPeerState(db, { tile_id, include_workspace = false, include_o
     peerIds = linkedTileIds(db, selfRow.workspace_id, tile_id);
   }
 
+  // claims only count for conflicts when their owning tile is online and the
+  // claim hasn't expired — a stale (offline/expired) claim must not block.
+  const liveClaims = (id, online) => (online ? activeClaimsForTile(db, id).filter((c) => isClaimLive(c, now)) : []);
+
   const peers = [];
-  const conflictScopeClaims = [...activeClaimsForTile(db, tile_id)];
+  const conflictScopeClaims = [...liveClaims(tile_id, self.online)];
   for (const pid of peerIds) {
     const row = getTileRow(db, pid);
     if (!row) continue;
@@ -98,7 +103,7 @@ export function getPeerState(db, { tile_id, include_workspace = false, include_o
     // peer is visible (undirected); tools are listed only if THIS tile may act on it
     const tools = canActOn(db, selfRow.workspace_id, tile_id, pid) ? availableToolsForType(row.type) : [];
     peers.push({ ...norm, available_tools: tools });
-    conflictScopeClaims.push(...activeClaimsForTile(db, pid));
+    conflictScopeClaims.push(...liveClaims(pid, norm.online));
   }
 
   return {

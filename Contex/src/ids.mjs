@@ -11,5 +11,9 @@ export function newId(prefix) {
 export const newWorkspaceId = () => newId('ws');
 export const newMessageId = () => newId('msg');
 export const newTodoId = () => newId('todo');
+export const newTaskId = () => newId('task');
 export const newLinkId = () => newId('link');
 export const newClaimId = () => newId('claim');
+export const newObjectiveId = () => newId('obj');
+export const newSkillId = () => newId('skill');
+export const newAttachmentId = () => newId('att');

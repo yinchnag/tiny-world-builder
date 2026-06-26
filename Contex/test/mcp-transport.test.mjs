@@ -87,6 +87,99 @@ test('linking tiles pushes a peer_link_changed notification', async () => {
   }
 });
 
+test('notify human_attention reaches the SSE stream', async () => {
+  const srv = await startTestServer();
+  try {
+    const c = new McpClient(srv.url, srv.token);
+    await c.initialize();
+    const stream = await c.openStream();
+
+    const trigger = new McpClient(srv.url, srv.token);
+    await trigger.initialize();
+    const fire = trigger.callTool('notify', { text: 'a human is needed', level: 'human_attention' });
+
+    const note = await waitForNotification(stream, (m) => m.method === 'notifications/context/human_attention');
+    await fire;
+    assert.ok(note, 'received a human_attention notification');
+    assert.equal(note.params.text, 'a human is needed');
+  } finally {
+    await srv.close();
+  }
+});
+
+test('terminal asks a linked chat tile and reads the reply (Phase 4 exit)', async () => {
+  const srv = await startTestServer();
+  try {
+    const term = new McpClient(srv.url, srv.token);
+    const chat = new McpClient(srv.url, srv.token);
+    await term.initialize();
+    await chat.initialize();
+    await term.callTool('peer_set_state', { tile_id: 'term', tile_type: 'terminal', status: 'working' });
+    await chat.callTool('peer_set_state', { tile_id: 'chat', tile_type: 'chat', status: 'idle' });
+    await term.callTool('link_tiles', { source_tile_id: 'term', target_tile_id: 'chat' });
+
+    // terminal asks the chat tile a question
+    await term.callTool('chat_send_message', { from_tile_id: 'term', to_tile_id: 'chat', text: 'Ship it?', requires_ack: true });
+    const inbox = (await chat.callTool('peer_read_messages', { tile_id: 'chat' })).structuredContent.messages;
+    assert.equal(inbox[0].text, 'Ship it?');
+    // chat replies back (target is a terminal, so a peer message)
+    await chat.callTool('peer_send_message', { from_tile_id: 'chat', to_tile_id: 'term', text: 'Yes, ship it.' });
+    const reply = (await term.callTool('peer_read_messages', { tile_id: 'term' })).structuredContent.messages;
+    assert.equal(reply[0].text, 'Yes, ship it.');
+  } finally {
+    await srv.close();
+  }
+});
+
+test('create_task over MCP emits a task_changed notification', async () => {
+  const srv = await startTestServer();
+  try {
+    const c = new McpClient(srv.url, srv.token);
+    await c.initialize();
+    const stream = await c.openStream();
+
+    const trigger = new McpClient(srv.url, srv.token);
+    await trigger.initialize();
+    const fire = trigger.callTool('create_task', { title: 'Build it', channel: 'term' });
+
+    const note = await waitForNotification(stream, (m) => m.method === 'notifications/context/task_changed');
+    const res = await fire;
+    assert.equal(res.isError, false);
+    assert.equal(res.structuredContent.status, 'open');
+    assert.ok(note, 'received a task_changed notification');
+    assert.equal(note.params.status, 'open');
+  } finally {
+    await srv.close();
+  }
+});
+
+test('set_objective over MCP signals objective_reload_required (Phase 7 exit)', async () => {
+  const srv = await startTestServer();
+  try {
+    const c = new McpClient(srv.url, srv.token);
+    await c.initialize();
+    await c.callTool('peer_set_state', { tile_id: 'term', tile_type: 'terminal', status: 'working' });
+    const stream = await c.openStream();
+
+    // CodeSurf/owner alters the objective; the running agent is prompted to reload
+    const owner = new McpClient(srv.url, srv.token);
+    await owner.initialize();
+    const fire = owner.callTool('set_objective', { tile_id: 'term', markdown: 'New plan' });
+
+    const note = await waitForNotification(stream, (m) => m.method === 'notifications/context/objective_reload_required');
+    await fire;
+    assert.ok(note, 'received objective_reload_required');
+    assert.equal(note.params.tile_id, 'term');
+
+    // agent reloads and acknowledges
+    const reloaded = (await c.callTool('reload_objective', { tile_id: 'term' })).structuredContent;
+    assert.equal(reloaded.markdown, 'New plan');
+    assert.equal(reloaded.reload_required, false);
+  } finally {
+    await srv.close();
+  }
+});
+
 test('GET stream requires Accept: text/event-stream and a valid session', async () => {
   const srv = await startTestServer();
   try {

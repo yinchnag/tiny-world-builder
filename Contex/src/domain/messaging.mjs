@@ -41,15 +41,20 @@ export function sendMessage(db, input, { clock } = {}) {
   return mapMessage(db.prepare(`SELECT * FROM message WHERE id = ?`).get(id));
 }
 
-export function readMessages(db, { tile_id, unread_only = true, limit = 50, acknowledge = false }, { clock } = {}) {
+// Priority rank for ordering: urgent first, then high/normal/low, ties broken
+// chronologically.
+const PRIORITY_RANK = `CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 ELSE 2 END`;
+
+export function readMessages(db, { tile_id, unread_only = true, limit = 50, offset = 0, acknowledge = false }, { clock } = {}) {
   if (!tile_id) throw err.badRequest('tile_id is required');
   const rows = db
     .prepare(
       `SELECT * FROM message
        WHERE to_tile_id = ? ${unread_only ? 'AND read_at IS NULL' : ''}
-       ORDER BY created_at ASC LIMIT ?`
+       ORDER BY ${PRIORITY_RANK} ASC, created_at ASC
+       LIMIT ? OFFSET ?`
     )
-    .all(tile_id, limit);
+    .all(tile_id, limit, offset);
   const ts = nowIso(clock);
   for (const r of rows) {
     db.prepare(
@@ -65,6 +70,46 @@ export function readMessages(db, { tile_id, unread_only = true, limit = 50, ackn
 
 export function unreadCount(db, tileId) {
   return db.prepare(`SELECT COUNT(*) AS n FROM message WHERE to_tile_id = ? AND read_at IS NULL`).get(tileId).n;
+}
+
+// Recent inbox (read + unread), newest first — backs the context://tile/{id}/inbox resource.
+export function listInbox(db, tileId, { limit = 50 } = {}) {
+  return db
+    .prepare(`SELECT * FROM message WHERE to_tile_id = ? ORDER BY created_at DESC LIMIT ?`)
+    .all(tileId, limit)
+    .map(mapMessage);
+}
+
+// -------- chat adapters (Phase 4) --------
+// chat_send_message: a human-readable message addressed to a chat tile. Same
+// transport as peer_send_message, but the target must be a chat tile.
+export function chatSendMessage(db, input, opts = {}) {
+  const to = getTileRow(db, input.to_tile_id);
+  if (!to) throw err.tileNotFound(input.to_tile_id);
+  if (to.type !== 'chat') throw err.badRequest(`chat_send_message target must be a chat tile, got '${to.type}'`);
+  return sendMessage(db, input, opts);
+}
+
+// chat_acknowledge: the recipient acknowledges receipt/completion of a message.
+export function acknowledgeMessage(db, { message_id, tile_id }, { clock } = {}) {
+  if (!message_id) throw err.badRequest('message_id is required');
+  const row = db.prepare(`SELECT * FROM message WHERE id = ?`).get(message_id);
+  if (!row) throw err.badRequest(`Unknown message: ${message_id}`);
+  if (tile_id && row.to_tile_id !== tile_id) throw err.badRequest('only the recipient can acknowledge a message');
+  const ts = nowIso(clock);
+  db.prepare(
+    `UPDATE message SET delivered_at = COALESCE(delivered_at, ?), read_at = COALESCE(read_at, ?), acknowledged_at = COALESCE(acknowledged_at, ?) WHERE id = ?`
+  ).run(ts, ts, ts, message_id);
+  return mapMessage(db.prepare(`SELECT * FROM message WHERE id = ?`).get(message_id));
+}
+
+// -------- retention (Phase 4) --------
+// Purge messages older than `olderThanDays` (default 30, DATA_MODEL.md section 7).
+// Returns the number removed.
+export function purgeExpiredMessages(db, { olderThanDays = 30, clock } = {}) {
+  const cutoff = new Date((clock ? clock() : Date.now()) - olderThanDays * 86_400_000).toISOString();
+  const info = db.prepare(`DELETE FROM message WHERE created_at < ?`).run(cutoff);
+  return Number(info.changes);
 }
 
 // -------- todos --------

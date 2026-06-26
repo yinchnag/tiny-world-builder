@@ -1,6 +1,7 @@
 // -------- tiles: presence, state machine, optimistic concurrency, claims --------
 import { newClaimId } from '../ids.mjs';
 import { nowIso, audit, parseJson } from '../store.mjs';
+import { normalizeClaimPath } from './claims.mjs';
 import { err } from '../errors.mjs';
 
 export const TILE_TYPES = new Set([
@@ -51,6 +52,12 @@ export function setTileState(db, input, { clock, heartbeatTimeoutMs = DEFAULT_HE
   const requestedStatus = input.status || (existingRow ? existingRow.status : 'idle');
   if (!TILE_STATUSES.has(requestedStatus)) {
     throw err.invalidTransition(existingRow ? existingRow.status : 'offline', requestedStatus);
+  }
+  // validate claim paths up-front so an escaping path rejects the whole update
+  // before any tile mutation (keeps state consistent)
+  if (Array.isArray(input.files)) {
+    const repoPath = db.prepare(`SELECT repository_path FROM workspace WHERE id = ?`).get(input.workspace_id)?.repository_path ?? null;
+    for (const f of input.files) if (f && f.path) normalizeClaimPath(repoPath, f.path);
   }
 
   if (existingRow) {
@@ -139,15 +146,26 @@ function pick(input, key, current) {
 
 // -------- claims --------
 function syncClaims(db, workspaceId, tileId, files, ts) {
-  // release this tile's prior active claims, then re-declare from `files`
-  db.prepare(`UPDATE file_claim SET released_at = ? WHERE tile_id = ? AND released_at IS NULL`).run(ts, tileId);
+  const repoPath = db.prepare(`SELECT repository_path FROM workspace WHERE id = ?`).get(workspaceId)?.repository_path ?? null;
+  // validate + normalize all paths BEFORE mutating, so an escaping path rejects
+  // the whole update rather than leaving claims half-applied
+  const prepared = [];
   for (const f of files) {
     if (!f || !f.path) continue;
-    const mode = CLAIM_MODES.has(f.mode) ? f.mode : 'edit';
+    prepared.push({
+      path: normalizeClaimPath(repoPath, f.path), // throws on traversal/escape
+      mode: CLAIM_MODES.has(f.mode) ? f.mode : 'edit',
+      section: f.section ?? null,
+      expires_at: f.expires_at ?? null,
+    });
+  }
+  // release this tile's prior active claims, then re-declare
+  db.prepare(`UPDATE file_claim SET released_at = ? WHERE tile_id = ? AND released_at IS NULL`).run(ts, tileId);
+  for (const c of prepared) {
     db.prepare(
-      `INSERT INTO file_claim (id, workspace_id, tile_id, path, mode, section, created_at, refreshed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(newClaimId(), workspaceId, tileId, f.path, mode, f.section ?? null, ts, ts);
+      `INSERT INTO file_claim (id, workspace_id, tile_id, path, mode, section, created_at, refreshed_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(newClaimId(), workspaceId, tileId, c.path, c.mode, c.section, ts, ts, c.expires_at);
   }
 }
 

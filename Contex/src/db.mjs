@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 // Bumped whenever SCHEMA changes; stored in PRAGMA user_version so an existing
 // db can be detected as current. Round 1 ships v1.
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 3;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS workspace (
@@ -98,6 +98,26 @@ CREATE TABLE IF NOT EXISTS message (
 );
 CREATE INDEX IF NOT EXISTS idx_message_to ON message(to_tile_id);
 
+CREATE TABLE IF NOT EXISTS task (
+  id              TEXT PRIMARY KEY,
+  workspace_id    TEXT NOT NULL REFERENCES workspace(id),
+  channel         TEXT,
+  title           TEXT NOT NULL,
+  description     TEXT,
+  status          TEXT NOT NULL DEFAULT 'open',
+  priority        TEXT NOT NULL DEFAULT 'normal',
+  owner_tile_id   TEXT,
+  creator_tile_id TEXT,
+  blocker         TEXT,
+  result_summary  TEXT,
+  version         INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL,
+  completed_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_task_workspace ON task(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_task_channel ON task(channel);
+
 CREATE TABLE IF NOT EXISTS todo (
   id               TEXT PRIMARY KEY,
   workspace_id     TEXT NOT NULL REFERENCES workspace(id),
@@ -113,6 +133,50 @@ CREATE TABLE IF NOT EXISTS todo (
   result_summary   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_todo_assignee ON todo(assignee_tile_id);
+
+CREATE TABLE IF NOT EXISTS objective_version (
+  id           TEXT PRIMARY KEY,
+  workspace_id TEXT,
+  tile_id      TEXT NOT NULL,
+  version      INTEGER NOT NULL,
+  markdown     TEXT,
+  rules_json   TEXT,
+  generated_by TEXT,
+  created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_objective_tile ON objective_version(tile_id);
+
+-- one row per tile recording the highest objective version it has acknowledged
+CREATE TABLE IF NOT EXISTS objective_ack (
+  tile_id         TEXT PRIMARY KEY,
+  version         INTEGER NOT NULL,
+  acknowledged_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS skill_assignment (
+  id            TEXT PRIMARY KEY,
+  tile_id       TEXT NOT NULL,
+  skill_key     TEXT NOT NULL,
+  source        TEXT,
+  enabled       INTEGER NOT NULL DEFAULT 1,
+  metadata_json TEXT,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_skill_tile_key ON skill_assignment(tile_id, skill_key);
+
+CREATE TABLE IF NOT EXISTS context_attachment (
+  id            TEXT PRIMARY KEY,
+  tile_id       TEXT NOT NULL,
+  kind          TEXT,
+  label         TEXT,
+  uri           TEXT,
+  content_hash  TEXT,
+  metadata_json TEXT,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attachment_tile ON context_attachment(tile_id);
 
 CREATE TABLE IF NOT EXISTS audit_event (
   sequence      INTEGER PRIMARY KEY AUTOINCREMENT,

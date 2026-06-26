@@ -45,6 +45,17 @@ test('graph resource lists tiles as nodes and links as edges', () => {
   c.close();
 });
 
+test('tasks resource lists tasks and todos for the workspace', () => {
+  const { c, ws } = fresh();
+  c.createTask({ title: 'a task', channel: 'term' });
+  c.addTodo({ creator_tile_id: 'term', assignee_tile_id: 'chat', title: 'a todo' });
+  const data = JSON.parse(readResource(c, `context://workspace/${ws.id}/tasks`).text);
+  assert.equal(data.tasks.length, 1);
+  assert.equal(data.tasks[0].title, 'a task');
+  assert.equal(data.todos.length, 1);
+  c.close();
+});
+
 test('tile state resource includes status and active claims', () => {
   const { c } = fresh();
   const data = JSON.parse(readResource(c, 'context://tile/term/state').text);
@@ -61,6 +72,16 @@ test('peers resource renders the historical peers.md format', () => {
   assert.match(md, /- chat \(chat\)/);
   assert.match(md, /tools: chat_send_message, chat_acknowledge/);
   assert.match(md, /regenerated when links change/);
+  c.close();
+});
+
+test('inbox resource returns recent messages for a tile', () => {
+  const { c } = fresh();
+  c.chatSendMessage({ from_tile_id: 'term', to_tile_id: 'chat', text: 'hello inbox' });
+  const data = JSON.parse(readResource(c, 'context://tile/chat/inbox').text);
+  assert.equal(data.tile_id, 'chat');
+  assert.equal(data.messages.length, 1);
+  assert.equal(data.messages[0].text, 'hello inbox');
   c.close();
 });
 
