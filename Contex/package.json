@@ -1,0 +1,18 @@
+{
+  "name": "contex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Contex — local-first MCP coordination service for the CodeSurf multi-agent canvas. Round 1: tile presence + peer discovery + file-claim conflict detection over a bearer-authed MCP-flavored JSON-RPC HTTP endpoint, persisted in node:sqlite. Zero runtime dependencies.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "bin": {
+    "contex": "src/cli.mjs"
+  },
+  "scripts": {
+    "serve": "node --experimental-sqlite src/cli.mjs serve",
+    "test": "node --experimental-sqlite --test test/*.test.mjs"
+  },
+  "license": "AGPL-3.0-only"
+}
