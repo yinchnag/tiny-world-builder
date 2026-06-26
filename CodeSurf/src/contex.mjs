@@ -21,7 +21,13 @@ export class ContexSupervisor extends EventEmitter {
    */
   constructor(opts = {}) {
     super();
-    this.command = opts.command || process.execPath;
+    // Contex needs Node >= 22.5 (built-in node:sqlite). Under Electron,
+    // process.execPath is electron.exe (older bundled Node, no node:sqlite), so
+    // spawn the real system node instead — npm records it in npm_node_execpath.
+    const defaultNode = process.versions.electron
+      ? (process.env.npm_node_execpath || 'node')
+      : process.execPath;
+    this.command = opts.command || defaultNode;
     this.args = opts.args || ['--experimental-sqlite', CONTEX_CLI, 'serve'];
     this.cwd = opts.cwd;
     this.env = opts.env;
