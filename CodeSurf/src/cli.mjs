@@ -6,7 +6,7 @@ import { openCodeSurf, defaultDataDir } from './index.mjs';
 import { startServer } from './server.mjs';
 import { ContexSupervisor } from './contex.mjs';
 import { ContexConnection } from './contex-connection.mjs';
-import { TerminalManager } from './terminal.mjs';
+import { TerminalManager, ptyAvailable } from './terminal.mjs';
 
 const [, , cmd, ...rest] = process.argv;
 
@@ -58,9 +58,11 @@ switch (cmd) {
         .then(({ url: cu }) => process.stderr.write(`Contex connected at ${cu}\n`))
         .catch((e) => process.stderr.write(`Contex failed to start: ${e.message}\n`));
     }
-    const terminals = new TerminalManager({ contex }); // contex may be null; env injection no-ops then
+    const usePty = rest.includes('--pty') && ptyAvailable(); // real PTY (needs node-pty + an ANSI renderer to look right)
+    const terminals = new TerminalManager({ contex, pty: usePty }); // contex may be null; env injection no-ops then
     const { url } = await startServer({ store, contex, terminals, port });
     process.stderr.write(`CodeSurf canvas serving at ${url}\n`);
+    process.stderr.write(`Terminals: ${usePty ? 'real PTY (node-pty)' : 'piped stdio' + (rest.includes('--pty') ? ' (node-pty not installed)' : '')}\n`);
     process.stderr.write(`Data dir: ${defaultDataDir()}\n`);
     if (!contex) process.stderr.write(`(Contex off — pass --contex to launch the coordination backend)\n`);
     // keep the process alive; Ctrl-C to stop

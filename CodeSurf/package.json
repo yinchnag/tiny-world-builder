@@ -2,8 +2,9 @@
   "name": "codesurf",
   "version": "0.1.0",
   "private": true,
-  "description": "CodeSurf — infinite-canvas workspace for coordinating multiple AI agents around a software project, backed by the Contex MCP coordination service. Minimal usable GUI rebuild: zero-dependency Node backend + browser-native DOM/SVG canvas. Electron deferred.",
+  "description": "CodeSurf — infinite-canvas workspace for coordinating multiple AI agents around a software project, backed by the Contex MCP coordination service. Zero-dependency Node backend + browser-native DOM/SVG canvas; optional Electron desktop shell with real PTY (node-pty).",
   "type": "module",
+  "main": "electron/main.mjs",
   "engines": {
     "node": ">=22.5.0"
   },
@@ -13,7 +14,15 @@
   "scripts": {
     "serve": "node src/cli.mjs serve",
     "test": "node --test test/*.test.mjs",
-    "smoke:browser": "node scripts/browser-smoke.mjs"
+    "smoke:browser": "node scripts/browser-smoke.mjs",
+    "smoke:pty": "node scripts/pty-check.mjs",
+    "app": "electron electron/main.mjs"
   },
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0"
+  }
 }

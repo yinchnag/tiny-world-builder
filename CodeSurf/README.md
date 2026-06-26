@@ -40,6 +40,31 @@ node src/cli.mjs serve --contex     # also launches & supervises `contex serve`
                                     # (spawns Contex/src/cli.mjs; restarts on crash)
 ```
 
+### Desktop app (Electron) + real PTY
+
+The web mode above runs terminal tiles over **piped stdio** (no TTY). For fully
+interactive agent CLIs (`claude`, `codex`) you want a real pseudo-terminal, which
+needs the optional native `node-pty` and is hosted in the Electron desktop shell
+(it reuses the exact same server + canvas):
+
+```bash
+npm install                  # pulls electron (desktop) + node-pty (native PTY)
+npm run app          [-- --contex]   # opens the CodeSurf desktop window
+npm run smoke:pty            # verify the real-PTY backend (opt-in; needs node-pty)
+```
+
+`node-pty` is an **optional** dependency: without it everything still works over
+piped stdio (and `npm test` never needs it). In `serve` (browser) mode you can
+opt into the PTY backend with `node src/cli.mjs serve --pty`, but the output pane
+is a plain `<pre>` — it does not yet render ANSI/cursor control, so a full-screen
+TUI (like Claude Code's UI) will look raw until a terminal emulator (xterm.js) is
+added. Electron mode enables the PTY backend automatically when node-pty is
+present.
+
+Requires Electron ≥ 28 (ESM main). A real `claude`/`codex` launched in a tile
+auto-discovers Contex via a generated `.mcp.json` (env-ref, no token on disk) and
+must be trust-approved once (Claude Code's project-server security model).
+
 The server binds `127.0.0.1` only and rejects non-loopback `Host` headers; the
 Contex bearer token is held in memory and never sent to the browser or logged.
 

@@ -136,7 +136,7 @@ export function createHandler(store, contex = null, terminals = null) {
       }
 
       // ---- Terminal tiles (M5) ----
-      const term = path.match(/^\/api\/terminals\/([^/]+)(?:\/(start|input|control|stop|stream))?$/);
+      const term = path.match(/^\/api\/terminals\/([^/]+)(?:\/(start|input|control|stop|stream|resize))?$/);
       if (term) {
         if (!terminals) return sendJson(res, 503, { error: { code: 'CODESURF_NO_TERMINALS', message: 'terminals not enabled' } });
         const tileId = decodeURIComponent(term[1]);
@@ -159,6 +159,11 @@ export function createHandler(store, contex = null, terminals = null) {
         if (action === 'control' && method === 'POST') {
           const body = (await readBody(req)) || {};
           terminals.control(tileId, body.action);
+          return sendJson(res, 200, { ok: true });
+        }
+        if (action === 'resize' && method === 'POST') {
+          const body = (await readBody(req)) || {};
+          terminals.resize(tileId, Number(body.cols), Number(body.rows));
           return sendJson(res, 200, { ok: true });
         }
         if (action === 'stop' && method === 'POST') {

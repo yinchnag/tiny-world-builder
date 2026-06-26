@@ -98,6 +98,15 @@ test('manager status reports idle for an unknown tile', () => {
   assert.deepEqual(mgr.status('nope'), { tileId: 'nope', status: 'idle', exitCode: null, command: null });
 });
 
+test('Terminal uses the pipe backend by default (zero-dep path)', async () => {
+  const t = new Terminal('tile_pipe', { pty: false });
+  t.start({ command: process.execPath, args: ['-e', 'process.exit(0)'] });
+  await once(t, 'exit');
+  assert.equal(t.backend, 'pipe');
+});
+// Real-PTY verification lives in `scripts/pty-check.mjs` (opt-in): node-pty is an
+// optional native dep and leaves a lingering handle, so it must not gate `npm test`.
+
 test('ensureMcpConfig writes a secret-free, env-ref contex server', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'cs-mcp-'));
   const file = ensureMcpConfig(cwd);

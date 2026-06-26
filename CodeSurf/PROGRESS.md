@@ -56,7 +56,7 @@ Data dir resolves to `%LOCALAPPDATA%/CodeSurf/workspaces` (win) or
 - [x] **M2 — infinite canvas** (loopback HTTP shell + DOM/SVG pan/zoom, tiles, links, minimap, fit, autosave)
 - [x] **M3 — generic tile host** (type registry, serialization, unknown-type preservation, error boundary, badges, minimize/pin, focus order)
 - [x] **M4 — Contex launcher + MCP client** (supervisor, MCP Streamable-HTTP client, connection orchestrator, link mirror, command-bus drain, status/events to browser)
-- [x] **M5 (increment 1) — terminal tile** (piped child + env injection + live stream + stdin; real-PTY is a follow-up)
+- [x] **M5 — terminal tile** (real process per tile, env injection, live stream, stdin; command-bus consumer; `.mcp.json` auto-discovery; **real PTY via optional node-pty** + Electron shell)
 
 ## M1 — workspace store + shell (this session)
 
@@ -332,18 +332,41 @@ completed). Browser harness still 16/16. Live against real Contex: command-bus
 tile creation **5/5** (`scratchpad/pw-cmdbus.mjs`) — agent → new canvas tile +
 result id + requester link.
 
-**(c) Real PTY — DEFERRED pending a dependency decision.** A true PTY on Windows
-needs ConPTY, which Node can't reach without a native module (`node-pty`); there
-is no zero-dep path. That breaks the project-wide zero-runtime-dependency
-convention, so it's the user's call (node-pty vs stay piped). Until then,
-interactive CLIs that demand a TTY (raw-mode line editing) degrade.
+**(c) Real PTY + Electron shell — DONE (user chose Electron + node-pty).** The
+terminal backend now supports a **real PTY** path: `src/terminal.mjs` lazily
+loads the optional native `node-pty` and, when enabled, spawns through it
+(`backend: 'pty'`) — the child gets a genuine TTY (`isatty=true`), control bytes
+(Ctrl-C/EOF) go through the line discipline, and `resize(cols,rows)` is wired
+(`POST /api/terminals/:id/resize`). Without node-pty it transparently falls back
+to piped stdio, so the core stays zero-dependency and `npm test` never needs it.
+- **Electron shell** `electron/main.mjs` (Electron ≥ 28, ESM): boots the SAME
+  `startServer({store, contex, terminals})` and opens a `BrowserWindow` on it —
+  the whole tested REST/SSE API + canvas are reused unchanged; the only Electron
+  gains are node-pty in the main process (real PTY) and a native window.
+  `package.json`: `main`, `npm run app`, `electron` devDep, `node-pty`
+  optionalDep.
+- **PTY gating**: `serve --pty` opts in for web mode; Electron auto-enables when
+  node-pty is present. Default is piped (readable) because the output pane is a
+  plain `<pre>`.
+
+Verified: `node-pty` installs from a prebuilt binary (no compile needed here);
+the opt-in `npm run smoke:pty` (`scripts/pty-check.mjs`) confirms
+**backend=pty, child saw TTY=true**. Unit suite **71 passing, clean exit**
+(node-pty kept out of it — it leaves a lingering handle, so its check is a
+separate opt-in script). Browser harness still 16/16.
+
+**Known gap (next):** the terminal pane is a plain `<pre>` with no ANSI/cursor
+rendering — a full-screen TUI (Claude Code's UI) shows raw escapes under `--pty`.
+A terminal emulator (**xterm.js**) in the tile is the next piece to make real
+interactive `claude`/`codex` look right; pair it with PTY resize from the tile's
+pixel size.
 
 ## Next session
 
-**(c) real PTY** if the user opts into `node-pty` (then revisit Electron), else
-polish increment-2 (command-arg quoting, project-trust prompt before running a
-command, ANSI rendering in the terminal pane, surfacing agent-created tiles'
-peer state). Run a real agent process inside a tile: a PTY (or
+**xterm.js terminal rendering** (render ANSI + drive PTY resize from tile size) so
+real interactive agents look right; then make `--pty`/Electron the default once
+rendering is solid. Smaller polish: command-arg quoting, project-trust prompt
+before running a command, surfacing agent-created tiles' peer state. Run a real agent process inside a tile: a PTY (or
 piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
 inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
 the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the
