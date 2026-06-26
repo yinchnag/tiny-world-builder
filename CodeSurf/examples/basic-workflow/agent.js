@@ -47,23 +47,33 @@ async function main() {
   await rpc('notifications/initialized', undefined, true);
 
   // 1) register so the canvas can see me (status dot turns blue = working)
-  await setState({ status: 'working', task: 'Coordinating the workflow', progress: 20 });
+  await setState({ status: 'working', task: 'Coordinating the workflow', progress: 15 });
   console.log('registered with Contex — my status dot just turned blue (working).');
-  await sleep(1200);
+  await sleep(1000);
 
-  // 2) ask the canvas to spawn a Worker tile, linked to me (command bus)
-  console.log('step 1 — asking CodeSurf to create a Worker tile on the canvas…');
-  await call('canvas_create_tile', { requester_tile_id: CARD, tile_type: 'document', title: 'Worker', link_to_requester: true });
-  console.log('  → requested. Watch a new "Worker" tile appear, linked to this Agent.');
-  await sleep(1800);
+  // 2) (C) write a Plan into a Document tile with real content
+  console.log('step 1 — creating a Plan document on the canvas…');
+  const plan = [
+    '# Plan', '',
+    '1. Coordinator registers with Contex.',
+    '2. Spawn a Worker that runs its own agent.',
+    '3. Worker produces a real artifact (WORKER_OUTPUT.md).',
+    '', 'This document was written by the coordinator agent.',
+  ].join('\n');
+  await call('canvas_create_tile', { requester_tile_id: CARD, tile_type: 'document', title: 'Plan', content: plan, link_to_requester: true });
+  console.log('  → a "Plan" document appeared on the canvas, with real content.');
+  await sleep(1400);
 
-  // 3) "work", then finish (status dot turns green = done)
-  await setState({ status: 'working', task: 'Working with the team', progress: 70 });
-  console.log('step 2 — doing the task…');
-  await sleep(1500);
+  // 3) (B) spawn a Worker TERMINAL that auto-runs its own agent (node worker.js)
+  console.log('step 2 — spawning a Worker terminal that runs its own agent…');
+  await call('canvas_create_tile', { requester_tile_id: CARD, tile_type: 'terminal', title: 'Worker', command: 'node worker.js', link_to_requester: true });
+  console.log('  → a "Worker" terminal appeared and auto-runs worker.js (a second agent).');
+  console.log('     (swap that command for `claude -p "<task>"` to run a REAL agent here.)');
+  await sleep(3500); // give the worker time to run + report
 
-  await setState({ status: 'done', task: 'Complete', summary: 'Coordinated: spawned a Worker tile and finished the task.' });
-  console.log('✓ done — my status dot is now green. The new Worker tile is the helper I created.');
+  // 4) finish (status dot turns green = done)
+  await setState({ status: 'done', task: 'Complete', summary: 'Wrote a Plan doc and spawned a Worker agent.' });
+  console.log('✓ done — Plan document written, Worker agent spawned. Two agents, one canvas.');
 }
 
 main().catch((e) => { console.error('agent error:', e.message); process.exit(1); });

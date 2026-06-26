@@ -609,7 +609,10 @@ async function handleCanvasCommand(cmd) {
       else if (req) { x = req.x + req.w + 60; y = req.y; }
       else { const r = visibleWorldRect(); x = r.x + r.w / 2 - 110; y = r.y + r.h / 2 - 70; }
       const t = addTile(x, y, p.tile_type || 'note');
-      if (p.title) { t.title = p.title; replaceTileEl(t); }
+      if (p.title) t.title = p.title;
+      if (p.tile_type === 'document' && p.content) t.data = { ...t.data, text: p.content };       // (C) fill a doc
+      if (p.tile_type === 'terminal' && p.command) t.data = { ...t.data, command: p.command, autostart: true }; // (B) auto-run a worker
+      replaceTileEl(t); // re-render with the new title/data (terminal autostart fires in wireTerminal)
       if (p.link_to_requester && req) addLink(cmd.requester_tile_id, t.id);
       result = { tile_id: t.id };
     } else if (cmd.kind === 'focus') {
@@ -697,8 +700,7 @@ async function wireTerminal(el, tile) {
   const ui = await buildTerminalScreen(tile, screen);
   terminalUIs.set(tile.id, ui);
 
-  startBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
+  async function startProcess() {
     const line = (cmd.value || '').trim();
     if (!line) return;
     const parts = line.split(/\s+/);
@@ -710,12 +712,20 @@ async function wireTerminal(el, tile) {
       openTerminalStream(tile.id);
       ui.syncSize();
     } catch (err) { ui.write(`\r\n[start failed: ${err.message}]\r\n`); }
-  });
+  }
+
+  startBtn.addEventListener('click', (e) => { e.stopPropagation(); startProcess(); });
   stopBtn.addEventListener('click', (e) => { e.stopPropagation(); api('POST', `/api/terminals/${tile.id}/stop`).catch(() => {}); });
 
-  // reattach to an already-running process (re-render / page reload)
+  // reattach to a running process; else auto-start if an agent spawned this tile
   fetch(`/api/terminals/${tile.id}`).then((r) => r.json()).then((s) => {
-    if (s.status === 'running' || (s.scrollback && s.scrollback.length)) openTerminalStream(tile.id);
+    if (s.status === 'running' || (s.scrollback && s.scrollback.length)) { openTerminalStream(tile.id); return; }
+    if (tile.data.autostart && tile.data.command) {
+      cmd.value = tile.data.command;
+      tile.data = { ...tile.data, autostart: false }; // one-shot
+      scheduleSave();
+      startProcess();
+    }
   }).catch(() => {});
 }
 

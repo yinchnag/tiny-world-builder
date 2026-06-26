@@ -28,11 +28,21 @@ with.
 
 ## What it demonstrates
 
-- a tile running a **real process** with injected `CARD_ID` + Contex creds,
-- the agent **self-registering** and updating status/progress via Contex,
-- the canvas reflecting that peer state live (status dot),
-- a **link** between coordinator and worker tiles.
+The **Agent** tile runs a coordinator (`agent.js`) that:
 
-Swap `agent.js` for `claude -p "<prompt>"` (print mode — no TUI) to drive a real
-agent here today; a generated `.mcp.json` (env-ref, no token on disk) lets it
-discover Contex, subject to Claude Code's one-time project-server trust approval.
+1. **registers** with Contex (its status dot turns blue),
+2. writes a **Plan** document tile with **real content** (`canvas_create_tile` +
+   `content`),
+3. spawns a **Worker** terminal tile that **auto-runs its own agent**
+   (`worker.js` via `canvas_create_tile` + `command`) — a *second* agent that
+   registers itself and writes a real artifact (`WORKER_OUTPUT.md`),
+4. **finishes** (dot turns green).
+
+So you see two agents collaborating on one canvas, a document with real content,
+and a real file produced — the full pattern, not just plumbing.
+
+**Run a real agent here today:** change `worker.js` (or the coordinator's spawned
+command) to `claude -p "<task>"` — print mode, no TUI, or just `claude` for the
+full interactive UI (xterm renders it). The generated `.mcp.json` (env-ref, no
+token on disk) lets it discover Contex, subject to Claude Code's one-time
+project-server trust approval.

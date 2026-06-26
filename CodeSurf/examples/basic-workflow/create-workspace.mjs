@@ -22,8 +22,8 @@ store.saveLayout(id, {
   viewport: { x: 0, y: 0, zoom: 1 },
   tiles: [
     {
-      id: 'wf_notes', type: 'note', title: 'What this does', x: 80, y: 120, w: 320, h: 230, status: 'idle',
-      data: { note: 'A coordinator-agent demo. Click ▶ on the Agent tile. The agent (1) registers with Contex — its status dot turns blue; (2) asks the canvas to spawn a "Worker" tile, linked to it (you\'ll see a new tile appear); (3) finishes — its dot turns green. Needs the Contex backend (the desktop app starts it automatically).' },
+      id: 'wf_notes', type: 'note', title: 'What this does', x: 80, y: 120, w: 320, h: 250, status: 'idle',
+      data: { note: 'A coordinator-agent demo. Click ▶ on the Agent tile. The agent: (1) registers with Contex (dot turns blue); (2) writes a "Plan" document tile with real content; (3) spawns a "Worker" terminal tile that auto-runs its OWN agent (worker.js) — a second agent that writes WORKER_OUTPUT.md; (4) finishes (dot turns green). Two agents collaborating on one canvas. Tip: change worker.js to `claude -p "<task>"` to run a real agent. Needs Contex (the desktop app starts it automatically).' },
     },
     {
       id: 'wf_agent', type: 'terminal', title: 'Agent', x: 480, y: 120, w: 480, h: 320, status: 'idle',

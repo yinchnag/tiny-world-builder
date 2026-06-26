@@ -8,3 +8,5 @@ workspaces/
 *.db-shm
 *.db-wal
 examples/**/.mcp.json
+
+examples/**/WORKER_OUTPUT.md
