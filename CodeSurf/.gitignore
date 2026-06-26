@@ -4,3 +4,7 @@ workspaces/
 *.corrupt
 .run/
 .env
+*.db
+*.db-shm
+*.db-wal
+examples/**/.mcp.json
