@@ -19,11 +19,11 @@ store.saveLayout(id, {
   viewport: { x: 0, y: 0, zoom: 1 },
   tiles: [
     {
-      id: 'wf_notes', type: 'note', title: 'How to chat', x: 60, y: 80, w: 300, h: 200, status: 'idle',
-      data: { note: '1) Click ▶ on the Agent tile (starts chat-agent.js — it registers and links to this Chat). 2) Type a message in the Chat tile and press Enter. The agent replies here. Try: "hello", "status", "count to 3". Swap the Agent\'s command for `claude` to chat with a real agent.' },
+      id: 'wf_notes', type: 'note', title: 'How to chat', x: 60, y: 80, w: 300, h: 220, status: 'idle',
+      data: { note: '1) Click ▶ on the Agent tile — it runs claude-bridge.js, which forwards your messages to the REAL claude CLI and replies with Claude\'s answer (remembers the thread). 2) Type in the Chat tile + Enter. Ask anything; it takes a few seconds and uses tokens. For a free/instant canned-reply version instead, change the command to `node chat-agent.js`.' },
     },
     { id: 'chat_main', type: 'chat', title: 'Chat', x: 60, y: 320, w: 360, h: 300, status: 'idle', data: {} },
-    { id: 'agent_main', type: 'terminal', title: 'Agent', x: 480, y: 120, w: 420, h: 320, status: 'idle', data: { command: 'node chat-agent.js' } },
+    { id: 'agent_main', type: 'terminal', title: 'Agent', x: 480, y: 120, w: 420, h: 320, status: 'idle', data: { command: 'node claude-bridge.js' } },
   ],
   links: [
     { id: 'l_chat', source: 'chat_main', target: 'agent_main', directed: false },
