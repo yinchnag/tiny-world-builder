@@ -13,8 +13,32 @@
 
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const DEFAULT_MAX_BUFFER = 200_000; // chars of scrollback retained per tile
+
+/**
+ * Write/merge a project `.mcp.json` so a real `claude`/`codex` CLI launched in
+ * the tile auto-discovers Contex. Uses `${CONTEX_URL}`/`${CONTEX_TOKEN}` env
+ * expansion — the literal token is NEVER written to disk (CodeSurf injects those
+ * vars into the child env). Existing entries are preserved; only `contex` is set.
+ */
+export function ensureMcpConfig(cwd) {
+  const file = join(cwd, '.mcp.json');
+  let cfg = { mcpServers: {} };
+  if (existsSync(file)) {
+    try { cfg = JSON.parse(readFileSync(file, 'utf8')); } catch { cfg = { mcpServers: {} }; }
+  }
+  if (!cfg.mcpServers || typeof cfg.mcpServers !== 'object') cfg.mcpServers = {};
+  cfg.mcpServers.contex = {
+    type: 'http',
+    url: '${CONTEX_URL}',
+    headers: { Authorization: 'Bearer ${CONTEX_TOKEN}' },
+  };
+  writeFileSync(file, JSON.stringify(cfg, null, 2) + '\n');
+  return file;
+}
 
 /** One supervised child process bound to a tile. */
 export class Terminal extends EventEmitter {
@@ -61,6 +85,9 @@ export class Terminal extends EventEmitter {
     this.buffer = (this.buffer + s).slice(-this.maxBuffer);
     this.emit('data', s);
   }
+
+  /** Surface a CodeSurf-side notice in the tile's output (not from the child). */
+  note(msg) { this._append(`[CodeSurf] ${msg}\n`); }
 
   write(data) {
     if (!this.child) throw new Error('terminal not running');
@@ -113,6 +140,11 @@ export class TerminalManager extends EventEmitter {
   start(tileId, spec = {}) {
     const t = this.ensure(tileId);
     const contexEnv = this.contex?.agentEnv?.() || {};
+    // (a) drop a secret-free .mcp.json so a real claude/codex CLI finds Contex
+    if (contexEnv.CONTEX_URL && spec.cwd) {
+      try { t.note(`wrote ${ensureMcpConfig(spec.cwd)} (contex MCP server; env-ref, no token on disk)`); }
+      catch (e) { t.note(`could not write .mcp.json: ${e.message}`); }
+    }
     return t.start({ ...spec, contexEnv });
   }
 

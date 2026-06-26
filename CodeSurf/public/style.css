@@ -123,6 +123,11 @@ input { cursor: text; }
 .tile.pinned { border-style: dashed; }
 .tile.unknown { border-color: var(--warn); }
 .tile.unknown .head .type { color: var(--warn); }
+.tile.flash { animation: tileflash 1.2s ease-out; }
+@keyframes tileflash {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0,0,0,.35); }
+  20% { box-shadow: 0 0 0 3px var(--warn), 0 4px 20px rgba(224,160,48,.5); }
+}
 
 /* connection port */
 .tile .port {

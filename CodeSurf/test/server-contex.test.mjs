@@ -79,3 +79,46 @@ test('Contex endpoints: status (no token), link mirror, SSE events', async () =>
   await conn.stop();
   await mock.close();
 });
+
+test('command bus: command is forwarded over SSE and completed via the endpoint', async () => {
+  const completed = [];
+  const mock = await startMockMcp({ tools: {
+    canvas_next_commands: () => ({ commands: [] }), // no auto-drain noise
+    canvas_complete_command: (a) => { completed.push(a); return { ok: true }; },
+  } });
+  const conn = new ContexConnection({ drainIntervalMs: 10_000 });
+  await conn.connectDirect({ url: mock.url, token: 'tok-a', workspace_id: 'ws_1' });
+  const store = new WorkspaceStore(tmp('cs-cmd-'));
+  const { server, url } = await startServer({ store, contex: conn, port: 0 });
+  const base = url.replace(/\/$/, '');
+
+  const ac = new AbortController();
+  const res = await fetch(base + '/api/contex/events', { signal: ac.signal });
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  const readUntil = async (pred, ms = 1500) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) { const { value, done } = await reader.read(); if (done) break; buf += dec.decode(value, { stream: true }); if (pred(buf)) return true; }
+    return false;
+  };
+  await readUntil((b) => b.includes('event: status'));
+
+  // simulate a drained command being relayed to the browser
+  conn.emit('command', { id: 'cmd_b', kind: 'create_tile', payload: { tile_type: 'chat' }, requester_tile_id: 'r' });
+  assert.ok(await readUntil((b) => b.includes('event: command') && b.includes('cmd_b')), 'command should reach the browser');
+  ac.abort();
+
+  // the browser (here, the test) reports the result back
+  const done = await fetch(`${base}/api/contex/commands/cmd_b/complete`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ result: { tile_id: 't_new' } }),
+  });
+  assert.equal(done.status, 200);
+  assert.equal(completed.length, 1);
+  assert.equal(completed[0].command_id, 'cmd_b');
+  assert.deepEqual(completed[0].result, { tile_id: 't_new' });
+
+  server.close();
+  await conn.stop();
+  await mock.close();
+});

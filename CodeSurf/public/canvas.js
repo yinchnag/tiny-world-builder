@@ -586,8 +586,61 @@ function openContexStream() {
     const es = new EventSource('/api/contex/events'); // EventSource auto-reconnects
     es.addEventListener('status', (e) => setContexStatus(JSON.parse(e.data).status));
     es.addEventListener('tile_state', (e) => applyTileState(JSON.parse(e.data)));
+    es.addEventListener('command', (e) => handleCanvasCommand(JSON.parse(e.data)));
     es.onerror = () => { /* EventSource retries on its own */ };
   } catch { /* no Contex endpoint — leave the pill as-is */ }
+}
+
+// An agent asked the canvas to do something (Phase-8 command bus). Perform it,
+// then report the result so the agent's canvas_command_result resolves.
+// Delivery is at-least-once, so de-dup by command id.
+const handledCommands = new Set();
+async function handleCanvasCommand(cmd) {
+  if (!cmd || !cmd.id || handledCommands.has(cmd.id)) return;
+  handledCommands.add(cmd.id);
+  const p = cmd.payload || {};
+  try {
+    let result = {};
+    if (cmd.kind === 'create_tile') {
+      const req = cmd.requester_tile_id ? tileById(cmd.requester_tile_id) : null;
+      let x, y;
+      if (p.position_hint && Number.isFinite(p.position_hint.x)) { x = p.position_hint.x; y = p.position_hint.y; }
+      else if (req) { x = req.x + req.w + 60; y = req.y; }
+      else { const r = visibleWorldRect(); x = r.x + r.w / 2 - 110; y = r.y + r.h / 2 - 70; }
+      const t = addTile(x, y, p.tile_type || 'note');
+      if (p.title) { t.title = p.title; replaceTileEl(t); }
+      if (p.link_to_requester && req) addLink(cmd.requester_tile_id, t.id);
+      result = { tile_id: t.id };
+    } else if (cmd.kind === 'focus') {
+      const t = tileById(p.tile_id);
+      if (t) { select(t.id); centerOn(t.x + t.w / 2, t.y + t.h / 2); }
+      result = { focused: !!t };
+    } else if (cmd.kind === 'highlight') {
+      const t = tileById(p.tile_id);
+      if (t) flashTile(t.id);
+      result = { highlighted: !!t };
+    } else if (cmd.kind === 'connect') {
+      if (tileById(p.source_tile_id) && tileById(p.target_tile_id)) addLink(p.source_tile_id, p.target_tile_id);
+      result = { connected: true };
+    } else if (cmd.kind === 'terminal_input') {
+      const tid = cmd.target_tile_id;
+      if (p.text != null) await api('POST', `/api/terminals/${tid}/input`, { data: p.text });
+      if (p.control) await api('POST', `/api/terminals/${tid}/control`, { action: p.control === 'ctrl-c' ? 'interrupt' : p.control });
+      result = { delivered: true };
+    } else {
+      result = { ignored: cmd.kind };
+    }
+    await api('POST', `/api/contex/commands/${cmd.id}/complete`, { result });
+  } catch (err) {
+    await api('POST', `/api/contex/commands/${cmd.id}/complete`, { error: String(err.message || err) }).catch(() => {});
+  }
+}
+
+function flashTile(id) {
+  const el = world.querySelector(`.tile[data-id="${id}"]`);
+  if (!el) return;
+  el.classList.add('flash');
+  setTimeout(() => el.classList.remove('flash'), 1200);
 }
 
 // ---- terminal tiles (M5) ------------------------------------------------

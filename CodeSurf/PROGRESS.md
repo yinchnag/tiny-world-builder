@@ -300,15 +300,50 @@ hand-rolled agent; command-arg quoting (current split is whitespace-only);
 project-trust prompt before running a command; ANSI/color rendering in the
 output pane.
 
+## M5 increment 2 — self-driving workflow (this session)
+
+Two of the three follow-ups landed (zero-dep); the third (real PTY) is gated on a
+dependency decision.
+
+**(a) Real-agent auto-discovery via `.mcp.json`.** On terminal start with Contex
+connected, CodeSurf writes/merges a project `.mcp.json` into the cwd
+(`src/terminal.mjs` `ensureMcpConfig`) declaring the `contex` HTTP server with
+`url: "${CONTEX_URL}"` + `Authorization: "Bearer ${CONTEX_TOKEN}"` — Claude Code
+expands those env vars at launch, so **the literal token is never written to
+disk** (CodeSurf injects the vars into the child env). Existing servers are
+preserved; idempotent; a `[CodeSurf] wrote …` notice surfaces in the tile.
+*Caveat:* Claude Code requires a one-time interactive trust approval of a project
+`.mcp.json` server (no bypass flag) — inherent to its security model.
+
+**(b) Canvas command-bus consumer.** An agent's `canvas_create_tile` /
+`canvas_focus` / `canvas_highlight` / `canvas_connect` / `terminal_input` now
+actually drive the canvas. `ContexConnection` drains commands → server forwards
+them to the browser over the `/api/contex/events` SSE (`event: command`) → the
+browser performs the action (create tile near requester / focus+center / flash /
+draw link / write stdin), de-dups by command id (delivery is at-least-once), and
+reports the result via `POST /api/contex/commands/:id/complete` →
+`canvas_complete_command`. So an agent calls `canvas_create_tile` and a tile
+appears on the canvas, linked to the requester, and the agent receives the new
+tile id.
+
+**Tests: 70 passing** (+4 terminal `.mcp.json`: env-ref/no-token, preserve+
+idempotent, written-on-start; +1 server-contex: command forwarded over SSE +
+completed). Browser harness still 16/16. Live against real Contex: command-bus
+tile creation **5/5** (`scratchpad/pw-cmdbus.mjs`) — agent → new canvas tile +
+result id + requester link.
+
+**(c) Real PTY — DEFERRED pending a dependency decision.** A true PTY on Windows
+needs ConPTY, which Node can't reach without a native module (`node-pty`); there
+is no zero-dep path. That breaks the project-wide zero-runtime-dependency
+convention, so it's the user's call (node-pty vs stay piped). Until then,
+interactive CLIs that demand a TTY (raw-mode line editing) degrade.
+
 ## Next session
 
-**M5 increment 2 / workflow polish.** Options, roughly in value order: (a) write
-a per-tile `.mcp.json` + `CLAUDE.md`/`CARD_ID` so a real `claude`/`codex` CLI
-launched in a tile auto-registers (turns the demo into a real agent); (b) wire
-the **canvas command bus consumer** so an agent's `canvas_create_tile` actually
-creates a tile on the canvas and completes the command (the other half of a
-self-driving workflow); (c) a real PTY backend for interactive fidelity. Decide
-with the user. Run a real agent process inside a tile: a PTY (or
+**(c) real PTY** if the user opts into `node-pty` (then revisit Electron), else
+polish increment-2 (command-arg quoting, project-trust prompt before running a
+command, ANSI rendering in the terminal pane, surfacing agent-created tiles'
+peer state). Run a real agent process inside a tile: a PTY (or
 piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
 inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
 the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the

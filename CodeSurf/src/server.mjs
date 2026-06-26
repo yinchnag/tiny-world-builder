@@ -127,6 +127,13 @@ export function createHandler(store, contex = null, terminals = null) {
         if (!contex) return sendJson(res, 503, { error: { code: 'CODESURF_NO_CONTEX', message: 'Contex not connected' } });
         return streamContexEvents(req, res, contex);
       }
+      const cmdDone = path.match(/^\/api\/contex\/commands\/([^/]+)\/complete$/);
+      if (cmdDone && method === 'POST') {
+        if (!contex) return sendJson(res, 503, { error: { code: 'CODESURF_NO_CONTEX', message: 'Contex not connected' } });
+        const body = (await readBody(req)) || {};
+        const out = await contex.completeCommand(decodeURIComponent(cmdDone[1]), body.result, body.error);
+        return sendJson(res, 200, { ok: true, result: out });
+      }
 
       // ---- Terminal tiles (M5) ----
       const term = path.match(/^\/api\/terminals\/([^/]+)(?:\/(start|input|control|stop|stream))?$/);
@@ -207,15 +214,18 @@ function streamContexEvents(req, res, contex) {
   const onEvent = (n) => res.write(`event: notification\ndata: ${JSON.stringify(n)}\n\n`);
   const onStatus = (s) => res.write(`event: status\ndata: ${JSON.stringify({ status: s })}\n\n`);
   const onTile = (p) => res.write(`event: tile_state\ndata: ${JSON.stringify(p)}\n\n`);
+  const onCommand = (c) => res.write(`event: command\ndata: ${JSON.stringify(c)}\n\n`);
   contex.on('event', onEvent);
   contex.on('status', onStatus);
   contex.on('tile_state', onTile);
+  contex.on('command', onCommand);
   const keepalive = setInterval(() => res.write(': ping\n\n'), 20000);
   req.on('close', () => {
     clearInterval(keepalive);
     contex.off('event', onEvent);
     contex.off('status', onStatus);
     contex.off('tile_state', onTile);
+    contex.off('command', onCommand);
   });
 }
 

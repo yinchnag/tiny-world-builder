@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { Terminal, TerminalManager } from '../src/terminal.mjs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Terminal, TerminalManager, ensureMcpConfig } from '../src/terminal.mjs';
 
 // a child that prints injected env then echoes stdin lines
 const ECHO = `
@@ -93,4 +96,36 @@ test('manager injects Contex env from the connection', async () => {
 test('manager status reports idle for an unknown tile', () => {
   const mgr = new TerminalManager();
   assert.deepEqual(mgr.status('nope'), { tileId: 'nope', status: 'idle', exitCode: null, command: null });
+});
+
+test('ensureMcpConfig writes a secret-free, env-ref contex server', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'cs-mcp-'));
+  const file = ensureMcpConfig(cwd);
+  const cfg = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(cfg.mcpServers.contex.type, 'http');
+  assert.equal(cfg.mcpServers.contex.url, '${CONTEX_URL}');
+  assert.equal(cfg.mcpServers.contex.headers.Authorization, 'Bearer ${CONTEX_TOKEN}');
+  // the literal token must never be written to disk
+  assert.ok(!readFileSync(file, 'utf8').includes('tok'));
+});
+
+test('ensureMcpConfig preserves other servers and is idempotent', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'cs-mcp2-'));
+  writeFileSync(join(cwd, '.mcp.json'), JSON.stringify({ mcpServers: { other: { type: 'stdio', command: 'x' } } }));
+  ensureMcpConfig(cwd);
+  ensureMcpConfig(cwd); // twice → still one contex entry, other preserved
+  const cfg = JSON.parse(readFileSync(join(cwd, '.mcp.json'), 'utf8'));
+  assert.ok(cfg.mcpServers.other);
+  assert.equal(cfg.mcpServers.contex.url, '${CONTEX_URL}');
+});
+
+test('manager writes .mcp.json on start when Contex is connected', async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'cs-mcp3-'));
+  const fakeContex = { agentEnv: () => ({ CONTEX_URL: 'http://127.0.0.1:9/mcp', CONTEX_TOKEN: 'tok-secret', CONTEX_WORKSPACE: 'ws' }) };
+  const mgr = new TerminalManager({ contex: fakeContex });
+  mgr.start('tile_mcp', { command: process.execPath, args: ['-e', 'process.exit(0)'], cwd });
+  const t = mgr.ensure('tile_mcp');
+  await once(t, 'exit');
+  assert.ok(existsSync(join(cwd, '.mcp.json')), '.mcp.json should exist');
+  assert.match(t.buffer, /wrote .*\.mcp\.json/); // the notice surfaced in the tile
 });
