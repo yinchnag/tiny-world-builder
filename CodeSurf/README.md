@@ -54,12 +54,14 @@ npm run smoke:pty            # verify the real-PTY backend (opt-in; needs node-p
 ```
 
 `node-pty` is an **optional** dependency: without it everything still works over
-piped stdio (and `npm test` never needs it). In `serve` (browser) mode you can
-opt into the PTY backend with `node src/cli.mjs serve --pty`, but the output pane
-is a plain `<pre>` — it does not yet render ANSI/cursor control, so a full-screen
-TUI (like Claude Code's UI) will look raw until a terminal emulator (xterm.js) is
-added. Electron mode enables the PTY backend automatically when node-pty is
-present.
+piped stdio (and `npm test` never needs it). Terminal tiles render with
+**xterm.js** (deps `@xterm/xterm`/`@xterm/addon-fit`, served from `node_modules`),
+so interactive CLIs (full-screen TUIs, colors, cursor) display correctly and
+keystrokes go straight to the process; the tile resizes the PTY to fit. If the
+xterm deps aren't installed it falls back to a plain `<pre>` + stdin line.
+In `serve` (browser) mode opt into the PTY backend with
+`node src/cli.mjs serve --pty`; Electron mode enables it automatically when
+node-pty is present.
 
 Requires Electron ≥ 28 (ESM main). A real `claude`/`codex` launched in a tile
 auto-discovers Contex via a generated `.mcp.json` (env-ref, no token on disk) and

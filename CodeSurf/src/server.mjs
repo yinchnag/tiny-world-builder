@@ -21,6 +21,15 @@ import { join, dirname, normalize } from 'node:path';
 import { CodeSurfError } from './errors.mjs';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
+const NODE_MODULES = join(dirname(fileURLToPath(import.meta.url)), '..', 'node_modules');
+
+// xterm.js assets served from node_modules (optional — falls back to a <pre> if
+// not installed). Fixed allowlist, so no path-traversal surface.
+const VENDOR = {
+  '/vendor/xterm.mjs': { file: '@xterm/xterm/lib/xterm.mjs', type: 'text/javascript; charset=utf-8' },
+  '/vendor/xterm.css': { file: '@xterm/xterm/css/xterm.css', type: 'text/css; charset=utf-8' },
+  '/vendor/addon-fit.mjs': { file: '@xterm/addon-fit/lib/addon-fit.mjs', type: 'text/javascript; charset=utf-8' },
+};
 
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -148,7 +157,7 @@ export function createHandler(store, contex = null, terminals = null) {
         if (action === 'start' && method === 'POST') {
           const body = (await readBody(req)) || {};
           if (!body.command) throw new CodeSurfError('CODESURF_BAD_REQUEST', 'command required');
-          const started = terminals.start(tileId, { command: body.command, args: body.args, cwd: body.cwd });
+          const started = terminals.start(tileId, { command: body.command, args: body.args, cwd: body.cwd, cols: Number(body.cols), rows: Number(body.rows) });
           return sendJson(res, 200, { ok: true, command: started });
         }
         if (action === 'input' && method === 'POST') {
@@ -202,6 +211,9 @@ export function createHandler(store, contex = null, terminals = null) {
         return sendJson(res, 200, { ok: true });
       }
 
+      // ---- vendored xterm assets (optional) ----
+      if (method === 'GET' && VENDOR[path]) return serveVendor(res, VENDOR[path]);
+
       // ---- static assets (any GET that isn't an API route) ----
       if (method === 'GET' && !path.startsWith('/api/')) return serveStatic(res, path);
 
@@ -210,6 +222,16 @@ export function createHandler(store, contex = null, terminals = null) {
       sendError(res, err);
     }
   };
+}
+
+async function serveVendor(res, entry) {
+  try {
+    const buf = await readFile(join(NODE_MODULES, entry.file));
+    res.writeHead(200, { 'content-type': entry.type, 'content-length': buf.length, 'cache-control': 'no-cache' });
+    res.end(buf);
+  } catch {
+    sendJson(res, 404, { error: { code: 'CODESURF_NOT_FOUND', message: `vendor asset missing (run npm install): ${entry.file}` } });
+  }
 }
 
 /** Forward Contex notifications/status to the browser over SSE. */

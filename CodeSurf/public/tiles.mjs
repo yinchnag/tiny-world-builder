@@ -158,15 +158,15 @@ export function createDefaultRegistry() {
   });
   reg.register({
     type: 'terminal', label: 'Terminal', defaultSize: { w: 420, h: 300 }, capabilities: ['terminal_input'],
-    // static shell; canvas.js wires the live process stream + stdin to these nodes
+    // static shell; canvas.js mounts xterm.js into .term-screen (or a <pre>
+    // fallback) and wires the live process stream + input
     renderBody: (t) => `<div class="term">
       <div class="term-bar">
         <input class="term-cmd" placeholder="command e.g. node, claude, codex" value="${escapeHtml(t.data.command || '')}" />
         <button class="term-start" title="Start process">▶</button>
         <button class="term-stop" title="Stop process">■</button>
       </div>
-      <pre class="term-out" tabindex="0"></pre>
-      <input class="term-input" placeholder="stdin — Enter to send" />
+      <div class="term-screen"></div>
     </div>`,
   });
   reg.register({

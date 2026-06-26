@@ -248,6 +248,7 @@ function deleteTile(id) {
   renderLinks(); renderMinimap(); scheduleSave();
   for (const l of removedLinks) contexMirrorLink('DELETE', l.source, l.target);
   closeStream(id);
+  disposeTerminalUI(id);
   api('POST', `/api/terminals/${id}/stop`).catch(() => {}); // stop any process the tile owned
 }
 
@@ -647,41 +648,54 @@ function flashTile(id) {
 const ANSI_RE = /\u001B\][^\u0007\u001B]*(?:\u0007|\u001B\\)|[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PR-TZcf-nqry=><~]|\u001B[=>]/g;
 function stripAnsi(s) { return s.replace(ANSI_RE, ''); }
 
-// ---- terminal tiles (M5) ------------------------------------------------
+// ---- terminal tiles (M5) — xterm.js when available, <pre> fallback ----------
 const terminalStreams = new Map(); // tileId -> EventSource
+const terminalUIs = new Map();     // tileId -> screen controller
 
 function closeStream(id) {
   const es = terminalStreams.get(id);
   if (es) { es.close(); terminalStreams.delete(id); }
 }
+function disposeTerminalUI(id) {
+  terminalUIs.get(id)?.dispose?.();
+  terminalUIs.delete(id);
+}
 
-function wireTerminal(el, tile) {
-  const out = el.querySelector('.term-out');
+window.__terminalUIs = terminalUIs; // exposed for the browser smoke harness
+
+let _xterm; // { Terminal, FitAddon } | null  (loaded once)
+async function loadXterm() {
+  if (_xterm !== undefined) return _xterm;
+  if (new URLSearchParams(location.search).get('xterm') === '0') { _xterm = null; return _xterm; } // tests force the <pre> fallback
+  try {
+    const [x, f] = await Promise.all([import('/vendor/xterm.mjs'), import('/vendor/addon-fit.mjs')]);
+    _xterm = { Terminal: x.Terminal, FitAddon: f.FitAddon };
+  } catch { _xterm = null; } // not installed → <pre> fallback
+  return _xterm;
+}
+
+function openTerminalStream(tileId) {
+  closeStream(tileId);
+  terminalUIs.get(tileId)?.clear();
+  const es = new EventSource(`/api/terminals/${tileId}/stream`);
+  es.addEventListener('data', (e) => terminalUIs.get(tileId)?.write(JSON.parse(e.data).chunk));
+  es.addEventListener('exit', (e) => terminalUIs.get(tileId)?.write(`\r\n[process exited: ${JSON.parse(e.data).code ?? ''}]\r\n`));
+  es.onerror = () => { /* EventSource retries */ };
+  terminalStreams.set(tileId, es);
+}
+
+async function wireTerminal(el, tile) {
+  const screen = el.querySelector('.term-screen');
   const cmd = el.querySelector('.term-cmd');
-  const input = el.querySelector('.term-input');
   const startBtn = el.querySelector('.term-start');
   const stopBtn = el.querySelector('.term-stop');
-  if (!out) return;
-
+  if (!screen) return;
   // keep canvas pan/drag/select from hijacking interactions inside the terminal
   el.querySelector('.term')?.addEventListener('mousedown', (e) => e.stopPropagation());
 
-  const append = (chunk) => {
-    const atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 4;
-    // Strip ANSI/control sequences so plain-text agents read cleanly in the <pre>
-    // (a real terminal emulator / xterm.js is the proper renderer for full TUIs).
-    out.textContent += stripAnsi(chunk);
-    if (atBottom) out.scrollTop = out.scrollHeight;
-  };
-  function openStream() {
-    closeStream(tile.id);
-    out.textContent = '';
-    const es = new EventSource(`/api/terminals/${tile.id}/stream`);
-    es.addEventListener('data', (e) => append(JSON.parse(e.data).chunk));
-    es.addEventListener('exit', (e) => append(`\n[process exited: ${JSON.parse(e.data).code ?? ''}]\n`));
-    es.onerror = () => { /* EventSource retries */ };
-    terminalStreams.set(tile.id, es);
-  }
+  disposeTerminalUI(tile.id); // drop any controller from a prior render of this tile
+  const ui = await buildTerminalScreen(tile, screen);
+  terminalUIs.set(tile.id, ui);
 
   startBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
@@ -690,23 +704,69 @@ function wireTerminal(el, tile) {
     const parts = line.split(/\s+/);
     tile.data = { ...tile.data, command: line };
     scheduleSave();
+    ui.clear();
     try {
-      await api('POST', `/api/terminals/${tile.id}/start`, { command: parts[0], args: parts.slice(1), cwd: app.repositoryPath });
-      openStream();
-    } catch (err) { append(`\n[start failed: ${err.message}]\n`); }
+      await api('POST', `/api/terminals/${tile.id}/start`, { command: parts[0], args: parts.slice(1), cwd: app.repositoryPath, cols: ui.cols(), rows: ui.rows() });
+      openTerminalStream(tile.id);
+      ui.syncSize();
+    } catch (err) { ui.write(`\r\n[start failed: ${err.message}]\r\n`); }
   });
   stopBtn.addEventListener('click', (e) => { e.stopPropagation(); api('POST', `/api/terminals/${tile.id}/stop`).catch(() => {}); });
-  input.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    api('POST', `/api/terminals/${tile.id}/input`, { data: input.value + '\n' }).catch(() => {});
-    input.value = '';
-  });
 
   // reattach to an already-running process (re-render / page reload)
   fetch(`/api/terminals/${tile.id}`).then((r) => r.json()).then((s) => {
-    if (s.status === 'running' || (s.scrollback && s.scrollback.length)) openStream();
+    if (s.status === 'running' || (s.scrollback && s.scrollback.length)) openTerminalStream(tile.id);
   }).catch(() => {});
+}
+
+async function buildTerminalScreen(tile, screen) {
+  const xterm = await loadXterm();
+  const sendInput = (data) => api('POST', `/api/terminals/${tile.id}/input`, { data }).catch(() => {});
+  const sendResize = (cols, rows) => api('POST', `/api/terminals/${tile.id}/resize`, { cols, rows }).catch(() => {});
+
+  if (xterm) {
+    screen.innerHTML = '';
+    const term = new xterm.Terminal({
+      fontSize: 12, fontFamily: 'ui-monospace, "Cascadia Code", Consolas, monospace',
+      theme: { background: '#0c0e13', foreground: '#cfe3ff', cursor: '#4f9cff' },
+      cursorBlink: true, scrollback: 4000, convertEol: true, // \n→\r\n so piped output also lays out
+    });
+    const fit = new xterm.FitAddon();
+    term.loadAddon(fit);
+    term.open(screen);
+    const refit = () => { try { fit.fit(); } catch { /* not visible yet */ } };
+    refit();
+    term.onData(sendInput);
+    term.onResize(({ cols, rows }) => sendResize(cols, rows));
+    let rt;
+    const ro = new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(refit, 80); });
+    ro.observe(screen);
+    return {
+      kind: 'xterm', term,
+      write: (c) => term.write(c),
+      clear: () => term.clear(),
+      cols: () => term.cols, rows: () => term.rows,
+      syncSize: () => sendResize(term.cols, term.rows),
+      dispose: () => { try { clearTimeout(rt); ro.disconnect(); term.dispose(); } catch { /* ignore */ } },
+    };
+  }
+
+  // fallback: a plain <pre> (ANSI stripped) + a stdin line
+  screen.innerHTML = '<pre class="term-out" tabindex="0"></pre><input class="term-input" placeholder="stdin — Enter to send" />';
+  const out = screen.querySelector('.term-out');
+  const input = screen.querySelector('.term-input');
+  input.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault(); sendInput(input.value + '\n'); input.value = '';
+  });
+  return {
+    kind: 'pre',
+    write: (c) => { const atBottom = out.scrollTop + out.clientHeight >= out.scrollHeight - 4; out.textContent += stripAnsi(c); if (atBottom) out.scrollTop = out.scrollHeight; },
+    clear: () => { out.textContent = ''; },
+    cols: () => 80, rows: () => 24,
+    syncSize: () => {},
+    dispose: () => {},
+  };
 }
 
 // ---- utils --------------------------------------------------------------

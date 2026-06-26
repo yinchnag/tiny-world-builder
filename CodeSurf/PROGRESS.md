@@ -355,18 +355,38 @@ the opt-in `npm run smoke:pty` (`scripts/pty-check.mjs`) confirms
 (node-pty kept out of it — it leaves a lingering handle, so its check is a
 separate opt-in script). Browser harness still 16/16.
 
-**Known gap (next):** the terminal pane is a plain `<pre>` with no ANSI/cursor
-rendering — a full-screen TUI (Claude Code's UI) shows raw escapes under `--pty`.
-A terminal emulator (**xterm.js**) in the tile is the next piece to make real
-interactive `claude`/`codex` look right; pair it with PTY resize from the tile's
-pixel size.
+## M5 increment 4 — xterm.js terminal rendering (this session)
+
+The terminal tile now renders a real terminal emulator, so interactive
+`claude`/`codex` (full-screen TUIs, colors, cursor) display correctly.
+
+- **xterm.js + fit addon** (deps `@xterm/xterm`, `@xterm/addon-fit`) served from
+  `node_modules` via a `/vendor/` route (`src/server.mjs`); `index.html` links
+  the css. The terminal tile's `.term-screen` mounts an xterm `Terminal`
+  (`public/canvas.js` `buildTerminalScreen`): PTY/process output → `term.write`
+  (ANSI rendered), keystrokes → `term.onData` → stdin, and a `ResizeObserver` +
+  `FitAddon` drive `POST /api/terminals/:id/resize` so the PTY matches the tile
+  (initial cols/rows passed on start). Graceful: if the vendor assets aren't
+  installed (or `?xterm=0`), it falls back to the previous `<pre>` + stdin line.
+- Per-tile xterm controllers are tracked and disposed on re-render/delete (no
+  leaks); reattach-on-reload still works.
+
+**Verified**: opt-in `npm run smoke:xterm` (`scripts/xterm-check.mjs`, needs
+global Playwright + the deps) — **5/5**: xterm mounts, renders output, the child
+has a real TTY (PTY), and typed keystrokes reach stdin. Unit suite **71 passing**;
+browser harness **16/16** and the basic-workflow **9/9** (both pinned to the
+`?xterm=0` fallback for stable DOM assertions).
+
+This completes the interactive-terminal story: M5 + all three follow-ups (.mcp.json
+auto-discovery, command-bus consumer, real PTY) + xterm rendering.
 
 ## Next session
 
-**xterm.js terminal rendering** (render ANSI + drive PTY resize from tile size) so
-real interactive agents look right; then make `--pty`/Electron the default once
-rendering is solid. Smaller polish: command-arg quoting, project-trust prompt
-before running a command, surfacing agent-created tiles' peer state. Run a real agent process inside a tile: a PTY (or
+Polish / breadth, pick by need: make `--pty` the serve default now that ANSI
+renders; command-arg quoting (shell-style) in the terminal launcher; a
+project-trust prompt before running a command; or move up the DEVELOPMENT_PLAN
+(Phase 6 chat tile + human control loop / Phase 8 status+task board — both have
+their Contex backends ready). Run a real agent process inside a tile: a PTY (or
 piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
 inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
 the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the

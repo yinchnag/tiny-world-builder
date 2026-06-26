@@ -63,7 +63,7 @@ const center = (b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
 const box = (sel) => page.locator(sel).first().boundingBox();
 
 try {
-  await page.goto(BASE, { waitUntil: 'networkidle' });
+  await page.goto(BASE + '/?xterm=0', { waitUntil: 'networkidle' }); // force the <pre> terminal for stable assertions
   await sleep(400);
 
   async function addTile(type) {

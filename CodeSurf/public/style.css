@@ -90,9 +90,12 @@ input { cursor: text; }
 /* terminal tile */
 .tile .body:has(.term) { padding: 0; }
 .term { display: flex; flex-direction: column; height: 100%; }
-.term-bar { display: flex; gap: 4px; padding: 5px 6px; border-bottom: 1px solid var(--line); }
+.term-bar { display: flex; gap: 4px; padding: 5px 6px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
 .term-bar .term-cmd { flex: 1; font-size: 12px; padding: 3px 6px; }
 .term-bar button { padding: 2px 8px; }
+.term-screen { flex: 1 1 auto; min-height: 0; position: relative; background: #0c0e13; display: flex; flex-direction: column; }
+.term-screen .xterm { flex: 1 1 auto; padding: 4px 6px; }
+.term-screen .xterm .xterm-viewport { background-color: transparent !important; }
 .term-out {
   flex: 1; margin: 0; padding: 6px 8px; overflow: auto;
   font: 11px/1.4 ui-monospace, "Cascadia Code", Consolas, monospace;

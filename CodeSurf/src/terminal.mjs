@@ -249,6 +249,9 @@ export class TerminalManager extends EventEmitter {
 
   start(tileId, spec = {}) {
     const t = this.ensure(tileId);
+    if (Number.isFinite(spec.cols) && Number.isFinite(spec.rows) && spec.cols > 0 && spec.rows > 0) {
+      t.cols = spec.cols; t.rows = spec.rows; // initial PTY size from the tile
+    }
     const contexEnv = this.contex?.agentEnv?.() || {};
     // (a) drop a secret-free .mcp.json so a real claude/codex CLI finds Contex
     if (contexEnv.CONTEX_URL && spec.cwd) {
