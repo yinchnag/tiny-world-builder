@@ -194,7 +194,7 @@ export function createContex({ dbPath = ':memory:', clock = null, heartbeatTimeo
       const workspace_id = resolveWorkspaceId(input);
       const cmd = enqueueCommand(db, {
         workspace_id, requester_tile_id: input.requester_tile_id, kind: 'create_tile',
-        payload: { tile_type: input.tile_type, title: input.title ?? null, objective: input.objective ?? null, skills: input.skills ?? null, position_hint: input.position_hint ?? null, link_to_requester: input.link_to_requester !== false },
+        payload: { tile_type: input.tile_type, title: input.title ?? null, objective: input.objective ?? null, skills: input.skills ?? null, position_hint: input.position_hint ?? null, link_to_requester: input.link_to_requester !== false, command: input.command ?? null, content: input.content ?? null },
       }, baseOpts);
       emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
       return cmd;

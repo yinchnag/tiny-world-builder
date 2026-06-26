@@ -206,7 +206,7 @@ export const TOOLS = [
   // canvas command bus (Phase 8) — agent-facing
   {
     name: 'canvas_create_tile',
-    description: 'Request CodeSurf to create a child tile. Returns a command id; the new tile id arrives via the command result.',
+    description: 'Request CodeSurf to create a child tile. Returns a command id; the new tile id arrives via the command result. For a terminal tile, `command` auto-runs it (e.g. spawn a worker agent); for a document tile, `content` fills it.',
     inputSchema: obj({
       requester_tile_id: { type: 'string' },
       tile_type: { type: 'string' },
@@ -215,6 +215,8 @@ export const TOOLS = [
       skills: { type: 'array' },
       position_hint: { type: 'object' },
       link_to_requester: { type: 'boolean' },
+      command: { type: 'string' },
+      content: { type: 'string' },
     }, ['tile_type']),
     mutates: true,
     handler: (c, a) => c.canvasCreateTile(a),
