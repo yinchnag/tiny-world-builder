@@ -228,6 +228,35 @@ Phase-8 **canvas command bus round trip** completed — an agent's
 **Not verified here:** the browser pill/dot updates + link mirroring in an actual
 browser — same as prior milestones, a `npm run serve --contex` hands-on step.
 
+## Browser verification + fixes (this session)
+
+The M1–M3 "browser interactions not verified" caveat is now closed. Drove the
+real canvas in headless Chromium (Playwright) and found + fixed four bugs:
+
+1. **Link drawing was broken** — the connection port sat at `right: -7px`
+   (outside the tile) but `.tile` has `overflow: hidden`, so the port's outer
+   half was clipped and `elementFromPoint` at its center returned the tile, not
+   the port → port-drag never started. Moved the port inside the clip
+   (`right: 3px`, `z-index: 2`).
+2. **New tiles spawned at the exact same spot** — `+ Tile` always used the
+   viewport center, so tiles stacked perfectly and occluded each other. Added a
+   `freeSpot()` cascade that nudges a new tile down-right off any near-coincident
+   tile.
+3. **No bring-to-front** — overlapping tiles intercepted each other's clicks.
+   `select()` now raises the tile to the end of `#world` (DOM order = paint
+   order; the links `<svg>` stays first/behind).
+4. **Autosave could lose the last edits on a quick reload/close** — the 600 ms
+   debounce never flushed if you closed within the window. Added a
+   `beforeunload` flush via `fetch(..., { keepalive: true })`, gated by a
+   `dirty` flag. Also stopped opening the Contex `EventSource` when the backend
+   is disconnected (was logging repeated 503s in canvas-only mode).
+
+Verified by a committed, opt-in harness `scripts/browser-smoke.mjs`
+(`npm run smoke:browser`) — boots its own throwaway server, drives Chromium,
+**12/12 checks pass** (no-stack, head-drag, resize, port-link, empty-drop,
+minimize, pin, delete, reload-persist, zero console errors). It resolves a
+global Playwright and skips cleanly if absent, so `npm test` stays zero-dep.
+
 ## Next session
 
 **M5 — terminal tile.** Run a real agent process inside a tile: a PTY (or

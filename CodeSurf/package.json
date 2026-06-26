@@ -12,7 +12,8 @@
   },
   "scripts": {
     "serve": "node src/cli.mjs serve",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "smoke:browser": "node scripts/browser-smoke.mjs"
   },
   "license": "AGPL-3.0-only"
 }

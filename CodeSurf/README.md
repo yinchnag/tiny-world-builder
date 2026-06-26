@@ -26,6 +26,10 @@ cd CodeSurf
 # run the tests (all offline, temp dirs)
 npm test
 
+# optional browser smoke (needs a global Playwright; boots its own throwaway server)
+#   npm i -g playwright && npx playwright install chromium
+npm run smoke:browser
+
 # --- canvas only (no coordination backend) ---
 npm run serve                       # prints  http://127.0.0.1:<dynamic>/  on stderr
 node src/cli.mjs serve --port 8742  # or pin a port

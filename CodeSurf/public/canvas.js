@@ -185,13 +185,21 @@ function syncTileEl(t) {
 function select(id) {
   app.selectedId = id;
   world.querySelectorAll('.tile').forEach((el) => el.classList.toggle('selected', el.dataset.id === id));
+  if (id) raiseTile(id);
+}
+
+// bring a tile to the front (DOM order = paint order; #links svg stays first/behind)
+function raiseTile(id) {
+  const el = world.querySelector(`.tile[data-id="${id}"]`);
+  if (el && el !== world.lastElementChild) world.appendChild(el);
 }
 
 // ---- mutations ----------------------------------------------------------
 function addTile(wx, wy, type = currentTileType()) {
   const def = registry.get(type);
+  const spot = freeSpot(Math.round(wx), Math.round(wy)); // avoid spawning exactly on top of another tile
   const t = normalizeTile({
-    type, title: def.label, x: Math.round(wx), y: Math.round(wy),
+    type, title: def.label, x: spot.x, y: spot.y,
     w: def.defaultSize.w, h: def.defaultSize.h,
   }, registry);
   tiles().push(t);
@@ -200,6 +208,13 @@ function addTile(wx, wy, type = currentTileType()) {
   renderMinimap();
   scheduleSave();
   return t;
+}
+
+// nudge down-right until the spot isn't (nearly) coincident with an existing tile
+function freeSpot(x, y) {
+  let nx = x, ny = y;
+  while (tiles().some((t) => Math.abs(t.x - nx) < 12 && Math.abs(t.y - ny) < 12)) { nx += 28; ny += 28; }
+  return { x: nx, y: ny };
 }
 
 function currentTileType() {
@@ -242,17 +257,23 @@ function addLink(source, target) {
 
 // ---- autosave -----------------------------------------------------------
 let saveTimer = null;
+let dirty = false;
 function scheduleSave() {
   if (!app.workspaceId) return;
+  dirty = true;
   setStatus('Saving…', 'saving');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 600);
 }
+function layoutPayload() {
+  return { ...app.layout, tiles: app.layout.tiles.map(serializeTile) };
+}
 async function saveNow() {
   if (!app.workspaceId) return;
   try {
-    const layout = { ...app.layout, tiles: app.layout.tiles.map(serializeTile) };
+    const layout = layoutPayload();
     await api('PUT', `/api/workspaces/${app.workspaceId}/layout`, { layout });
+    dirty = false;
     const t = new Date();
     setStatus(`Saved ${t.toLocaleTimeString()}`);
   } catch (e) {
@@ -490,20 +511,34 @@ newDialog.addEventListener('close', async () => {
   }
 });
 
-// close the workspace lock on unload (best effort)
+// flush any pending layout edit + release the lock on unload (best effort)
 window.addEventListener('beforeunload', () => {
-  if (app.workspaceId) navigator.sendBeacon?.(`/api/workspaces/${app.workspaceId}/close`, '');
+  if (!app.workspaceId) return;
+  if (dirty) {
+    clearTimeout(saveTimer);
+    // keepalive lets this PUT complete after the page goes away (no debounce loss)
+    try {
+      fetch(`/api/workspaces/${app.workspaceId}/layout`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ layout: layoutPayload() }), keepalive: true,
+      });
+    } catch { /* best effort */ }
+  }
+  navigator.sendBeacon?.(`/api/workspaces/${app.workspaceId}/close`, '');
 });
 
 // ---- Contex integration -------------------------------------------------
 const contexPill = $('#contex');
+let contexConnected = false;
 
 function setContexStatus(status) {
+  contexConnected = status === 'connected';
   contexPill.textContent = 'Contex: ' + status;
   contexPill.className = 'contex ' + status;
 }
 
 async function contexMirrorLink(method, source, target, directed) {
+  if (!contexConnected) return; // no backend → skip the mirror (avoids 503 noise)
   try {
     await fetch('/api/contex/links', {
       method,
@@ -524,10 +559,17 @@ function applyTileState(params) {
 }
 
 function startContex() {
-  fetch('/api/contex/status').then((r) => r.json()).then((s) => setContexStatus(s.status)).catch(() => setContexStatus('disconnected'));
-  // EventSource auto-reconnects; the server forwards Contex notifications + status
+  fetch('/api/contex/status').then((r) => r.json()).then((s) => {
+    setContexStatus(s.status);
+    // only open the live stream when a backend is actually present (avoids a 503
+    // EventSource loop in canvas-only mode)
+    if (s.status !== 'disconnected') openContexStream();
+  }).catch(() => setContexStatus('disconnected'));
+}
+
+function openContexStream() {
   try {
-    const es = new EventSource('/api/contex/events');
+    const es = new EventSource('/api/contex/events'); // EventSource auto-reconnects
     es.addEventListener('status', (e) => setContexStatus(JSON.parse(e.data).status));
     es.addEventListener('tile_state', (e) => applyTileState(JSON.parse(e.data)));
     es.onerror = () => { /* EventSource retries on its own */ };

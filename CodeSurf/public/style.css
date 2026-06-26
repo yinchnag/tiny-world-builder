@@ -107,10 +107,12 @@ input { cursor: text; }
 
 /* connection port */
 .tile .port {
-  position: absolute; right: -7px; top: 50%; transform: translateY(-50%);
-  width: 13px; height: 13px; border-radius: 50%;
+  position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px; border-radius: 50%;
   background: var(--accent); border: 2px solid var(--bg); cursor: crosshair;
+  z-index: 2; /* sit above the body so it is always hittable (tile clips overflow) */
 }
+.tile .port:hover { box-shadow: 0 0 0 3px rgba(79,156,255,.35); }
 .tile .resize {
   position: absolute; right: 0; bottom: 0; width: 14px; height: 14px;
   cursor: nwse-resize;
