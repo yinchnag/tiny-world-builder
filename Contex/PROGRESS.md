@@ -30,6 +30,7 @@ Requires Node >= 22.5 (built-in `node:sqlite`). **Zero runtime dependencies.**
 - [x] **Phase 5 — tasks + first-gen task tools** (state machine, create/update/pause_task, tasks resource)
 - [x] **Phase 6 — file claims + collision prevention** (path safety, stale/expiry, owner override)
 - [x] **Phase 7 — objectives, skills, context** (versioned objectives + reload signaling, get_context)
+- [x] **Phase 8 — canvas command bus** (queue + lifecycle, canvas_create_tile, terminal input, consumer ops)
 - [ ] Phase 7 — versioned objectives + skills + reload signaling
 - [ ] Phase 8 — canvas command bus (`canvas_create_tile`, `terminal_send_input`)
 - [ ] Phase 9 — audit replay / workspace export
@@ -269,6 +270,33 @@ set_objective → objective_reload_required → reload_objective SSE flow).
 Deferred: optional `.contex/tile-*` import/export (Phase 7 stretch); exact
 byte-match of historical objective.md fixtures awaits Phase 0 fixtures.
 
+## Phase 8 — canvas command bus (this session)
+
+New work — the bridge CodeSurf needs. Added the `canvas_command` table
+(SCHEMA_VERSION → 4) and a queue + lifecycle (`domain/commands.mjs`):
+`accepted → delivered → completed | failed | expired`.
+
+- **Agent-facing**: `canvas_create_tile`, `terminal_send_input`, `canvas_focus`,
+  `canvas_highlight`, `canvas_connect` — each enqueues a command and emits
+  `canvas_command`.
+- **Consumer-facing** (CodeSurf/owner): `canvas_next_commands` (pull pending,
+  mark delivered — at-least-once) and `canvas_complete_command` (report result/
+  error, emits `canvas_command_result`). Completion is idempotent.
+- **Safety**: `terminal_send_input` requires the caller to be linked
+  (`canActOn`) AND the target to advertise the `terminal_input` capability;
+  control sequences are destructive and need `confirm: true`. Every command is
+  audited.
+- **Offline + timeout**: commands sit `accepted` until a consumer drains them;
+  `expireStaleCommands` expires ones never finished within the window.
+
+Exit criterion met: an agent calls `canvas_create_tile`, the consumer fulfills
+it, and the agent receives the new tile id via `canvas_command_result`
+(covered end-to-end over MCP).
+
+**Tests: 84 passing** (+7: create→fulfill→id, offline queue, at-least-once +
+idempotent completion, invalid-type reject + consumer fail, terminal-input
+permission/capability/control rules, command expiry, and the SSE exit flow).
+
 ## Deliberate simplifications (revisit in later phases)
 
 - SSE streams have **no resumability/replay** (Last-Event-ID is emitted but not
@@ -284,9 +312,11 @@ byte-match of historical objective.md fixtures awaits Phase 0 fixtures.
 
 ## Next session
 
-Phases 1–7 done (transport, presence, resources, links/discovery, messaging,
-tasks, claims, objectives/skills/context). Next in order is **Phase 8** (canvas
-command bus — persistent command queue, `canvas_create_tile`, terminal input,
-focus/highlight/connect, result callbacks; CodeSurf consumes these). Then
-**Phase 9** (audit replay/export) and **Phase 10** (CodeSurf integration
-hardening). Worth doing once: the user-side real-client smoke (`.mcp.json` above).
+Phases 1–8 done (transport, presence, resources, links/discovery, messaging,
+tasks, claims, objectives/skills/context, canvas command bus). Next in order is
+**Phase 9** (audit replay/export — append-only event log, correlation ids,
+replay into read models, workspace export bundle, sanitized diagnostics, event
+feed for Workspace Memory). Then **Phase 10** (CodeSurf integration hardening)
+and the optional **Phase 11** (remote/team mode). With Phase 8 done, Contex now
+has everything **CodeSurf** needs to start — the GUI work can begin in parallel.
+Worth doing once: the user-side real-client smoke (`.mcp.json` above).

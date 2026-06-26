@@ -14,6 +14,7 @@ export const newTodoId = () => newId('todo');
 export const newTaskId = () => newId('task');
 export const newLinkId = () => newId('link');
 export const newClaimId = () => newId('claim');
+export const newCommandId = () => newId('cmd');
 export const newObjectiveId = () => newId('obj');
 export const newSkillId = () => newId('skill');
 export const newAttachmentId = () => newId('att');

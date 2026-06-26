@@ -9,16 +9,17 @@
 import { EventEmitter } from 'node:events';
 import { openDb } from './db.mjs';
 import { createWorkspace, getWorkspace, soleWorkspace, listWorkspaces, archiveWorkspace, setWorkspaceDiscovery } from './domain/workspace.mjs';
-import { setTileState, getTile, listTiles, DEFAULT_HEARTBEAT_TIMEOUT_MS } from './domain/tiles.mjs';
+import { setTileState, getTile, getTileRow, listTiles, TILE_TYPES, DEFAULT_HEARTBEAT_TIMEOUT_MS } from './domain/tiles.mjs';
 import { getPeerState } from './domain/peers.mjs';
-import { linkTiles, unlinkTiles, listLinks } from './domain/links.mjs';
+import { linkTiles, unlinkTiles, listLinks, canActOn } from './domain/links.mjs';
 import { releaseClaim, purgeExpiredClaims } from './domain/claims.mjs';
+import { enqueueCommand, getCommand, listCommands, nextCommands, completeCommand, expireStaleCommands } from './domain/commands.mjs';
 import { sendMessage, readMessages, unreadCount, addTodo, completeTodo, listTodos, chatSendMessage, acknowledgeMessage, listInbox, purgeExpiredMessages } from './domain/messaging.mjs';
 import { createTask, updateTask, pauseTask, getTask, listTasks, importTaskState } from './domain/tasks.mjs';
 import { setObjective, getObjective, objectiveVersions, acknowledgeObjective, reloadObjective, objectiveReloadRequired } from './domain/objectives.mjs';
 import { setSkill, listSkillAssignments, skillsJson } from './domain/skills.mjs';
 import { addAttachment, listAttachments } from './domain/attachments.mjs';
-import { listAudit, audit, nowIso } from './store.mjs';
+import { listAudit, audit, nowIso, parseJson } from './store.mjs';
 import { err } from './errors.mjs';
 
 const N = (s) => `notifications/context/${s}`;
@@ -186,6 +187,69 @@ export function createContex({ dbPath = ':memory:', clock = null, heartbeatTimeo
       emitNote(level === 'human_attention' ? N('human_attention') : N('notice'), payload);
       return { ok: true, level };
     },
+
+    // canvas command bus (Phase 8)
+    canvasCreateTile(input) {
+      if (!input.tile_type || !TILE_TYPES.has(input.tile_type)) throw err.badRequest(`invalid tile_type: ${input.tile_type}`);
+      const workspace_id = resolveWorkspaceId(input);
+      const cmd = enqueueCommand(db, {
+        workspace_id, requester_tile_id: input.requester_tile_id, kind: 'create_tile',
+        payload: { tile_type: input.tile_type, title: input.title ?? null, objective: input.objective ?? null, skills: input.skills ?? null, position_hint: input.position_hint ?? null, link_to_requester: input.link_to_requester !== false },
+      }, baseOpts);
+      emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
+      return cmd;
+    },
+    terminalSendInput(input) {
+      const target = getTileRow(db, input.target_tile_id);
+      if (!target) throw err.tileNotFound(input.target_tile_id);
+      // caller must be linked to (or directed-allowed on) the target
+      if (!canActOn(db, target.workspace_id, input.requester_tile_id, input.target_tile_id)) {
+        throw err.peerNotLinked(input.requester_tile_id, input.target_tile_id);
+      }
+      // target must advertise terminal-input capability
+      const caps = parseJson(target.capabilities_json, []) || [];
+      if (!Array.isArray(caps) || !caps.includes('terminal_input')) {
+        throw err.badRequest('target tile does not advertise terminal input');
+      }
+      // control sequences are destructive -> require explicit confirmation
+      if (input.control != null && input.confirm !== true) {
+        throw err.scopeDenied('control input requires confirm:true (owner confirmation)');
+      }
+      const cmd = enqueueCommand(db, {
+        workspace_id: target.workspace_id, requester_tile_id: input.requester_tile_id, target_tile_id: input.target_tile_id,
+        kind: 'terminal_input', payload: { text: input.text ?? null, control: input.control ?? null },
+      }, baseOpts);
+      emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
+      return cmd;
+    },
+    canvasFocus(input) {
+      const workspace_id = resolveWorkspaceId(input);
+      const cmd = enqueueCommand(db, { workspace_id, requester_tile_id: input.requester_tile_id, target_tile_id: input.tile_id, kind: 'focus', payload: { tile_id: input.tile_id } }, baseOpts);
+      emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
+      return cmd;
+    },
+    canvasHighlight(input) {
+      const workspace_id = resolveWorkspaceId(input);
+      const cmd = enqueueCommand(db, { workspace_id, requester_tile_id: input.requester_tile_id, target_tile_id: input.tile_id, kind: 'highlight', payload: { tile_id: input.tile_id, reason: input.reason ?? null } }, baseOpts);
+      emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
+      return cmd;
+    },
+    canvasConnect(input) {
+      const workspace_id = resolveWorkspaceId(input);
+      const cmd = enqueueCommand(db, { workspace_id, requester_tile_id: input.requester_tile_id, kind: 'connect', payload: { source_tile_id: input.source_tile_id, target_tile_id: input.target_tile_id } }, baseOpts);
+      emitNote(N('canvas_command'), { command_id: cmd.id, kind: cmd.kind });
+      return cmd;
+    },
+    // consumer-facing (CodeSurf / owner)
+    nextCommands: (workspaceId, opts) => nextCommands(db, workspaceId ?? resolveWorkspaceId({}), { ...baseOpts, ...opts }),
+    completeCommand(input) {
+      const cmd = completeCommand(db, input, baseOpts);
+      emitNote(N('canvas_command_result'), { command_id: cmd.id, status: cmd.status, result: cmd.result, requester_tile_id: cmd.requester_tile_id });
+      return cmd;
+    },
+    getCommand: (id) => getCommand(db, id),
+    listCommands: (workspaceId) => listCommands(db, workspaceId),
+    expireStaleCommands: (opts) => expireStaleCommands(db, { ...baseOpts, ...opts }),
 
     // audit
     listAudit: (workspaceId, limit) => listAudit(db, workspaceId, limit),

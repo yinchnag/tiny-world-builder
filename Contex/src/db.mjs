@@ -11,7 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 // Bumped whenever SCHEMA changes; stored in PRAGMA user_version so an existing
 // db can be detected as current. Round 1 ships v1.
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS workspace (
@@ -177,6 +177,23 @@ CREATE TABLE IF NOT EXISTS context_attachment (
   updated_at    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_attachment_tile ON context_attachment(tile_id);
+
+CREATE TABLE IF NOT EXISTS canvas_command (
+  id                TEXT PRIMARY KEY,
+  workspace_id      TEXT,
+  requester_tile_id TEXT,
+  target_tile_id    TEXT,
+  kind              TEXT NOT NULL,
+  payload_json      TEXT,
+  status            TEXT NOT NULL DEFAULT 'accepted',
+  result_json       TEXT,
+  error             TEXT,
+  created_at        TEXT NOT NULL,
+  delivered_at      TEXT,
+  completed_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_command_workspace ON canvas_command(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_command_status ON canvas_command(status);
 
 CREATE TABLE IF NOT EXISTS audit_event (
   sequence      INTEGER PRIMARY KEY AUTOINCREMENT,

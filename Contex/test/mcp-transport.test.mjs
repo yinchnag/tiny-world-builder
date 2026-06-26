@@ -180,6 +180,36 @@ test('set_objective over MCP signals objective_reload_required (Phase 7 exit)', 
   }
 });
 
+test('agent creates a child terminal tile and receives its id (Phase 8 exit)', async () => {
+  const srv = await startTestServer();
+  try {
+    const agent = new McpClient(srv.url, srv.token);
+    await agent.initialize();
+    await agent.callTool('peer_set_state', { tile_id: 'term', tile_type: 'terminal', status: 'working' });
+    const stream = await agent.openStream();
+
+    // agent requests a child tile
+    const cmd = (await agent.callTool('canvas_create_tile', { requester_tile_id: 'term', tile_type: 'terminal', title: 'child' })).structuredContent;
+    assert.equal(cmd.status, 'accepted');
+
+    // CodeSurf consumer pulls, creates the tile, reports its id
+    const codesurf = new McpClient(srv.url, srv.token);
+    await codesurf.initialize();
+    const pending = (await codesurf.callTool('canvas_next_commands', {})).structuredContent.commands;
+    assert.equal(pending[0].id, cmd.id);
+    await codesurf.callTool('peer_set_state', { tile_id: 'term-child', tile_type: 'terminal', status: 'idle' });
+    const fire = codesurf.callTool('canvas_complete_command', { command_id: cmd.id, result: { tile_id: 'term-child' } });
+
+    // the requester learns the new tile id from the command-result notification
+    const note = await waitForNotification(stream, (m) => m.method === 'notifications/context/canvas_command_result');
+    await fire;
+    assert.ok(note, 'received canvas_command_result');
+    assert.equal(note.params.result.tile_id, 'term-child');
+  } finally {
+    await srv.close();
+  }
+});
+
 test('GET stream requires Accept: text/event-stream and a valid session', async () => {
   const srv = await startTestServer();
   try {
