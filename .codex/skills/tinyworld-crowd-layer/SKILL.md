@@ -16,6 +16,7 @@ Use this skill when changing TinyWorld's 2.5D crowd/person sprite system.
 - Use `tilePos(x, z)` for map placement and a terrain-height callback for feet height.
 - Preserve the original crowd demo's `P` config surface (`count`, `size`, `slices`, `bob`, `sway`, `headSway`, `leg`, `squash`, `lean`, `hipLine`, `cadence`, `speed`, etc.) when tuning animation.
 - Render movement through the original slice-wave canvas animation, then upload that canvas into a `THREE.CanvasTexture` used by a `THREE.Sprite`.
+- Three.js r185 uses `texture.colorSpace = THREE.SRGBColorSpace`; if code may run before `00-prelude.js`, set `colorSpace` directly with an `encoding` fallback instead of calling TinyWorld helper functions.
 - Size people against known TinyWorld model proportions: default door height is about `0.48` world units, and people should be below that.
 - Choose `down/up/left/right` frames from the camera's horizontal angle relative to the person's heading; steep overhead views use a baked collapsed-body `top` frame.
 - Each person has a circular zone (`radius`) around its 3D point for collision, hit testing, visibility, and later avoidance.

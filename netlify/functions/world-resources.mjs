@@ -90,6 +90,11 @@ export default async function worldResourcesFunction(request) {
       if (!Array.isArray(events)) continue;
       for (const ev of events) {
         if (!ev || !ev.type || !ev.amount) continue;
+        // SECURITY: this generic service-token ingest may ONLY write allowance recalcs.
+        // GOLD debits/refunds must go through the locked, idempotent endpoints
+        // (/api/me/gold/spend, refund) so a service-token leak or room bug can never
+        // mint or move spendable GOLD here. Reject any non-allowance type.
+        if (ev.type !== 'ALLOWANCE_RECALCULATED') continue;
         try {
           await sql`
             INSERT INTO gold_ledger_events (wallet, cycle_id, type, amount, reason, reference_id)

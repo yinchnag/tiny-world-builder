@@ -230,7 +230,7 @@
         preserveDrawingBuffer: true,
         powerPreference: 'low-power',
       });
-      thumbRenderer.outputEncoding = THREE.sRGBEncoding;
+      twSetRendererOutputSRGB(thumbRenderer);
     }
     thumbRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, toolbarThumbDprCap()));
     thumbRenderer.setSize(THUMB_SIZE, THUMB_SIZE, false);

@@ -1,0 +1,70 @@
+name: production-line
+
+# The owner-approved SAFE-SCOPE autonomous loop.
+#   Default (no opt-in): runs the safe tick only — drafts news/tweets from the latest
+#   ship + refreshes the dashboard. No secrets, no economy code, no public posting.
+#   Opt-in (repo variable PRODUCTION_LINE_AUTONOMOUS = "true" AND secret
+#   ANTHROPIC_API_KEY set): additionally lets a headless agent build + ship the next
+#   NON-economy roadmap item, hard-guarded by the economy denylist + check/tests.
+#
+# Nothing here ever posts to a social account or modifies the gated economy paths.
+
+on:
+  schedule:
+    - cron: '17 * * * *'   # hourly, on the :17 — change cadence here
+  workflow_dispatch: {}      # manual run button
+
+permissions:
+  contents: write            # to commit drafts + status back
+  pull-requests: write       # to open PRs for anything that needs review
+
+concurrency:
+  group: production-line
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ---- SAFE TICK (always) — drafts + dashboard, no secrets needed ----
+      - name: Run safe tick
+        run: node tools/production-line-tick.mjs || true   # tripwire (exit 2) must not fail the safe commit
+
+      - name: Commit drafts + status
+        run: |
+          git config user.name "tinyworld-production-line"
+          git config user.email "bot@tinyworld.local"
+          git add plans/production-line/drafts plans/production-line/status.json || true
+          if ! git diff --cached --quiet; then
+            git commit -m "production-line: tick drafts + dashboard refresh [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      # ---- AUTONOMOUS BUILD (opt-in only) — non-economy features, hard-guarded ----
+      # Enable by setting repo variable PRODUCTION_LINE_AUTONOMOUS=true and secret
+      # ANTHROPIC_API_KEY. The agent is instructed to touch ONLY non-economy paths; the
+      # guard below independently BLOCKS the ship if any protected economy path changed.
+      - name: Autonomous build (guarded)
+        if: ${{ vars.PRODUCTION_LINE_AUTONOMOUS == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -e
+          npm i -g @anthropic-ai/claude-code >/dev/null 2>&1 || { echo "claude-code unavailable; skipping build"; exit 0; }
+          git checkout -b "pl/auto-$(date +%Y%m%d-%H%M)"
+          claude -p "You are the TinyWorld production line. Pick the single next NON-economy item from plans/production-line/ROADMAP.md (NEVER anything touching GOLD/coins/referrals/AI/Stripe/remix/templates/migrations/mmo-core — those are human-only). Build it, run 'npm run check' and 'node --test tests/*.test.mjs' until green, and commit. Do NOT push, merge, publish news, or post to any social account. If nothing safe is queued, make no changes." --permission-mode acceptEdits --max-turns 60 || true
+          # Independent economy ship-guard: block if the agent touched protected paths.
+          node -e "import('./tools/production-line-tick.mjs').then(m=>{const cp=require('child_process');const f=cp.execSync('git diff --name-only origin/main...HEAD',{encoding:'utf8'}).split('\n').filter(Boolean);const bad=m.touchesEconomy(f);if(bad.length){console.error('SHIP-GUARD BLOCK: economy paths touched: '+bad.join(', '));process.exit(1);}console.log('ship-guard ok: '+f.length+' non-economy files');})"
+          npm run check
+          node --test tests/*.test.mjs
+          # Ship: open a PR (non-economy + green). Auto-merge is left to the owner's repo policy.
+          git push origin HEAD
+          gh pr create --fill --base main || true
+        # gh is preinstalled on ubuntu runners; uses GITHUB_TOKEN automatically.

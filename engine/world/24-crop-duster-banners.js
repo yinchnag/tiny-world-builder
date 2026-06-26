@@ -140,7 +140,7 @@
     p.bannerCanvas.width = 2048;
     p.bannerCanvas.height = 224;
     p.bannerTexture = new THREE.CanvasTexture(p.bannerCanvas);
-    p.bannerTexture.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(p.bannerTexture);
     p.bannerTexture.anisotropy = (renderer.capabilities.getMaxAnisotropy
       ? Math.min(8, renderer.capabilities.getMaxAnisotropy())
       : 1);
@@ -430,7 +430,7 @@
     const tex = new THREE.TextureLoader().load(AUTOINCENTIVE_BANNER_DATA_URL, () => {
       repaintAfterTextureLoad();
     });
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     tex.anisotropy = (renderer.capabilities.getMaxAnisotropy
       ? Math.min(8, renderer.capabilities.getMaxAnisotropy())
       : 1);
@@ -569,7 +569,7 @@
     CROP_DUSTER_TEXTURES.forEach(src => {
       const tex = texLoader.load(src);
       tex.flipY = false;
-      tex.encoding = THREE.sRGBEncoding;
+      twSetTextureSRGB(tex);
       tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
       cropDusterMaterials.push(new THREE.MeshLambertMaterial({ map: tex, color: 0xffffff }));
     });

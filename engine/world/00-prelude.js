@@ -38,6 +38,31 @@
     };
   }
 
+  // Three.js r152+ replaced Texture.encoding / renderer.outputEncoding with
+  // explicit colorSpace properties. Keep these helpers centralized so generated
+  // canvas/video/model textures stay correct on r185 while old proof pages still
+  // work through the vendor compatibility aliases.
+  function twSetTextureColorSpace(texture, colorSpace) {
+    if (!texture || !colorSpace) return texture;
+    if ('colorSpace' in texture) texture.colorSpace = colorSpace;
+    else texture.encoding = colorSpace;
+    texture.needsUpdate = true;
+    return texture;
+  }
+  function twSetTextureSRGB(texture) {
+    return twSetTextureColorSpace(texture, THREE.SRGBColorSpace || THREE.sRGBEncoding);
+  }
+  function twSetTextureLinear(texture) {
+    return twSetTextureColorSpace(texture, THREE.LinearSRGBColorSpace || THREE.LinearEncoding);
+  }
+  function twSetRendererOutputSRGB(targetRenderer) {
+    if (!targetRenderer) return targetRenderer;
+    const colorSpace = THREE.SRGBColorSpace || THREE.sRGBEncoding;
+    if ('outputColorSpace' in targetRenderer) targetRenderer.outputColorSpace = colorSpace;
+    else targetRenderer.outputEncoding = colorSpace;
+    return targetRenderer;
+  }
+
   // Lightweight self-contained toast (no CSS/HTML dependency) for surfacing
   // things the user must not miss — chiefly silent localStorage failures.
   let __twToastHost = null;

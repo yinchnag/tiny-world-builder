@@ -255,7 +255,8 @@
 
   function makeCanvasTexture(THREE, canvas) {
     const texture = new THREE.CanvasTexture(canvas);
-    texture.encoding = THREE.sRGBEncoding;
+    if ('colorSpace' in texture) texture.colorSpace = THREE.SRGBColorSpace;
+    else texture.encoding = THREE.sRGBEncoding;
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;

@@ -309,7 +309,7 @@
         mats.forEach(m => {
           if (m.userData.__baseOpacity == null) { m.userData.__baseOpacity = (m.opacity == null ? 1 : m.opacity); }
           if (m.userData.__baseTransparent == null) { m.userData.__baseTransparent = !!m.transparent; }
-          if (!m.transparent) { m.transparent = true; m.needsUpdate = true; }  // r128: recompile to honour opacity
+          if (!m.transparent) { m.transparent = true; m.needsUpdate = true; }  // recompile to honour opacity
           m.depthWrite = false;                                                // avoid sort artifacts while fading
           m.opacity = m.userData.__baseOpacity * k;
         });

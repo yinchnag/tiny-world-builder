@@ -95,14 +95,6 @@
             float minDist = min(min(dx1, dx2), min(dz1, dz2));
             if (minDist < 0.0) {
               discard;
-            } else {
-              float fadeZone = 2.5;
-              float edgeFade = clamp(minDist / fadeZone, 0.0, 1.0);
-              #ifdef USE_FOG
-                gl_FragColor.rgb = mix(fogColor, gl_FragColor.rgb, edgeFade);
-              #else
-                gl_FragColor.rgb = mix(vec3(0.5, 0.5, 0.5), gl_FragColor.rgb, edgeFade);
-              #endif
             }
           }`
         );

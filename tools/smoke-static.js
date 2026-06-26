@@ -56,8 +56,8 @@ requireIncludes('__getVehicleRuntimeSnapshot', 'vehicle runtime debug snapshot')
 requireIncludes('function makeCloud(', 'voxel cloud factory');
 requireIncludes('function openTinyModal(', 'modal focus helper');
 requireIncludes('customDepthMaterial', 'cloud shadow depth material');
-requireIncludes('vendor/three/three.r128.min.js', 'self-hosted Three.js');
-requireIncludes('vendor/three/GLTFLoader.r128.js', 'self-hosted GLTFLoader');
+requireIncludes('vendor/three/tinyworld-three.r185.min.js', 'self-hosted Three.js r185 bundle');
+requireIncludes('vendor/three/VDBLoader.tinyworld.js', 'self-hosted TinyWorld VDBLoader');
 
 const netlifyToml = fs.readFileSync(path.join(root, 'netlify.toml'), 'utf8');
 if (!netlifyToml.includes('publish = "dist"') || !netlifyToml.includes('command = "./publish.sh"')) {
@@ -74,8 +74,10 @@ requireNotIncludes('cluso/cluso-embed.js', 'Cluso runtime script');
 requireNotIncludes('cluso/cluso-embed.css', 'Cluso runtime stylesheet');
 
 for (const asset of [
-  'vendor/three/three.r128.min.js',
-  'vendor/three/GLTFLoader.r128.js',
+  'vendor/three/tinyworld-three.r185.min.js',
+  'vendor/three/VDBLoader.tinyworld.js',
+  'vendor/three/draco/draco_decoder.wasm',
+  'vendor/three/basis/basis_transcoder.wasm',
 ]) {
   if (!fs.existsSync(path.join(root, asset))) fail('missing local asset ' + asset);
 }

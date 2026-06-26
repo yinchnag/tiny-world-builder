@@ -98,8 +98,19 @@ function connectedWaterBodies(cells) {
   return bodies;
 }
 
+// Supported home-board sizes (mirrors client HOME_GRID_OPTIONS / HOME_GRID_MAX,
+// capped at 20x20). Seed authors may pick any nominal size; snap it UP to the
+// nearest legal option so we never ship a world the renderer can't size faithfully
+// (off-list 18/22 made the board, movement, and stargate diverge in-game).
+const GRID_OPTIONS = [8, 10, 12, 16, 20];
+function snapGrid(n) {
+  const v = Math.max(1, Math.round(Number(n) || 0));
+  for (const size of GRID_OPTIONS) if (size >= v) return size;
+  return 20;
+}
+
 function buildRichWorld(a) {
-  const g = a.grid;
+  const g = snapGrid(a.grid);
   const rng = mulberry32(hashSeed(a.slug));
   const occupied = new Set();
   const cells = [];
@@ -116,11 +127,35 @@ function buildRichWorld(a) {
     }
   }
 
-  // Substantial stone/ore clusters
+  // Substantial stone/ore clusters. We track stone cells so ore veins can be
+  // seeded ON the rock (a textured ore mix) rather than floating on grass.
+  const stoneCells = [];
   for (const size of a.stone) {
     const cx = Math.floor(rng() * g), cz = Math.floor(rng() * g);
     for (const [x, z] of growBlob(occupied, g, cx, cz, size, rng)) {
       cells.push({ x, z, terrain: 'stone' });
+      stoneCells.push([x, z]);
+    }
+  }
+
+  // Ore veins — a richer, textured ore mix embedded in the rock. We REPLACE a
+  // fraction of plain stone tiles with mineral kinds (crystal/relic = the
+  // ore-like recoverables) so every mining island reads as a varied deposit
+  // instead of a flat grey blob. Count scales with how much stone the island has.
+  const oreVeinCount = Math.round(stoneCells.length * (a.oreRichness != null ? a.oreRichness : 0.22));
+  const ORE_KINDS = ['crystal', 'relic', 'crystal', 'artifact']; // crystal-weighted
+  const oreSpots = [];
+  for (let i = stoneCells.length - 1; i > 0; i--) { // Fisher–Yates (seeded) for spread
+    const j = Math.floor(rng() * (i + 1));
+    [stoneCells[i], stoneCells[j]] = [stoneCells[j], stoneCells[i]];
+  }
+  for (let i = 0; i < oreVeinCount && i < stoneCells.length; i++) {
+    const [x, z] = stoneCells[i];
+    // upgrade the existing stone cell in place to an ore-bearing tile
+    const existing = cells.find(c => c.x === x && c.z === z && c.terrain === 'stone' && !c.kind);
+    if (existing) {
+      existing.kind = ORE_KINDS[Math.floor(rng() * ORE_KINDS.length)];
+      oreSpots.push([x, z]);
     }
   }
 
@@ -173,6 +208,7 @@ function buildRichWorld(a) {
     ore: stone,
     plants: cells.filter(c => PLANTS.includes(c.kind)).length,
     meat: cells.filter(c => ANIMALS.includes(c.kind)).length,
+    oreVeins: cells.filter(c => c.terrain === 'stone' && ['crystal', 'relic', 'artifact'].includes(c.kind)).length,
   };
   const land = roundUsdc(tile * 0.01);
   const resources = resourcePrice(stats);
@@ -197,47 +233,51 @@ function buildRichWorld(a) {
 // A big collection of rich, varied Tinyverse starter islands.
 // All published and dense with resources + artifacts for immediate MMO play
 // (harvest, GOLD, tax, interest testing).
+// Early-preview reseed: deliberately denser + more textured than the prior seed.
+// Stone is split into MORE, smaller clusters (varied veins read better than one
+// grey blob), crops/artifacts bumped, and `oreRichness` sets the fraction of each
+// island's stone that becomes an ore-bearing mineral tile (crystal/relic mix).
 const ARCHETYPES = [
   // Fishing heavy + artifacts
-  { slug: 'tidewater-bay', name: 'Tidewater Bay', grid: 20, water: [55, 28, 14], stone: [6], crops: 22, trees: 8, artifacts: 18 },
-  { slug: 'coral-reef', name: 'Coral Reef', grid: 18, water: [62, 19], stone: [5], crops: 14, trees: 7, artifacts: 14 },
-  { slug: 'salt-marsh', name: 'Salt Marsh', grid: 16, water: [48, 22], stone: [4], crops: 19, trees: 9, artifacts: 16 },
+  { slug: 'tidewater-bay', name: 'Tidewater Bay', grid: 20, water: [55, 28, 14], stone: [9, 6, 4], crops: 30, trees: 8, artifacts: 24, oreRichness: 0.30 },
+  { slug: 'coral-reef', name: 'Coral Reef', grid: 18, water: [62, 19], stone: [7, 5, 3], crops: 20, trees: 7, artifacts: 20, oreRichness: 0.32 },
+  { slug: 'salt-marsh', name: 'Salt Marsh', grid: 16, water: [48, 22], stone: [6, 4], crops: 24, trees: 9, artifacts: 21, oreRichness: 0.30 },
 
   // Mining / stone rich + crystal artifacts
-  { slug: 'iron-ridge', name: 'Iron Ridge', grid: 18, water: [7], stone: [28, 19, 11], crops: 11, trees: 6, artifacts: 21 },
-  { slug: 'crystal-canyon', name: 'Crystal Canyon', grid: 20, water: [9], stone: [31, 17, 9], crops: 8, trees: 5, artifacts: 25 },
-  { slug: 'quarry-flats', name: 'Quarry Flats', grid: 16, water: [5], stone: [24, 15, 8], crops: 10, trees: 4, artifacts: 13 },
+  { slug: 'iron-ridge', name: 'Iron Ridge', grid: 18, water: [7], stone: [22, 16, 11, 7], crops: 16, trees: 6, artifacts: 27, oreRichness: 0.40 },
+  { slug: 'crystal-canyon', name: 'Crystal Canyon', grid: 20, water: [9], stone: [24, 17, 12, 8], crops: 13, trees: 5, artifacts: 32, oreRichness: 0.45 },
+  { slug: 'quarry-flats', name: 'Quarry Flats', grid: 16, water: [5], stone: [18, 13, 9, 6], crops: 15, trees: 4, artifacts: 19, oreRichness: 0.42 },
 
   // Farming / crop heavy
-  { slug: 'green-pastures', name: 'Green Pastures', grid: 18, water: [8], stone: [5], crops: 42, trees: 9, artifacts: 12 },
-  { slug: 'meadow-plots', name: 'Meadow Plots', grid: 16, water: [6], stone: [3], crops: 38, trees: 11, artifacts: 15 },
-  { slug: 'sunflower-plains', name: 'Sunflower Plains', grid: 20, water: [11], stone: [4], crops: 51, trees: 7, artifacts: 11 },
+  { slug: 'green-pastures', name: 'Green Pastures', grid: 18, water: [8], stone: [7, 4], crops: 50, trees: 9, artifacts: 17, oreRichness: 0.25 },
+  { slug: 'meadow-plots', name: 'Meadow Plots', grid: 16, water: [6], stone: [5, 3], crops: 44, trees: 11, artifacts: 20, oreRichness: 0.25 },
+  { slug: 'sunflower-plains', name: 'Sunflower Plains', grid: 20, water: [11], stone: [6, 4], crops: 60, trees: 7, artifacts: 16, oreRichness: 0.25 },
 
   // Mixed rich
-  { slug: 'mixed-hollow', name: 'Mixed Hollow', grid: 22, water: [35, 18, 9], stone: [18, 11], crops: 27, trees: 12, artifacts: 19 },
-  { slug: 'echo-valley', name: 'Echo Valley', grid: 18, water: [21, 11], stone: [14, 9], crops: 24, trees: 15, artifacts: 22 },
-  { slug: 'ember-isle', name: 'Ember Isle', grid: 16, water: [14], stone: [12, 7], crops: 18, trees: 8, artifacts: 17 },
+  { slug: 'mixed-hollow', name: 'Mixed Hollow', grid: 22, water: [35, 18, 9], stone: [16, 11, 7], crops: 34, trees: 12, artifacts: 26, oreRichness: 0.34 },
+  { slug: 'echo-valley', name: 'Echo Valley', grid: 18, water: [21, 11], stone: [13, 9, 6], crops: 30, trees: 15, artifacts: 28, oreRichness: 0.34 },
+  { slug: 'ember-isle', name: 'Ember Isle', grid: 16, water: [14], stone: [11, 7, 5], crops: 23, trees: 8, artifacts: 22, oreRichness: 0.36 },
 
   // Forest / balanced with relics
-  { slug: 'forest-glade', name: 'Forest Glade', grid: 18, water: [10], stone: [6], crops: 15, trees: 31, artifacts: 14 },
-  { slug: 'mosswood', name: 'Mosswood', grid: 20, water: [16, 7], stone: [8], crops: 21, trees: 27, artifacts: 18 },
-  { slug: 'ancient-grove', name: 'Ancient Grove', grid: 18, water: [12], stone: [5], crops: 13, trees: 29, artifacts: 23 },
+  { slug: 'forest-glade', name: 'Forest Glade', grid: 18, water: [10], stone: [7, 4], crops: 21, trees: 31, artifacts: 19, oreRichness: 0.28 },
+  { slug: 'mosswood', name: 'Mosswood', grid: 20, water: [16, 7], stone: [9, 5], crops: 28, trees: 27, artifacts: 23, oreRichness: 0.28 },
+  { slug: 'ancient-grove', name: 'Ancient Grove', grid: 18, water: [12], stone: [7, 4], crops: 19, trees: 29, artifacts: 29, oreRichness: 0.30 },
 
   // More variety (coastal, highland, etc.)
-  { slug: 'storm-coast', name: 'Storm Coast', grid: 20, water: [48, 15], stone: [9], crops: 17, trees: 10, artifacts: 16 },
-  { slug: 'highland-basin', name: 'Highland Basin', grid: 18, water: [13, 6], stone: [17, 10], crops: 20, trees: 8, artifacts: 19 },
-  { slug: 'golden-strand', name: 'Golden Strand', grid: 16, water: [22, 9], stone: [4], crops: 16, trees: 6, artifacts: 12 },
-  { slug: 'obsidian-shore', name: 'Obsidian Shore', grid: 18, water: [27, 8], stone: [15], crops: 12, trees: 5, artifacts: 21 },
-  { slug: 'fern-hollow', name: 'Fern Hollow', grid: 20, water: [18], stone: [7], crops: 29, trees: 18, artifacts: 15 },
-  { slug: 'sable-ridge', name: 'Sable Ridge', grid: 16, water: [5], stone: [21, 12], crops: 9, trees: 7, artifacts: 18 },
-  { slug: 'willow-bend', name: 'Willow Bend', grid: 18, water: [19, 10], stone: [3], crops: 23, trees: 14, artifacts: 13 },
-  { slug: 'ember-falls', name: 'Ember Falls', grid: 20, water: [15, 7], stone: [11, 8], crops: 15, trees: 9, artifacts: 20 },
-  { slug: 'jade-lagoon', name: 'Jade Lagoon', grid: 18, water: [41, 14], stone: [5], crops: 18, trees: 8, artifacts: 17 },
-  { slug: 'thornfield', name: 'Thornfield', grid: 16, water: [4], stone: [6], crops: 27, trees: 12, artifacts: 14 },
-  { slug: 'dawn-island', name: 'Dawn Island', grid: 20, water: [23, 9], stone: [8], crops: 25, trees: 11, artifacts: 22 },
-  { slug: 'mist-veil', name: 'Mist Veil', grid: 18, water: [29, 12], stone: [4], crops: 14, trees: 13, artifacts: 19 },
-  { slug: 'crimson-bay', name: 'Crimson Bay', grid: 16, water: [33, 8], stone: [7], crops: 11, trees: 6, artifacts: 15 },
-  { slug: 'silver-glen', name: 'Silver Glen', grid: 20, water: [12], stone: [13, 6], crops: 22, trees: 10, artifacts: 18 },
+  { slug: 'storm-coast', name: 'Storm Coast', grid: 20, water: [48, 15], stone: [11, 7], crops: 24, trees: 10, artifacts: 21, oreRichness: 0.32 },
+  { slug: 'highland-basin', name: 'Highland Basin', grid: 18, water: [13, 6], stone: [15, 10, 6], crops: 26, trees: 8, artifacts: 25, oreRichness: 0.38 },
+  { slug: 'golden-strand', name: 'Golden Strand', grid: 16, water: [22, 9], stone: [6, 4], crops: 22, trees: 6, artifacts: 17, oreRichness: 0.28 },
+  { slug: 'obsidian-shore', name: 'Obsidian Shore', grid: 18, water: [27, 8], stone: [13, 9, 5], crops: 17, trees: 5, artifacts: 27, oreRichness: 0.40 },
+  { slug: 'fern-hollow', name: 'Fern Hollow', grid: 20, water: [18], stone: [9, 5], crops: 36, trees: 18, artifacts: 20, oreRichness: 0.28 },
+  { slug: 'sable-ridge', name: 'Sable Ridge', grid: 16, water: [5], stone: [16, 11, 7], crops: 14, trees: 7, artifacts: 24, oreRichness: 0.40 },
+  { slug: 'willow-bend', name: 'Willow Bend', grid: 18, water: [19, 10], stone: [6, 3], crops: 29, trees: 14, artifacts: 18, oreRichness: 0.26 },
+  { slug: 'ember-falls', name: 'Ember Falls', grid: 20, water: [15, 7], stone: [11, 8, 5], crops: 21, trees: 9, artifacts: 26, oreRichness: 0.36 },
+  { slug: 'jade-lagoon', name: 'Jade Lagoon', grid: 18, water: [41, 14], stone: [7, 4], crops: 24, trees: 8, artifacts: 22, oreRichness: 0.30 },
+  { slug: 'thornfield', name: 'Thornfield', grid: 16, water: [4], stone: [8, 5], crops: 32, trees: 12, artifacts: 19, oreRichness: 0.30 },
+  { slug: 'dawn-island', name: 'Dawn Island', grid: 20, water: [23, 9], stone: [11, 6], crops: 31, trees: 11, artifacts: 28, oreRichness: 0.32 },
+  { slug: 'mist-veil', name: 'Mist Veil', grid: 18, water: [29, 12], stone: [6, 4], crops: 20, trees: 13, artifacts: 24, oreRichness: 0.30 },
+  { slug: 'crimson-bay', name: 'Crimson Bay', grid: 16, water: [33, 8], stone: [9, 5], crops: 17, trees: 6, artifacts: 20, oreRichness: 0.34 },
+  { slug: 'silver-glen', name: 'Silver Glen', grid: 20, water: [12], stone: [12, 8, 5], crops: 29, trees: 10, artifacts: 25, oreRichness: 0.38 },
 ];
 
 function sqlString(obj) {
@@ -247,11 +287,12 @@ function sqlString(obj) {
 function main() {
   const worlds = ARCHETYPES.map(buildRichWorld);
   const lines = [];
-  lines.push('-- Rich default Tinyverse islands for MMO play.');
+  lines.push('-- Rich default Tinyverse EARLY-PREVIEW islands for MMO play.');
   lines.push('-- GENERATED by tools/gen-seed-worlds.mjs — do not edit by hand.');
-  lines.push('-- All are published starter islands, deliberately dense with resources');
-  lines.push('-- (water/fish, stone/ore, crops/plants) + many artifacts (relic/crystal/totem/ruins).');
-  lines.push('-- Perfect for testing harvest, GOLD, tax, interest, and artifact recovery.');
+  lines.push('-- All are published starter islands, deliberately dense + textured with resources');
+  lines.push('-- (water/fish, stone/ore VEINS, crops/plants) + many artifacts (relic/crystal/totem/ruins).');
+  lines.push('-- Early-preview: FREE to enter (price_usdc=0), NOT listed for sale as paid templates.');
+  lines.push('-- Players harvest + sell resources here to earn Earned GOLD (and the Prospector badge).');
   lines.push('');
 
   lines.push('-- Upsert starter islands without changing existing owner_profile_id.');
@@ -271,7 +312,7 @@ function main() {
       w.stone,
       w.grass,
       w.water,
-      w.price,
+      0, // price_usdc — early-preview worlds are FREE to enter (no land sale)
       sqlString(w.data) + '::jsonb',
       'NOW()'
     ].join(', ') + ')');
@@ -295,6 +336,16 @@ function main() {
   lines.push("WHERE worlds.kind = 'starter'");
   lines.push("  AND worlds.slug <> 'tinyverse-nexus'");
   lines.push('  AND worlds.owner_profile_id IS DISTINCT FROM owner.id;');
+  lines.push('');
+
+  // Early-preview: starter islands are NOT for sale. Clear any paid-template
+  // listing + zero the land price so they read as free early-preview worlds.
+  // Idempotent; guarded so it only touches starters that still carry a listing.
+  lines.push('-- Drop the for-sale / paid-template aspect on all starter islands (early-preview = free).');
+  lines.push('UPDATE worlds');
+  lines.push('SET is_template = FALSE, template_price = NULL, template_author_id = NULL, price_usdc = 0, updated_at = NOW()');
+  lines.push("WHERE kind = 'starter'");
+  lines.push('  AND (is_template = TRUE OR template_price IS NOT NULL OR template_author_id IS NOT NULL OR price_usdc <> 0);');
   lines.push('');
 
   process.stdout.write(lines.join('\n'));

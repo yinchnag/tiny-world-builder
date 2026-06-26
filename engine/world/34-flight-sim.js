@@ -593,7 +593,7 @@
     _flViewWrap.appendChild(_flViewToggle);
     _flViewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     _flViewRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    _flViewRenderer.outputEncoding = THREE.sRGBEncoding;
+    twSetRendererOutputSRGB(_flViewRenderer);
     _flViewRenderer.shadowMap.enabled = false;
     _flViewRenderer.domElement.className = 'flight-view-canvas';
     _flViewRenderer.domElement.addEventListener('wheel', e => {

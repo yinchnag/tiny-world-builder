@@ -964,7 +964,7 @@
             if (alpha < 0.018) discard;
             vec3 color = mix(uColorB, uColorA, mix(hotCore, n * 0.72, smoke));
             gl_FragColor = vec4(color, alpha);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -1207,7 +1207,7 @@
             if (alpha < 0.014) discard;
             vec3 color = mix(uTint, uWarm, 0.18 + bladeGhost * 0.30);
             gl_FragColor = vec4(color, alpha);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -2410,21 +2410,40 @@
     const sheep = kind === 'sheep';
     const bodyMat = sheep ? M_ANIMAL.sheepWool : M_ANIMAL.cowWhite;
     const faceMat = sheep ? M_ANIMAL.sheepFace : M_ANIMAL.cowWhite;
-    vbox(g, sheep ? 0.34 : 0.42, sheep ? 0.24 : 0.26, sheep ? 0.22 : 0.24, 0, 0.22, 0, bodyMat);
-    vbox(g, sheep ? 0.14 : 0.18, sheep ? 0.14 : 0.16, sheep ? 0.12 : 0.16, 0.24, 0.30, 0, faceMat);
-    if (!sheep) {
-      vbox(g, 0.16, 0.04, 0.12, 0.02, 0.36, 0.05, M_ANIMAL.cowSpot);
-      vbox(g, 0.08, 0.08, 0.10, 0.36, 0.26, 0, M_ANIMAL.cowMuzzle);
-    } else {
-      for (const x of [-0.10, 0, 0.10]) vbox(g, 0.10, 0.06, 0.10, x, 0.36, 0.03, M_ANIMAL.sheepWool);
-    }
-    [[0.13, -0.08], [0.13, 0.08], [-0.13, -0.08], [-0.13, 0.08]].forEach(([x, z]) => {
-      vbox(g, 0.06, 0.14, 0.06, x, 0.07, z, M_ANIMAL.hoof);
+    const animalScale = sheep ? 0.70 : 0.80;
+    // Body on its own pivot so it can bob gently while ambling or settle down to rest.
+    const body = new THREE.Group();
+    g.add(body);
+    vbox(body, sheep ? 0.34 : 0.42, sheep ? 0.24 : 0.26, sheep ? 0.22 : 0.24, 0, 0.22, 0, bodyMat);
+    if (!sheep) vbox(body, 0.16, 0.04, 0.12, 0.02, 0.36, 0.05, M_ANIMAL.cowSpot);
+    else for (const x of [-0.10, 0, 0.10]) vbox(body, 0.10, 0.06, 0.10, x, 0.36, 0.03, M_ANIMAL.sheepWool);
+    // Head pivots at the neck so it can dip down to nibble the grass while grazing.
+    const head = new THREE.Group();
+    head.position.set(0.24, 0.30, 0);
+    body.add(head);
+    vbox(head, sheep ? 0.14 : 0.18, sheep ? 0.14 : 0.16, sheep ? 0.12 : 0.16, 0, 0, 0, faceMat);
+    if (!sheep) vbox(head, 0.08, 0.08, 0.10, 0.12, -0.04, 0, M_ANIMAL.cowMuzzle);
+    // Legs hang from hip pivots so they can swing when walking and fold forward when
+    // the animal lowers its head to graze. Order is front-left, front-right,
+    // back-left, back-right (consumed by 70-animal-anim).
+    const legs = [];
+    [[0.13, -0.08, true], [0.13, 0.08, true], [-0.13, -0.08, false], [-0.13, 0.08, false]].forEach(([x, z, front]) => {
+      const hip = new THREE.Group();
+      hip.position.set(x, 0.14, z);
+      g.add(hip);
+      vbox(hip, 0.06, 0.14, 0.06, 0, -0.07, 0, M_ANIMAL.hoof);
+      legs.push({ hip, front });
     });
-    g.userData = { kind };
+    g.scale.setScalar(animalScale);
+    // noVoxelBatch keeps the pivots separate (batching would flatten them and kill the
+    // animation); `anim` hands the moving parts to the per-frame grazer.
+    g.userData = { kind, animal: true, noVoxelBatch: true, anim: { body, head, legs, scale: animalScale } };
     castReceive(g);
     applyEditableObjectParts(g, opts);
     optimizeVoxelObjectGroup(g, { reason: 'voxel-animal' });
+    if (typeof window.__tinyworldRegisterAnimal === 'function') {
+      try { window.__tinyworldRegisterAnimal(g); } catch (_) {}
+    }
     return g;
   }
 

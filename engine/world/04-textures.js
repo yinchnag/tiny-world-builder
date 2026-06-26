@@ -14,7 +14,7 @@
   //                             is what actually kills the diagonal moiré on
   //                             surfaces viewed edge-on (the dominant symptom).
   // All tile textures are power-of-two (16..128); the strata sheet is NPOT
-  // (1024x192) but WebGL2 (r128's default context) generates its mips fine.
+  // (1024x192) but WebGL2 generates its mips fine.
   function tuneWorldTextureFiltering(tex) {
     if (!tex) return tex;
     tex.magFilter = THREE.NearestFilter;
@@ -625,7 +625,7 @@
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     tuneWorldTextureFiltering(tex);
     return tex;
   }
@@ -726,7 +726,7 @@
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     tuneWorldTextureFiltering(tex);
     return tex;
   }
@@ -855,7 +855,7 @@
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.flipY = false;
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     tuneWorldTextureFiltering(tex);
     return tex;
   }
@@ -877,7 +877,7 @@
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     tex.flipY = false;
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     tuneWorldTextureFiltering(tex);
     tex.userData = Object.assign({}, tex.userData || {}, {
       sourceSrc: src,
@@ -966,13 +966,15 @@
         #endif
         vec3 worldNormal = normalize((modelMatrix * localNormal).xyz);
 
-        if (abs(worldNormal.y) > 0.5) {
-          vUv = worldPos.xz * ${textureScale.toFixed(4)};
-        } else if (abs(worldNormal.x) > 0.5) {
-          vUv = worldPos.zy * ${textureScale.toFixed(4)};
-        } else {
-          vUv = worldPos.xy * ${textureScale.toFixed(4)};
-        }
+        #ifdef USE_MAP
+          if (abs(worldNormal.y) > 0.5) {
+            vMapUv = worldPos.xz * ${textureScale.toFixed(4)};
+          } else if (abs(worldNormal.x) > 0.5) {
+            vMapUv = worldPos.zy * ${textureScale.toFixed(4)};
+          } else {
+            vMapUv = worldPos.xy * ${textureScale.toFixed(4)};
+          }
+        #endif
         ${needsWorldVoxel ? `
         vWorldVoxelPos = worldPos.xyz;
         vWorldVoxelNormal = worldNormal;
@@ -1142,13 +1144,15 @@
         vec3 worldNormal = normalize((modelMatrix * localNormal).xyz);
         ${enhanced ? 'vTwWaterWorld = worldPos.xyz; vTwWaterView = cameraPosition - worldPos.xyz; vTwWaterNrm = worldNormal;' : ''}
 
-        if (abs(worldNormal.y) > 0.5) {
-          vUv = worldPos.xz * ${textureScale.toFixed(4)} + waterFlowOffset;
-        } else if (abs(worldNormal.x) > 0.5) {
-          vUv = worldPos.zy * ${textureScale.toFixed(4)} + waterFlowOffset.yx;
-        } else {
-          vUv = worldPos.xy * ${textureScale.toFixed(4)} + waterFlowOffset;
-        }
+        #ifdef USE_MAP
+          if (abs(worldNormal.y) > 0.5) {
+            vMapUv = worldPos.xz * ${textureScale.toFixed(4)} + waterFlowOffset;
+          } else if (abs(worldNormal.x) > 0.5) {
+            vMapUv = worldPos.zy * ${textureScale.toFixed(4)} + waterFlowOffset.yx;
+          } else {
+            vMapUv = worldPos.xy * ${textureScale.toFixed(4)} + waterFlowOffset;
+          }
+        #endif
         `
       );
       if (!enhanced) return;
@@ -1341,7 +1345,7 @@
     tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearFilter;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
-    tex.encoding = THREE.sRGBEncoding;
+    twSetTextureSRGB(tex);
     return tex;
   }
 
@@ -1498,7 +1502,10 @@
           float dirtToRock = 0.62 + mix(0.5, twStrataHash(vec2(floor(coord * 2.1), 31.0)), fadeD2R) * 0.12;
           float grassW = max(0.055, dV * 1.5);
           float rockW = max(0.11, dV * 1.5);
-          float grassMask = 1.0 - smoothstep(grassDrop, grassDrop + grassW, v);
+          // The continuous green cap strip read as a thin floating panel around
+          // the island edge in build/tilt-down views. Keep the variable so the
+          // strata math stays stable, but disable the green band for now.
+          float grassMask = 0.0 * (1.0 - smoothstep(grassDrop, grassDrop + grassW, v));
           float rockMask = smoothstep(dirtToRock, dirtToRock + rockW, v);
           float dirtMask = (1.0 - grassMask) * (1.0 - rockMask);
           float coarse = (twStrataHash(floor(vec2(coord * 6.2, v * 9.4))) - 0.5) * fadeCoarse;

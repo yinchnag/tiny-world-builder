@@ -122,6 +122,10 @@
       <a href="#features">Features</a>
       <a href="#workflow">How it works</a>
       <a href="/worlds">Worlds</a>
+      <a href="/leaderboard">Leaderboard</a>
+      <a href="/badges">Badges</a>
+      <a href="/templates">Templates</a>
+      <a href="/rewards">Rewards</a>
       <a href="/docs">Docs</a>
       <a href="/roadmap">Roadmap</a>
       <a href="/features">Suggest</a>
@@ -170,17 +174,65 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
         </a>
       </aside>
+      <!-- Top $TINYWORLD holders — fetched at runtime; hidden until data is available -->
+      <aside class="top-holders" id="top-holders" aria-label="Top $TINYWORLD holders" hidden>
+        <div class="top-holders-head">
+          <span class="top-holders-title">Top Holders</span>
+          <span class="top-holders-beta">Beta</span>
+        </div>
+        <ul class="top-holders-list" id="top-holders-list"></ul>
+      </aside>
       <a class="scroll-cue" href="#features" aria-label="Scroll to features">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </a>
     </section>
 
+    <!-- Early-access promo strip. Honest "coming soon" copy: the harvest-to-earn path is
+         still gated, so this must NOT promise the public an action they can't take yet. -->
+    <aside class="preview-strip" aria-label="Early access">
+      <div class="preview-strip-inner">
+        <span class="preview-strip-tag">Early Access</span>
+        <p class="preview-strip-text">Explore the early-preview worlds, <strong>harvest resources and sell them for GOLD</strong>, and earn your Prospector badge.</p>
+        <a class="preview-strip-cta" href="/worlds">Explore worlds</a>
+      </div>
+    </aside>
+
+    <!-- Community worlds carousel — full-width strip of user-built shared worlds.
+         Data source: /api/home-worlds (world_shares table).
+         scripts/world-carousel.js populates this at runtime; stays hidden until data loads. -->
+    <section class="world-carousel" id="world-carousel" aria-label="Worlds from the community" hidden>
+      <div class="world-carousel-inner">
+        <div class="world-carousel-head">
+          <span class="world-carousel-label">Worlds from the community</span>
+          <a class="world-carousel-browse" href="/templates">
+            <span>Browse all</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          </a>
+        </div>
+        <div class="world-carousel-stage" aria-live="polite" aria-atomic="false">
+          <div class="world-carousel-track" id="world-carousel-track"></div>
+        </div>
+        <div class="world-carousel-controls" aria-label="Carousel controls">
+          <button type="button" class="world-carousel-btn" id="world-carousel-prev" aria-label="Previous world">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></svg>
+          </button>
+          <div class="world-carousel-dots" id="world-carousel-dots" role="tablist" aria-label="World slides"></div>
+          <button type="button" class="world-carousel-btn" id="world-carousel-next" aria-label="Next world">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- The content below is a fallback; scripts/latest-news.js replaces the
+         headline/summary at runtime with the newest entry from /news so the home
+         teaser always tracks the latest story. -->
     <section class="top-story-section" aria-label="Latest news">
-      <a class="top-story" href="/news" aria-label="Latest news: Sign in with Google">
+      <a class="top-story" href="/news" data-latest-news aria-label="Latest news">
         <span class="top-story-flag">Latest</span>
         <span class="top-story-body">
-          <span class="top-story-headline">Sign in with Google</span>
-          <span class="top-story-summary">Google sign-in is here, and the old email verification step is off, so getting into your account is quicker and more reliable.</span>
+          <span class="top-story-headline">We switched on the production line</span>
+          <span class="top-story-summary">An autonomous crew of AI agents now ships iterative updates to the game and site, around the clock, building toward WAVE 2.</span>
         </span>
         <svg class="top-story-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
       </a>
@@ -339,5 +391,10 @@
   <script src="scripts/github-stars.js" defer></script>
   <script src="scripts/landing-auth-chip.js" defer></script>
   <script src="scripts/landing-feed.js" defer></script>
+  <script src="scripts/world-preview.js" defer></script>
+  <script src="scripts/world-carousel.js" defer></script>
+  <script src="scripts/latest-news.js" defer></script>
+  <script src="scripts/achievements.js" defer></script>
+  <script src="scripts/top-holders.js" defer></script>
 </body>
 </html>

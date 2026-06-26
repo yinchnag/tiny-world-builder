@@ -29,6 +29,10 @@ terrain instead of baking into per-tile `setCell`.
   (rAF); `flushRebuild()` forces the final frame on pointer-up and
   `cancelScheduledRebuild()` runs on teardown. This keeps a fast drag from
   forcing multiple full-board rewrites per frame (engine perf budget).
+- Preserved sunken board cells (`water`/`stone`) are mesh holes so the underlying
+  board terrain shows through. Treat those holes as open/low neighbours when
+  computing adjacent wall panels; otherwise deleting adjacent blocks leaves
+  see-through missing side faces around the cutout.
 - Materials use the app's REAL terrain shaders. The geometry is laid out grouped
   by terrain (all tops, then all sides) and `surfaceMesh.material` is a parallel
   array: tops get `terrainVoxelMaterials(t).base`, sides get
@@ -39,7 +43,7 @@ terrain instead of baking into per-tile `setCell`.
   from world position in-shader (`applyWorldUVs` `onBeforeCompile`), so the blocks
   pick up the same textures/shading as the rest of the world — **do not** hand-roll
   UVs. Materials are used via double-sided clones (`dsClone`) that copy
-  `onBeforeCompile`/`userData`/`customProgramCacheKey` across (r128
+  `onBeforeCompile`/`userData`/`customProgramCacheKey` across (Three
   `Material.clone` drops `onBeforeCompile`), cached by uuid so there is no
   per-frame churn; clones are disposed on teardown. If `M`/`terrainVoxelMaterials`/
   `terrainRiserMaterial` are missing, it falls back to a single vertex-coloured
@@ -50,12 +54,14 @@ terrain instead of baking into per-tile `setCell`.
 - Entry point: the Terrain toolbar flyout includes a `Mesh Terrain` action tool
   (`id: mesh-terrain`) that opens `window.__tinyworldMeshTerrain.open()`. Keep it
   as an action, not a paint brush.
-- **Sculpt**: drag a voxel up/down. Screen dy maps to world units
-  (`perPixelWorldY`, ortho vs perspective aware). The grabbed voxel and its
-  neighbours move by `worldDy * falloff(dist/brushRadius)` (smoothstep
-  "tension"), reapplied from a `startH` snapshot each move so it does not
-  compound. Every voxel stays flat at its own height.
-- **Paint**: drag to set every voxel whose centre is within `brushRadius`.
+- **Sculpt**: pressure-brush controls. Hold/drag **left mouse** to raise and
+  **right mouse** to lower under the brush; right-click context menu is suppressed
+  on the terrain canvas while editing. The brush applies
+  `SCULPT_PRESSURE_RATE * dt * falloff(dist/brushRadius)` continuously while the
+  button is held, so a stationary press keeps raising/lowering and dragging paints
+  height across the surface. Every voxel stays flat at its own height.
+- **Paint**: drag left mouse to set every voxel whose centre is within
+  `brushRadius`.
 
 ## Apply keeps blocks — it does NOT bake into world tiles
 

@@ -12,6 +12,14 @@ backend:
   `profile.mjs`, `builds.mjs`, `share.mjs`, and `assets.mjs` are routed to
   `/api/profile`, `/api/builds`, `/api/share`, and `/api/assets` via each
   function's exported `config.path`.
+- Auth helpers should resolve the trusted site/Identity base from the same
+  deploy-origin chain used elsewhere, including `TINYWORLD_SITE_URL`, before
+  Netlify deploy URL fallbacks. Do not derive Identity verification targets from
+  request-controlled origins.
+- PartyKit durable flush buffers must clear every successfully-posted pending
+  bucket in the `res.ok` branch (resources, tax payouts, GOLD events, etc.) so
+  retries do not duplicate already-granted durable rewards.
+- Worlds MMO grid size: the saved world payload (`data.gridSize`) is authoritative. Treat `worlds.grid_size` as cached metadata that can be stale; DTOs, previews, pricing/count derivation, and room entry should prefer/sync the payload size so an 8x8 map is not shown as 20x20 in multiplayer.
 - Wallet/social functions also live under `netlify/functions/`: `wallet.mjs`
   verifies Phantom-signed Solana wallet challenges and reads `$TINYWORLD`
   balances/activity from RPC, `wallet-payments.mjs` creates Solana Pay payment

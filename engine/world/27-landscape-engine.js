@@ -768,7 +768,10 @@
     }
   }
 
+  let landscapeCutCapsSignature = '';
+
   function disposeLandscapeCutCaps() {
+    landscapeCutCapsSignature = '';
     if (!landscapeCutCapsGroup) return;
     const materials = new Set();
     landscapeCutCapsGroup.traverse(o => {
@@ -806,6 +809,7 @@
         void main() {
           vec3 col = mix(fogColor, vColor, vAlpha);
           gl_FragColor = vec4(col, 1.0);
+          #include <colorspace_fragment>
         }
       `,
       transparent: false,
@@ -822,54 +826,79 @@
     });
   }
 
-  function makeLandscapeCutCap(side, material) {
-    const step = 25;
-    const min = (LANDSCAPE_MESH_OFFSET - 0.5) * step;
-    const max = (LANDSCAPE_MESH_OFFSET + GRID - 0.5) * step;
-    const holdDepth = 14;
-    const fadeDepth = 58;
+  const landscapeCutCapSoilColor = new THREE.Color(0x5a4428);
+  function landscapeCutCapBaseColor(h, out) {
+    if (landscapeMeshEngine && landscapeMeshEngine._strataColor) {
+      landscapeMeshEngine._strataColor(h, out);
+    } else {
+      out.setHex(0x8a6a48);
+    }
+    const cliff = (landscapeMeshEngine && landscapeMeshEngine.CLIFF_TINT && landscapeMeshEngine.CLIFF_TINT.isColor)
+      ? landscapeMeshEngine.CLIFF_TINT
+      : landscapeCutCapSoilColor;
+    out.multiplyScalar(0.58).lerp(cliff, 0.68);
+    const lum = out.r * 0.2126 + out.g * 0.7152 + out.b * 0.0722;
+    if (lum > 0.34) out.multiplyScalar(0.34 / lum);
+    return out;
+  }
+
+  function makeLandscapeCutCap(side, material, bounds) {
+    const samples = Math.max(24, GRID * 4);
+    const minX = bounds.minX;
+    const maxX = bounds.maxX;
+    const minZ = bounds.minZ;
+    const maxZ = bounds.maxZ;
+    const bottomY = Number.isFinite(bounds.bottomY) ? bounds.bottomY : -160;
     const positions = [];
     const colors = [];
     const alphas = [];
     const indices = [];
     const color = new THREE.Color();
-    const fog = material.uniforms.fogColor.value;
+    const mid = new THREE.Color();
+    const deep = new THREE.Color();
+    const shadow = new THREE.Color(0x152334);
 
-    for (let i = 0; i <= GRID; i++) {
-      const t = i / Math.max(1, GRID);
-      const a = min + (max - min) * t;
-      const wx = side === 'e' ? max : side === 'w' ? min : a;
-      const wz = side === 's' ? max : side === 'n' ? min : a;
+    for (let i = 0; i <= samples; i++) {
+      const t = i / Math.max(1, samples);
+      const a = (side === 'n' || side === 's') ? minX + (maxX - minX) * t : minZ + (maxZ - minZ) * t;
+      const wx = side === 'e' ? maxX : side === 'w' ? minX : a;
+      const wz = side === 's' ? maxZ : side === 'n' ? minZ : a;
       const h = landscapeMeshEngine.getHeight(wx, wz);
-      const holdY = h - holdDepth;
-      const fadeY = h - fadeDepth;
-      if (landscapeMeshEngine._strataColor) {
-        landscapeMeshEngine._strataColor(h, color);
-      } else {
-        color.setHex(0x8a6a48);
-      }
-      // Three vertical samples: keep a little real terrain colour under the
-      // cut line, then fade to scene background and stop. No bottom/base
-      // plate is rendered below the fade edge.
-      positions.push(wx, h, wz, wx, holdY, wz, wx, fadeY, wz);
+      const localBottomY = Math.min(bottomY, h - 8);
+      const ledgeY = h + (localBottomY - h) * 0.28;
+      const midY = h + (localBottomY - h) * 0.66;
+      // Cut caps are vertical exposed earth, not top grass. Pull the sampled
+      // terrain colour toward the biome cliff/soil tint and cap luminance so
+      // grassland sides read as dark dirt instead of glowing green walls.
+      landscapeCutCapBaseColor(h, color);
+      mid.copy(color).multiplyScalar(0.62).lerp(shadow, 0.18);
+      deep.copy(color).multiplyScalar(0.32).lerp(shadow, 0.55);
+      // Four vertical samples form a real opaque retaining wall at the clipped
+      // landscape boundary. Do not fade to the sky: the cutaway must read as a
+      // solid chunk, not a transparent rendering helper.
+      positions.push(wx, h, wz, wx, ledgeY, wz, wx, midY, wz, wx, localBottomY, wz);
       colors.push(
         color.r, color.g, color.b,
-        color.r, color.g, color.b,
-        fog.r, fog.g, fog.b
+        mid.r, mid.g, mid.b,
+        deep.r, deep.g, deep.b,
+        shadow.r, shadow.g, shadow.b
       );
-      alphas.push(1.0, 1.0, 0.0);
+      alphas.push(1.0, 1.0, 1.0, 1.0);
     }
 
-    for (let i = 0; i < GRID; i++) {
-      const topA = i * 3;
-      const fadeA = topA + 1;
-      const botA = topA + 2;
-      const topB = topA + 3;
-      const fadeB = topA + 4;
-      const botB = topA + 5;
+    for (let i = 0; i < samples; i++) {
+      const a0 = i * 4;
+      const a1 = a0 + 1;
+      const a2 = a0 + 2;
+      const a3 = a0 + 3;
+      const b0 = a0 + 4;
+      const b1 = a0 + 5;
+      const b2 = a0 + 6;
+      const b3 = a0 + 7;
       indices.push(
-        topA, fadeA, topB, fadeA, fadeB, topB,
-        fadeA, botA, fadeB, botA, botB, fadeB
+        a0, a1, b0, a1, b1, b0,
+        a1, a2, b1, a2, b2, b1,
+        a2, a3, b2, a3, b3, b2
       );
     }
 
@@ -925,14 +954,38 @@
     return mesh;
   }
 
-  function rebuildLandscapeCutCaps() {
+  function landscapeCutCapsEngineBounds(clipMin, clipMax) {
+    const sx = LANDSCAPE_MESH_SCALE || 1;
+    const px = landscapeMeshGroup ? landscapeMeshGroup.position.x : 0;
+    const pz = landscapeMeshGroup ? landscapeMeshGroup.position.z : 0;
+    const minX = (clipMin.x - px) / sx;
+    const maxX = (clipMax.x - px) / sx;
+    const minZ = (clipMin.z - pz) / sx;
+    const maxZ = (clipMax.z - pz) / sx;
+    return {
+      minX,
+      maxX,
+      minZ,
+      maxZ,
+      bottomY: ((typeof DIRT_H === 'number') ? (-DIRT_H - 0.08) : -0.65) / sx,
+      signature: [minX, maxX, minZ, maxZ].map(v => (Math.round(v * 10) / 10).toFixed(1)).join('|'),
+    };
+  }
+
+  function rebuildLandscapeCutCaps(clipMin, clipMax) {
+    if (!landscapeMeshEngine || !landscapeMeshGroup || ghostBoardsEnabledForGrid()) {
+      disposeLandscapeCutCaps();
+      return;
+    }
+    const bounds = landscapeCutCapsEngineBounds(clipMin, clipMax);
+    if (landscapeCutCapsGroup && landscapeCutCapsSignature === bounds.signature) return;
     disposeLandscapeCutCaps();
-    if (!landscapeMeshEngine || !landscapeMeshGroup || ghostBoardsEnabledForGrid()) return;
+    landscapeCutCapsSignature = bounds.signature;
     landscapeCutCapsGroup = new THREE.Group();
     landscapeCutCapsGroup.name = 'landscapeCutCaps';
     const capMaterial = makeLandscapeCutCapMaterial();
     ['n', 's', 'e', 'w'].forEach(side => {
-      landscapeCutCapsGroup.add(makeLandscapeCutCap(side, capMaterial));
+      landscapeCutCapsGroup.add(makeLandscapeCutCap(side, capMaterial, bounds));
     });
     landscapeMeshGroup.add(landscapeCutCapsGroup);
   }
@@ -953,14 +1006,10 @@
     if (landscapeMeshEngine.RENDER_RADIUS < requiredRadius) {
       landscapeMeshEngine.RENDER_RADIUS = requiredRadius;
     }
-    landscapeMeshEngine.setClipBounds(
-      new THREE.Vector3(cx - half - pad, -1e6, cz - half - pad),
-      new THREE.Vector3(cx + half + pad,  1e6, cz + half + pad)
-    );
-    // Do not render synthetic base/cut-cap/fog geometry. Pixel edge mode sees
-    // helper meshes, so landscape mode renders only the actual engine mesh plus
-    // central-board objects placed onto it.
-    disposeLandscapeCutCaps();
+    const clipMin = new THREE.Vector3(cx - half - pad, -1e6, cz - half - pad);
+    const clipMax = new THREE.Vector3(cx + half + pad,  1e6, cz + half + pad);
+    landscapeMeshEngine.setClipBounds(clipMin, clipMax);
+    rebuildLandscapeCutCaps(clipMin, clipMax);
   }
 
   function disposeLandscapeMesh(opts) {

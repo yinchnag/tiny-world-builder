@@ -1,6 +1,6 @@
 ---
 name: tinyworld-single-file
-description: Use when editing the Tiny World Builder repo, especially tiny-world-builder.html, to preserve the single-file Three.js r128 app structure and local edit/reload workflow.
+description: Use when editing the Tiny World Builder repo, especially tiny-world-builder.html, to preserve the static classic-script Three.js r185 app structure and local edit/reload workflow.
 ---
 
 # Tiny World Single-File Workflow
@@ -14,7 +14,7 @@ Core rules:
 - Do not touch `tiny-world-builder BACKUP.html` if present.
 - Preserve style: 2-space indent, semicolons, single-quoted strings, section comments like `// -------- tools --------`.
 - Mutate board state through `setCell(x, z, opts)`, not direct `world[x][z]` writes outside initialization.
-- Keep Three.js pinned to r128 and self-hosted under `vendor/three/`; do not reintroduce CDN runtime scripts.
+- Keep Three.js pinned to r185 and self-hosted under `vendor/three/`; do not reintroduce CDN runtime scripts. The app consumes `vendor/three/tinyworld-three.r185.min.js`, a generated classic-global bundle made from `three@0.185.0`; regenerate it with `npm run vendor:three` after changing `three` or loader wiring.
 - If browser stack traces point at `tiny-world-builder` / `dist/LandscapeEngine.js` line numbers after source edits, run `npm run build` so `dist/index.html`, `dist/tiny-world-builder.html`, and `dist/LandscapeEngine.js` are regenerated before judging the runtime.
 - Cluso's in-page embed is allowed in LOCAL DEV ONLY, injected at runtime by
   `tools/dev-server.js` (never written into the committed HTML or `dist/`). The

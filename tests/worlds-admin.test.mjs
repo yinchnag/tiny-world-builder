@@ -35,16 +35,16 @@ test('worldAdminEmails merges extra emails from env', () => {
 });
 
 test('deriveTerrainCounts stays consistent for a world payload', () => {
-  // A tiny 4x4 board: a couple of water + stone cells, rest implied grass.
+  // An 8x8 board (smallest legal size): a couple of water + stone cells, rest implied grass.
   const data = { v: 4, cells: [
     [0, 0, 'water'], [1, 0, 'water'], [2, 2, 'stone'], [3, 3, 'grass', 'tree'],
   ] };
-  const counts = deriveTerrainCounts(data, 4);
-  assert.equal(counts.tileCount, 16);
+  const counts = deriveTerrainCounts(data, 8);
+  assert.equal(counts.tileCount, 64);
   assert.equal(counts.water, 2);
   assert.equal(counts.stone, 1);
   // grass = total - nonGrass(water+stone) ; the tree cell is grass terrain.
-  assert.equal(counts.grass, 16 - 3);
+  assert.equal(counts.grass, 64 - 3);
 });
 
 test('deriveResourceStats mirrors world room resource node seeding', () => {
@@ -80,7 +80,7 @@ test('worldDto includes owner email and resource stats for cards', () => {
     owner_email: 'jason@bouncingfish.com',
     data: { v: 4, gridSize: 4, cells: [[1, 1, 'stone']] },
     published_at: '2026-06-21T09:00:00.000Z',
-  });
+  }, { includeOwnerEmail: true });
   assert.equal(dto.ownerEmail, 'jason@bouncingfish.com');
   assert.equal(dto.resourceStats.ore, 1);
   assert.equal(dto.resourceStats.mineable, 1);

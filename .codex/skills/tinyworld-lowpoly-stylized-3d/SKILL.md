@@ -22,7 +22,7 @@ Use this together with:
 - Keep texture use rare and intentional. Procedural `THREE.MeshLambertMaterial` colors should remain the default for built-in objects.
 - Custom/generated voxel stamps should not render full bounding-cage trim by default; reserve bounds frames for explicit decorative-outline stamps.
 - If generated voxel stamps include a broad ground/platform part, sink that base into the terrain rather than showing a raised tile under the object.
-- Use flat/Lambert lighting semantics compatible with Three.js r128.
+- Use flat/Lambert lighting semantics compatible with the vendored Three.js r185 global bundle.
 - Avoid glossy/PBR realism unless an imported asset already depends on it.
 
 ## Scale rules
@@ -75,7 +75,7 @@ Use this together with:
   stand in for a requested model when `customParts` can express the model
   directly.
 - Never mutate shared `M.*` material colors for one instance; clone or create a new material. The one allowed global exception is `applySeasonFoliage()`, which centrally retints shared foliage/grass materials for season changes.
-- Three.js r128 `MeshLambertMaterial` does not accept `flatShading`; keep faceted model-stamp fallbacks through non-indexed/flat-normal geometry instead of unsupported material flags.
+- `MeshLambertMaterial` does not provide the same `flatShading` workflow as Standard/Phong; keep faceted model-stamp fallbacks through non-indexed/flat-normal geometry instead of unsupported material flags.
 - Built-in material references should live in `engine/world/04-textures.js` as
   deterministic coarse canvas textures before adding per-object overrides.
   Current coarse material maps include `path-pavers`, `castle-block`,
@@ -110,7 +110,7 @@ Use this together with:
   material.
 - For imported texture variants, create explicit material variants and swap them at the model mesh level.
 - For toolbar thumbnails, increase contrast/saturation carefully so icons read against the white toolbar, but keep the in-world material natural.
-- If a model comes with a texture atlas, set `texture.encoding = THREE.sRGBEncoding` and check `flipY` for GLTF compatibility.
+- If a model comes with a texture atlas, set its color data with `twSetTextureSRGB(texture)` / `texture.colorSpace = THREE.SRGBColorSpace` and check `flipY` for GLTF compatibility.
 - Repo-backed model stamps must run a material hydration pass: preserve real embedded materials, apply known sidecar atlases (GLTF atlases use `flipY = false`), parse OBJ `.mtl` sidecars when present, warn when they are missing, and apply a deterministic TinyWorld palette fallback to blank `palette`/white materials so imports do not look like unpainted 3D prints.
 - GLB/GLTF model stamps must adapt PBR `MeshStandardMaterial` /
   `MeshPhysicalMaterial` into TinyWorld-lit Lambert materials while preserving
@@ -154,9 +154,7 @@ Use this together with:
 ## Model import hygiene
 
 - Keep assets under `models/` and ensure `publish.sh` copies them to `dist/models/`.
-- Use the vendored Three.js r128 GLTF stack for GLB/GLTF (`GLTFLoader`,
-  `DRACOLoader`, `MeshoptDecoder`, and the module-backed `KTX2Loader`
-  bootstrap) and configure the loader before loading imported model stamps.
+- Use the vendored Three.js r185 GLTF stack from `vendor/three/tinyworld-three.r185.min.js` (`GLTFLoader`, `DRACOLoader`, `MeshoptDecoder`, and `KTX2Loader`) and configure the loader before loading imported model stamps.
   Surface remaining unsupported-extension errors instead of silently showing
   the generic placeholder.
 - After loading:
@@ -193,3 +191,10 @@ Use this together with:
 - Shadows are visible but not noisy; no huge new shadow casters.
 - Toolbar thumbnail remains readable.
 - No material mutation leaks into other objects.
+
+## Procedural cow/sheep animation
+
+- Built-in cow/sheep meshes are created by `makeVoxelAnimal()` in `engine/world/09b-voxel-build-factories.js` and animated by `engine/world/70-animal-anim.js`.
+- Keep animal body/head/leg pivots live: set `userData.noVoxelBatch = true`, expose parts under `userData.anim`, and register with `window.__tinyworldRegisterAnimal(g)` after rendering.
+- Animal movement is cosmetic only. The grazer moves the rendered group around its home tile; do not mutate `world[x][z]` or multiplayer harvest/resource state from this animation.
+- When adding new animal poses, use local state inside the 70 module and preserve the `__tinyworldAnimalTick(t, dt)` hook from the main animation loop.

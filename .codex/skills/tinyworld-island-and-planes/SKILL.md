@@ -65,7 +65,7 @@ The dedicated strata side backing (`M.boardSideEdge`) can still show deeper
 soil-to-rock banding lower down, while underside materials use
 `textures/island-underside-voxel.png` (`texIslandUndersideVoxel`) so the bottom
 reads as larger dark beveled voxel blocks; keep replacement shell art seamless
-and power-of-two because Three.js r128 repeats it with mipmaps. The shader pass
+and power-of-two because Three.js repeats it with mipmaps. The shader pass
 darkens a coarse horizontal/vertical side grid and lightly modulates each
 block/underside cell in the fragment shader. It uses world position/normal
 varyings, so the large merged side slabs read as chunky voxel blocks without
@@ -75,25 +75,15 @@ uniforms/source so the side-backing clone keeps the same coarse grid/strata
 shader instead of falling back to a black shell.
 
 Island edge strata is shader-driven on the side backing only:
-`addIslandSideBacking` uses the dedicated `M.boardSideEdge` shader material. The
-logical grass-cap top is `ISLAND_SIDE_STRATA_TOP_Y = TOP_H`, but the visible
-carrier and shader sample top must both use
-`ISLAND_SIDE_STRATA_RENDER_TOP_Y` with `ISLAND_SIDE_STRATA_TOP_OVERLAP` so the
-bitmap rises into the cap and does not leave a thin rim. The shader samples the
-fixed 1024x192 generated image slice
-`textures/island-side-strata-gpt.png` through a `CanvasTexture` with a minimum
-shadow floor; do not load it as a raw `TextureLoader` image with ambiguous
-vertical flip, and do not let near-black pixels dominate the strip. The function
-uses that material on the real side-backing faces from just above `TOP_H`
-(`ISLAND_SIDE_STRATA_TOP_OVERLAP`) down through the
-dirt/stone side (`ISLAND_SIDE_STRATA_RENDER_HEIGHT`). Do not add a separate
-shallow overlay strip over a plain brown backing; it leaves the old wall visible
-and looks like a decal. The four backing faces are widened by the edge outset so
-corners meet cleanly, and hidden faces stay stripped with `skipTop` /
-`skipBottom` / interior-side skips. Keep the side-carrier meshes out of static
-base merging so the shader stays inspectable and continues to sit behind the
-current edge greebles/lumps; do not add separate overlay panels or per-tile decal
-geometry for this effect.
+`addIslandSideBacking` uses the dedicated `M.boardSideEdge` shader material for
+lower dirt/rock backing. Do **not** restore the old continuous green grass-cap
+carrier at the top edge: it reads as a thin floating strip around the island in
+Build/tilt-down views. Per-cell terrain and mesh-terrain side walls own the top
+edge; the backing should stay darker/lower behind greebles. Keep the four backing
+faces widened by the edge outset so corners meet cleanly, and keep hidden faces
+stripped with `skipTop` / `skipBottom` / interior-side skips. Keep the
+side-carrier meshes out of static base merging so the shader stays inspectable;
+do not add separate overlay panels or per-tile decal geometry for this effect.
 The dirt/brown band in `island-side-strata-gpt.png` should match the darker
 `soil-side`/`M.dirtRich` greeble palette, not bright orange. Keep the band near
 the dark brown family used by side greeble blocks so the bitmap and geometry

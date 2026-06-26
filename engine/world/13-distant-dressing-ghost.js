@@ -193,36 +193,10 @@
       noGap: true, noShadow: true, skipTop: true, skipBottom: true, skipNX: true, skipPZ: true, skipNZ: true,
     }));
 
-    // 2) Green grass-cap band — only across runs of land perimeter cells, so
-    //    water cells leave the rim open for the river to reach the edge.
-    const capH = wallTopY - capBaseY;
-    const capCy = wallTopY - capH * 0.5;
-    function buildCapEdge(dir) {
-      const alongX = dir === 'n' || dir === 's';
-      const across = (dir === 'n' || dir === 'w') ? -half + inset : half - inset;
-      const innerSkip = dir === 'n' ? { skipPZ: true } : dir === 's' ? { skipNZ: true } : dir === 'w' ? { skipPX: true } : { skipNX: true };
-      let i = 0;
-      while (i < GRID) {
-        if (edgeCellIsWater(dir, i)) { i++; continue; }
-        let j = i;
-        while (j + 1 < GRID && !edgeCellIsWater(dir, j + 1)) j++;
-        let aMin = (i - GRID / 2) * TILE;
-        let aMax = (j + 1 - GRID / 2) * TILE;
-        if (i === 0) aMin -= sideFaceOutset;
-        if (j === GRID - 1) aMax += sideFaceOutset;
-        const len = aMax - aMin;
-        const center = (aMin + aMax) * 0.5;
-        const opts = Object.assign({ noGap: true, noShadow: true, skipTop: true, skipBottom: true }, innerSkip);
-        tagSide(alongX
-          ? vbox(parent, len, capH, thickness, center, capCy, across, mat, opts)
-          : vbox(parent, thickness, capH, len, across, capCy, center, mat, opts));
-        i = j + 1;
-      }
-    }
-    buildCapEdge('n');
-    buildCapEdge('s');
-    buildCapEdge('w');
-    buildCapEdge('e');
+    // 2) No continuous top cap band. The old green strip here read as a thin
+    // floating panel wrapped around the build island, especially with the camera
+    // tilted downward. Per-cell terrain/mesh-terrain sides now provide the top
+    // edge; this backing stays lower/darker so it cannot form a visible rim.
   }
 
   function addIslandEdgeDressing(parent) {

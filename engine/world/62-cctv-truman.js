@@ -89,7 +89,7 @@
       '  vec4 cap = texture2D(tCaption, vUv);',
       '  col = mix(col, vec3(1.0), cap.a * 0.94);',
       '  gl_FragColor = vec4(col, 1.0);',
-      '  #include <encodings_fragment>',
+      '  #include <colorspace_fragment>',
       '}',
     ].join('\n');
 

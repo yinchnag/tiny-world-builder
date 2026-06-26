@@ -3,11 +3,12 @@ import { getAuthUser } from './lib/auth.mjs';
 import { getSql, isDatabaseUnavailable, isMissingRelations } from './lib/db.mjs';
 import { corsResponse, errorResponse, jsonResponse, readJson, sameOriginWriteGuard } from './lib/http.mjs';
 import { ensureProfile, profileDto } from './lib/profiles.mjs';
+import { maybeRewardReferral } from './lib/referrals.mjs';
 import { activeSuspension } from './lib/community-moderation.mjs';
 import { isTinyverseAccessEmail } from './lib/tinyverse-access.mjs';
 import {
   cleanWorldName, cleanTaxPercent, computeWorldPriceBreakdown, deriveResourceStats, deriveTerrainCounts,
-  worldDto, worldPreview, signJoinToken, isWorldAdminEmail, getTaxCooldownInfo,
+  effectiveWorldGridSize, worldDto, worldPreview, signJoinToken, isWorldAdminEmail, getTaxCooldownInfo,
   normalizeWorldSelectionGateData, TINYVERSE_HUB_SLUG,
 } from './lib/worlds.mjs';
 
@@ -68,12 +69,15 @@ function slugFromRequest(request) {
   return s;
 }
 
-function isTinyverseOwnerProfile(profile) {
-  return TINYVERSE_OWNER_EMAILS.has(String((profile && profile.email) || '').trim().toLowerCase());
+// Authorize on the VERIFIED auth-provider email only, NEVER the editable profiles.email
+// (a wallet user can set that to anything via /api/profile — using it for authorization
+// let them self-grant Tinyverse owner/access). See plans/production-line/SECURITY-NOTES.md.
+function isTinyverseOwnerEmail(verifiedEmail) {
+  return TINYVERSE_OWNER_EMAILS.has(String(verifiedEmail || '').trim().toLowerCase());
 }
 
-async function ensureTinyverseStarterOwnership(sql, profile) {
-  if (!profile || !isTinyverseOwnerProfile(profile)) return;
+async function ensureTinyverseStarterOwnership(sql, profile, verifiedEmail) {
+  if (!profile || !isTinyverseOwnerEmail(verifiedEmail)) return;
   await sql`
     UPDATE worlds
     SET owner_profile_id = ${profile.id}, updated_at = NOW()
@@ -106,12 +110,15 @@ export default async function worldsFunction(request) {
     // Browsing the universe is account-gated; writes require auth too.
     const user = await getAuthUser(request);
     const profile = (user && user.id) ? await ensureProfile(user) : null;
-    await ensureTinyverseStarterOwnership(sql, profile);
+    // The verified auth-provider email is the ONLY authorization input — never the
+    // user-editable profiles.email.
+    const verifiedEmail = (user && user.email) ? String(user.email).trim().toLowerCase() : '';
+    await ensureTinyverseStarterOwnership(sql, profile, verifiedEmail);
     const isWorldService = isWorldServiceRequest(request);
     // World admin: a small email allowlist may inspect/administer worlds beyond
     // ownership. Live room editing is intentionally not part of this path.
-    const isWorldAdmin = isWorldAdminEmail(user && user.email);
-    const canAccessTinyverse = isTinyverseAccessEmail(user && (user.email || (profile && profile.email)));
+    const isWorldAdmin = isWorldAdminEmail(verifiedEmail);
+    const canAccessTinyverse = isTinyverseAccessEmail(verifiedEmail);
     const worldId = worldIdFromRequest(request);
     const worldSlug = slugFromRequest(request);
 
@@ -119,7 +126,6 @@ export default async function worldsFunction(request) {
       const economy = await loadEconomy(sql);
 
       if (worldId || worldSlug) {
-        if (!canAccessTinyverse && !isWorldService) return errorResponse('Tinyverse access is invite-only', 403, origin);
         const rows = worldId
           ? await sql`
               SELECT w.*, p.display_name AS owner_name, p.email AS owner_email
@@ -138,6 +144,11 @@ export default async function worldsFunction(request) {
         if (!rows.length) return errorResponse('World not found', 404, origin);
         const world = rows[0];
         if (world.slug === TINYVERSE_HUB_SLUG) return errorResponse('World not found', 404, origin);
+        // P early-access: published "early-preview" starter worlds are open to ANY signed-in
+        // player to enter + harvest. Requires a real (signed-in) profile — anonymous
+        // visitors can't even observe via a guessed slug. Everything else stays invite-only.
+        const isPublicStarter = !!profile && world.kind === 'starter' && world.status === 'published';
+        if (!canAccessTinyverse && !isWorldService && !isPublicStarter) return errorResponse('Tinyverse access is invite-only', 403, origin);
         const isOwner = profile && Number(world.owner_profile_id) === Number(profile.id);
         // Drafts are private to their owner, except a world admin can inspect
         // them for moderation/support. Multiplayer editing stays outside rooms.
@@ -171,16 +182,26 @@ export default async function worldsFunction(request) {
           perTileBase: String(economy.per_tile_base || '0'),
         } }, origin);
       }
-      if (!canAccessTinyverse) return errorResponse('Tinyverse access is invite-only', 403, origin);
-
-      const rows = await sql`
-        SELECT w.*, p.display_name AS owner_name, p.email AS owner_email
-        FROM worlds w
-        LEFT JOIN profiles p ON p.id = w.owner_profile_id
-        WHERE w.slug <> ${TINYVERSE_HUB_SLUG}
-        ORDER BY (w.kind = 'starter') DESC, w.id ASC
-        LIMIT 500
-      `;
+      // P early-access: non-allowlisted players see ONLY the published early-preview
+      // starter worlds (their public sandbox); the full tinyverse stays invite-only.
+      // ownerEmail is excluded from the dto by default, so the public list carries no PII.
+      const rows = canAccessTinyverse
+        ? await sql`
+            SELECT w.*, p.display_name AS owner_name, p.email AS owner_email
+            FROM worlds w
+            LEFT JOIN profiles p ON p.id = w.owner_profile_id
+            WHERE w.slug <> ${TINYVERSE_HUB_SLUG}
+            ORDER BY (w.kind = 'starter') DESC, w.id ASC
+            LIMIT 500
+          `
+        : await sql`
+            SELECT w.*, p.display_name AS owner_name
+            FROM worlds w
+            LEFT JOIN profiles p ON p.id = w.owner_profile_id
+            WHERE w.slug <> ${TINYVERSE_HUB_SLUG} AND w.kind = 'starter' AND w.status = 'published'
+            ORDER BY w.id ASC
+            LIMIT 100
+          `;
       const worlds = rows.map(r => {
         const dto = withLivePrice(worldDto(r), economy);
         // A small top-down preview for the card. Other players' private drafts
@@ -246,12 +267,14 @@ export default async function worldsFunction(request) {
         if (JSON.stringify(data).length > 20_000_000) return errorResponse('World JSON is too large', 400, origin);
         const owned = await sql`SELECT grid_size FROM worlds WHERE id = ${worldId} AND owner_profile_id = ${profile.id} AND status = 'draft' LIMIT 1`;
         if (!owned.length) return errorResponse('World not editable (must be your draft)', 409, origin);
-        const counts = deriveTerrainCounts(data, owned[0].grid_size);
-        const resourceStats = deriveResourceStats(data, owned[0].grid_size);
+        const gridSize = effectiveWorldGridSize(data, owned[0].grid_size);
+        const normalizedData = Object.assign({}, data, { gridSize });
+        const counts = deriveTerrainCounts(normalizedData, gridSize);
+        const resourceStats = deriveResourceStats(normalizedData, gridSize);
         const priceBreakdown = computeWorldPriceBreakdown(counts.tileCount, economy, resourceStats);
         const rows = await sql`
           UPDATE worlds
-          SET data = ${sql.json(data)}, tile_count = ${counts.tileCount},
+          SET data = ${sql.json(normalizedData)}, grid_size = ${gridSize}, tile_count = ${counts.tileCount},
               stone_tile_count = ${counts.stone}, grass_tile_count = ${counts.grass},
               water_tile_count = ${counts.water}, price_usdc = ${priceBreakdown.totalUsdc}, updated_at = NOW()
           WHERE id = ${worldId} AND owner_profile_id = ${profile.id} AND status = 'draft'
@@ -270,13 +293,24 @@ export default async function worldsFunction(request) {
           RETURNING *
         `;
         if (!rows.length) return errorResponse('Cannot publish (need a name, and it must be your draft)', 409, origin);
+        // Publishing a world is the verified action that pays out a pending referral
+        // (earned, not given). Best-effort: a referral-reward error must never fail the
+        // publish. Idempotent — only the first eligible publish ever pays.
+        try {
+          const r = await maybeRewardReferral(sql, profile.id);
+          if (r && r.reason && String(r.reason).startsWith('error:')) {
+            console.warn('[referral] reward failed for profile', profile.id, r.reason);
+          }
+        } catch (e) { console.warn('[referral] reward threw for profile', profile.id, e && e.message); }
         return jsonResponse({ world: worldDto(rows[0], { includeData: true }) }, origin);
       }
 
       if (action === 'unpublish') {
+        // Clear any template listing on unpublish so an unpublished world can't stay
+        // remixable (the remix path also re-checks status='published' under a row lock).
         const rows = await sql`
           UPDATE worlds
-          SET status = 'draft', updated_at = NOW()
+          SET status = 'draft', is_template = FALSE, template_price = NULL, template_author_id = NULL, updated_at = NOW()
           WHERE id = ${worldId} AND owner_profile_id = ${profile.id} AND status = 'published'
           RETURNING *
         `;

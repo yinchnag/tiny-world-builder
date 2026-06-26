@@ -301,7 +301,7 @@
     // Use filtered shadows at every quality level. BasicShadowMap makes the
     // low-poly/isometric shadows stair-step harshly, especially in pixel mode.
     sun.shadow.radius = renderShadowQuality === 'high' ? 4 : (renderShadowQuality === 'low' ? 1.25 : 2.5);
-    renderer.shadowMap.type = renderShadowQuality === 'low' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     if (sun.shadow.map) {
       sun.shadow.map.dispose();
       sun.shadow.map = null;

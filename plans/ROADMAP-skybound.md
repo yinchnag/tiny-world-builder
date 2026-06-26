@@ -27,7 +27,7 @@ The sea has taken over the planet. Scattered pockets of land survive — islands
 | Harvest economy | **Solid.** fish/meat/plants/ore + land ownership + tax split | `party/index.js` (harvest lifecycle), `world-resources.mjs` |
 | Combat | Plane guns + 6 homing missiles + destructible scenery + lock/HUD | `41-flight-combat.js`, `flight-combat-math.mjs` |
 | People (avatars) | 2.5D **sprite billboards** ("stripes") for self/peers/bots + ambient crowd | `47-worlds-room.js` (`createAvatar`), `11-vehicle-crowd.js`, `vendor/tiny-crowd-layer.js` |
-| Voxel character source | **Full voxel poser** — mesher, IK, ragdoll, skin/outfit/gear data, JSON serialization | `voxel-poser.html` (r128, standalone) |
+| Voxel character source | **Full voxel poser** — mesher, IK, ragdoll, skin/outfit/gear data, JSON serialization | `voxel-poser.html` (r185, standalone) |
 
 **Build facts:** dev-server (`npm run dev`, :3000) serves **source** live — no build step to iterate locally. `publish.sh` → `dist/` is the prod artifact (Netlify). `tools/check.js` **fails the build on any duplicate top-level identifier** across `engine/world/*.js` (shared global scope) — new modules use an **IIFE** + `window.__*` exposure. New module = `engine/world/NN-*.js` + one `<script defer>` tag before `99-late-boot.js`.
 
@@ -98,7 +98,7 @@ The sea has taken over the planet. Scattered pockets of land survive — islands
 
 - **Do NOT push live.** Local dev only. Never `git push`, never deploy. (No git hooks; `main-dev` has no upstream — verified.)
 - **Shared global scope:** new modules MUST be IIFEs with unique `window.__*` exposure or `check.js` fails the build.
-- **Three.js r128 pinned** — water/avatar shaders use exact r128 GLSL include strings; both app and voxel-poser are r128, so extraction is safe. Do not bump.
+- **Three.js r185 pinned** — the app uses the generated classic-global bundle under `vendor/three/tinyworld-three.r185.min.js`. Stock-material shader patches must use r185 color-space chunks (`<colorspace_fragment>`) and map UV varying names (`vMapUv`).
 - **Shared materials** (`M.*`, `voxMat`): clone for per-instance tints; the repo has a history of GPU-buffer leak fixes — dispose per-instance materials.
 - **Render/draw-bound** (per perf findings): cache avatar geometry by skin-hash; prefer static expressions for crowds; the planet is tuned as a distant backdrop (near-chunk profile needs enriching for close flight).
 - **No emoji**, SVG glyphs only, verify in a real browser with 3D math (not screenshots/synthetic events).

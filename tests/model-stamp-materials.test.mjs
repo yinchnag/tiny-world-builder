@@ -17,10 +17,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const VENDOR = join(__dirname, '..', 'vendor', 'three');
 const LOADER = join(__dirname, '..', 'engine', 'world', '09-model-stamp-loader.js');
 
-// three.r128.min.js is a UMD module; expose it as the global the loaders expect.
+// tinyworld-three.r185.min.js is an IIFE global bundle; expose browser-ish globals
+// for the vendored loader stack and use its global THREE side effect.
 global.self = global;
-global.THREE = require(join(VENDOR, 'three.r128.min.js'));
-require(join(VENDOR, 'VOXLoader.r128.js'));
+require(join(VENDOR, 'tinyworld-three.r185.min.js'));
+const THREE = global.THREE;
 
 test('Phong materials are flagged for TinyWorld re-lighting (FBX white fix)', () => {
   const { modelStampMaterialNeedsTinyWorldLighting } = buildEngineFns(
@@ -63,8 +64,9 @@ test('MTL texture failure falls back to Kd diffuse instead of white', () => {
   const mat = mats.skin;
   assert.ok(mat, 'material parsed');
   assert.equal(mat.map, null, 'broken map dropped');
-  // 0.64 -> 163 -> 0xa3a3a3, not 0xffffff.
-  assert.equal(mat.color.getHexString(), 'a3a3a3');
+  // 0.64 linear stays 0xa3a3a3 internally (r185 displays it through sRGB as d1d1d1), not white.
+  assert.equal(mat.color.getHexString(THREE.LinearSRGBColorSpace), 'a3a3a3');
+  assert.notEqual(mat.color.getHexString(), 'ffffff');
   assert.match(mat.userData.modelStampHydrated, /texture missing/);
 });
 
@@ -171,7 +173,8 @@ test('VOXMesh is not clone-safe; a plain Mesh wrapper clones cleanly', () => {
   const vox = Buffer.concat([tag('VOX '), u32(150), main, body]);
   const ab = vox.buffer.slice(vox.byteOffset, vox.byteOffset + vox.byteLength);
 
-  const chunks = new THREE.VOXLoader().parse(ab);
+  const parsed = new THREE.VOXLoader().parse(ab);
+  const chunks = Array.isArray(parsed) ? parsed : parsed.chunks;
   assert.ok(chunks && chunks.length, 'vox parsed');
   const voxMesh = new THREE.VOXMesh(chunks[0]);
 

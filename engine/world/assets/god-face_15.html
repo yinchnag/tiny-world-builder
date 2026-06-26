@@ -162,7 +162,7 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js"
+    "three": "https://unpkg.com/three@0.185.0/build/three.module.js"
   }
 }
 </script>
@@ -194,7 +194,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scene = new THREE.Scene();
 
@@ -608,8 +608,27 @@ function processVideo(now) {
   trkEl.innerHTML = `tracking <span class="dot">/</span> ${[fp, hp].filter(Boolean).join(' + ') || '—'}`;
 }
 
+function makeTinyClock() {
+  const start = performance.now() / 1000;
+  let last = start;
+  return {
+    elapsedTime: 0,
+    getDelta() {
+      const now = performance.now() / 1000;
+      const dt = now - last;
+      last = now;
+      this.elapsedTime = now - start;
+      return dt;
+    },
+    getElapsedTime() {
+      this.elapsedTime = performance.now() / 1000 - start;
+      return this.elapsedTime;
+    },
+  };
+}
+
 // ---------- LOOP ----------
-const clock = new THREE.Clock();
+const clock = makeTinyClock();
 let running = false;
 let lastTrack = 0;
 const TRACK_INTERVAL = 1000 / 30;     // re-voxelize at ~30fps; render stays at 60

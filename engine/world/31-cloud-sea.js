@@ -1,6 +1,6 @@
   // -------- cloud sea + soft sprite clouds --------
   // Sprite-puff cloud system ported from the three.js r55 "webgl_clouds" demo
-  // (clouds-mrdoob/) to r128: merged BufferGeometry, vertex-shader billboarding
+  // (clouds-mrdoob/) to TinyWorld: merged BufferGeometry, vertex-shader billboarding
   // (the demo only flew straight down -Z so it never needed it), tinted to the
   // live sky and faded by distance. Two consumers share one shader/texture:
   //   - cloud sea   : a wide thin band far below the islands (own toggle)
@@ -98,7 +98,7 @@
         'void main() {',
         '  vec4 t = texture2D(map, vUv);',
         '  float alpha = t.a * opacity * vFade;',
-        '  if (alpha < 0.01) discard;',
+        '  if (alpha < 0.025) discard;',
         '  vec3 col = mix(t.rgb, tint, 0.35 * (1.0 - vFade));',
         '  float rim = smoothstep(0.08, 0.72, vUv.y) * smoothstep(0.06, 0.58, t.a) * rimStrength;',
         '  col = mix(col, rimColor, clamp(rim * 0.72, 0.0, 0.78));',
@@ -131,7 +131,10 @@
   xrWorldRoot.add(cloudSeaGroup);
   cloudSeaGroup.visible = false;
   let cloudSeaMesh = null;
-  const CLOUD_SEA_Y = -8, CLOUD_SEA_BAND = 3.2, CLOUD_SEA_COUNT = 1800;
+  // Cloud sea is a transparent full-screen overdraw hotspot. Keep the far veil
+  // airy with fewer larger-batched sprites instead of the old dense 1800-quad
+  // field; the single merged draw remains, but fragment work drops sharply.
+  const CLOUD_SEA_Y = -8, CLOUD_SEA_BAND = 3.2, CLOUD_SEA_COUNT = 1050;
 
   function buildCloudSea() {
     if (cloudSeaMesh) return;
@@ -150,6 +153,7 @@
       });
     }
     cloudSeaMesh = buildPuffMesh(placements, new THREE.Color(0xb9dcf4), 0.9, innerR, outerR);
+    softCloudLastRimStrength = NaN;
     cloudSeaGroup.add(cloudSeaMesh);
   }
 
@@ -185,6 +189,7 @@
   xrWorldRoot.add(skyCloudsGroup);
   skyCloudsGroup.visible = false;
   let skyCloudsMesh = null;
+  let softCloudLastRimStrength = NaN;
 
   function buildSkyClouds() {
     // Rebuild on demand so cloud amount/height changes take effect.
@@ -224,6 +229,7 @@
     }
     // fadeInner huge -> vFade == 1 everywhere (no horizon dissolve for sky clouds)
     skyCloudsMesh = buildPuffMesh(placements, new THREE.Color(0xffffff), 0.95, 1e9, 1e9 + 1);
+    softCloudLastRimStrength = NaN;
     skyCloudsGroup.add(skyCloudsMesh);
   }
 
@@ -234,8 +240,8 @@
     const soft = renderCloudStyle === 'soft';
     if (soft) buildSkyClouds();
     skyCloudsGroup.visible = soft;
-    // Hide/show the voxel clouds (module 23). updateClouds keeps ticking but
-    // the groups are simply not drawn while soft mode is active. Hide both the
+    // Hide/show the voxel clouds (module 23). updateClouds skips its hidden
+    // voxel/under-island work while soft mode is active. Hide both the
     // overhead clouds AND the under-island clouds so soft mode fully replaces
     // the blocky cloud look.
     if (typeof cloudGroup !== 'undefined' && cloudGroup) cloudGroup.visible = !soft;
@@ -250,6 +256,8 @@
 
   function setSoftCloudRimStrength(value) {
     const strength = Math.max(0, Math.min(1.2, value || 0));
+    if (Math.abs(strength - softCloudLastRimStrength) < 0.002) return;
+    softCloudLastRimStrength = strength;
     for (const mesh of [cloudSeaMesh, skyCloudsMesh]) {
       const mat = mesh && mesh.material;
       if (mat && mat.uniforms && mat.uniforms.rimStrength) {

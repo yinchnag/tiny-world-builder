@@ -749,7 +749,7 @@
             float hi = smoothstep(0.04, 0.22, laneUv) * (1.0 - smoothstep(0.58, 0.96, laneUv));
             vec3 color = mix(uBaseColor, uHiColor, 0.22 + hi * 0.58 + streamPulse * 0.10);
             gl_FragColor = vec4(color, alpha);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -805,7 +805,7 @@
             if (alpha < 0.02) discard;
             vec3 color = mix(uBaseColor, uFoamColor, lip * 0.52 + streak * 0.16);
             gl_FragColor = vec4(color, alpha);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });

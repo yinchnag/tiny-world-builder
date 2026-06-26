@@ -34,6 +34,9 @@ Organization guidance:
   chrome without auto-darkening after-hours.
 - Rendering: keep image/render-cost controls grouped by intent. `Quality` covers resolution and shadows; `Lighting` covers lighting and fill controls; `Image effects` covers brightness, saturation, contrast, pixelation, shader AA, and tilt-shift.
 - World: preview/ghost controls are intentionally removed and forced to zero; do not reintroduce distance/window/opacity controls unless Preview rendering is explicitly brought back. Terrain style covers voxel bevel, landscape/planet toggles, voxel/cottage, and terrain voxel resolution. `Voxel gap` and `Show crowns` are also intentionally removed from the UI and forced off for render stability/performance.
+- Time & weather popup: the time-of-day range is editable only in Build mode for
+  local lighting previews. Play/Tinyverse/no-edit modes follow live UK/BST time
+  and disable the range; do not persist manual build-time overrides to localStorage.
 - Environment owns the `Planes` checkbox (`render-planes-enabled`) because it
   controls ambient flyovers and towed banners. It defaults off for the current
   performance pass and should stay searchable by plane/crop-duster/banner terms.

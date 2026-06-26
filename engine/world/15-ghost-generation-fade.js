@@ -359,7 +359,11 @@
       o.userData.baseMat = o.material;
       o.userData.grayMat = !!grayscale;
       o.userData.baseOpacity = o.material.opacity === undefined ? 1 : o.material.opacity;
-      o.userData.keepFadeAtOpaque = group.userData.fadeRole === 'tile';
+      // Home/active terrain must write depth when fully opaque; otherwise the
+      // island side shells can sort through it at grazing camera angles. Keep
+      // the always-transparent opaque bucket only for preview/ghost tiles that
+      // still rely on fade blending.
+      o.userData.keepFadeAtOpaque = group.userData.fadeRole === 'tile' && group.userData.preview;
       o.userData._fadeBucket = fadeBucketFor(displayOpacity);
       o.material = pickFadeMaterial(o.material, !!grayscale, displayOpacity, o.userData.keepFadeAtOpaque);
     });

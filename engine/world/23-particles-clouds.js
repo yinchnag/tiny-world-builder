@@ -1112,6 +1112,10 @@
 
   function updateClouds(dt) {
     if (typeof updateSkyBubble === 'function') updateSkyBubble();
+    // Soft cloud style uses the merged sprite system in 31-cloud-sea and hides
+    // the voxel/under-island cloud groups. Do not keep animating hidden voxel
+    // clouds every frame.
+    if (typeof renderCloudStyle !== 'undefined' && renderCloudStyle === 'soft') return;
     updateUnderIslandClouds(dt);
     if (!clouds || !clouds.length) return;
     const baseSpeed = renderCloudSpeed * 2.4; // 0 → 2.4 m/s scalar

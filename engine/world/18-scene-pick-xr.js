@@ -1326,7 +1326,7 @@
 
   // Snapshot worldGroup into a fresh, self-contained group with USD-friendly
   // materials, expanding InstancedMeshes (batched voxel builds / crops / fences,
-  // which the r128 exporter can't read) into individual meshes so nothing goes
+  // which USDZExporter can't read) into individual meshes so nothing goes
   // missing. Then recentre on the origin (base at y=0) and scale to a tabletop
   // size. Source geometry is shared (not cloned) and never disposed; only the
   // temporary Standard materials are ours to free afterwards.

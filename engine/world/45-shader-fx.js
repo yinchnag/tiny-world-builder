@@ -136,7 +136,7 @@
             col = mix(col, uFoam, clamp(foam, 0.0, 0.7));
             col = fxPosterize(col, uPosterize);
             gl_FragColor = vec4(col, uOpacity);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -195,7 +195,7 @@
             vec3 col = mix(uBase, uHi, 0.2 + (1.0 - laneUv) * 0.25);
             col = mix(col, uFoam, foam * 0.85);
             gl_FragColor = vec4(col, clamp(alpha + foam * 0.25, 0.0, 1.0));
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -233,7 +233,7 @@
             float a = mask * uOpacity;
             if (a < 0.02) discard;
             gl_FragColor = vec4(uFoam, a);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -274,7 +274,7 @@
             if (a < 0.01) discard;
             vec3 col = mix(uColor, uTint, clamp(uAge + billow * 0.3, 0.0, 1.0));
             gl_FragColor = vec4(col, a);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });
@@ -327,7 +327,7 @@
             float a = body * (1.0 - smoothstep(0.85, 1.0, uProgress)) * (0.35 + boil * 0.65);
             if (a < 0.01) discard;
             gl_FragColor = vec4(col, a);
-            #include <encodings_fragment>
+            #include <colorspace_fragment>
           }
         `,
       });

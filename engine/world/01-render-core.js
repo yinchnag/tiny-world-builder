@@ -19,9 +19,22 @@
     return Number.isInteger(n) && HOME_GRID_OPTION_SET.has(n);
   }
 
+  // Snap any positive integer to the nearest LEGAL grid option that COVERS it
+  // (rounds up), clamped to the supported range. Off-list world sizes (older
+  // seeds shipped 18x18 / 22x22) MUST resolve to a real option here — otherwise
+  // coerceGridSize used to discard them and return the stale leftover GRID from
+  // the previously-visited world, so the rendered board, movement clamp, and
+  // stargate placement disagreed (board shown too small, avatar sunken off the
+  // terrain, gate unreachable). 18 -> 20, 22 -> 20 (capped at HOME_GRID_MAX).
+  function snapGridSize(n) {
+    for (const size of HOME_GRID_OPTIONS) if (size >= n) return size;
+    return HOME_GRID_MAX;
+  }
+
   function coerceGridSize(value, fallback = HOME_GRID_DEFAULT) {
     const n = parseInt(value, 10);
     if (isValidGridSize(n)) return n;
+    if (Number.isFinite(n) && n > 0) return snapGridSize(n);
     return isValidGridSize(fallback) ? fallback : HOME_GRID_DEFAULT;
   }
 
@@ -495,12 +508,41 @@
     document.documentElement.style.setProperty('--sky-blue-low-rgb', cssRgb(low));
   }
   applyBackdropSettings();
-  const renderer = new THREE.WebGLRenderer({
-    canvas: canvasEl,
-    antialias: true,
-    alpha: true,
-    powerPreference: 'high-performance',
-  });
+  // Safari is far stricter than Chrome about WebGL context creation: it can refuse
+  // `powerPreference:'high-performance'` on integrated GPUs and throws (rather than
+  // falling back) when a context can't be made. An unguarded `new THREE.WebGLRenderer`
+  // that throws here leaves `renderer` unassigned and every later module that
+  // references it dies with a TDZ "Cannot access before initialization" cascade —
+  // i.e. the whole builder goes blank. Try progressively-safer option sets, and if
+  // all fail, surface a friendly message instead of a dead white screen.
+  function createRenderer() {
+    const attempts = [
+      { canvas: canvasEl, antialias: true, alpha: true, powerPreference: 'high-performance' },
+      { canvas: canvasEl, antialias: true, alpha: true, powerPreference: 'default' },
+      { canvas: canvasEl, antialias: false, alpha: true, powerPreference: 'default' },
+      { canvas: canvasEl, alpha: true },
+    ];
+    let lastErr = null;
+    for (const opts of attempts) {
+      try {
+        const r = new THREE.WebGLRenderer(opts);
+        if (r && r.getContext && r.getContext()) return r;
+      } catch (err) { lastErr = err; }
+    }
+    // Total failure — show a readable message instead of a blank screen + cascade.
+    try {
+      const msg = document.createElement('div');
+      msg.setAttribute('role', 'alert');
+      msg.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:system-ui,sans-serif;background:#0d1220;color:#e6ecff;z-index:99999';
+      msg.innerHTML = '<div style="max-width:520px"><h2 style="margin:0 0 10px">3D view could not start</h2>'
+        + '<p style="opacity:.85;line-height:1.5;margin:0">Your browser could not create a WebGL graphics context. '
+        + 'This often happens in Safari with hardware acceleration disabled, or with too many tabs open. '
+        + 'Try enabling hardware acceleration, closing other tabs, or opening Tiny World in Chrome.</p></div>';
+      document.body.appendChild(msg);
+    } catch (_) {}
+    throw (lastErr || new Error('WebGL context unavailable'));
+  }
+  const renderer = createRenderer();
   function applyRendererPixelRatio() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, renderDprCapForViewport()) * renderResolutionScale);
   }
@@ -511,14 +553,14 @@
     applyStageSize();
   }, { passive: true });
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   // The scene is mostly static, and the post-processing path calls
   // renderer.render() up to three times per frame — with autoUpdate the
   // shadow pass re-renders on each call. Refresh on a fixed cadence from
   // renderScene() instead (plus on demand via requestShadowMapUpdate).
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
-  renderer.outputEncoding = THREE.sRGBEncoding;
+  twSetRendererOutputSRGB(renderer);
   renderer.localClippingEnabled = true;
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.xr.enabled = true;
@@ -933,7 +975,7 @@
     // swimming diagonal "stripes" the user sees as the camera moves. MSAA
     // multisamples coverage so those edges resolve to smooth chunky pixels (the
     // NearestFilter upscale keeps the pixels crisp; surface texture/shader
-    // detail is handled separately by mipmaps + fwidth AA). r128's multisample
+    // detail is handled separately by mipmaps + fwidth AA). WebGLRenderer's multisample
     // target can't resolve a sampleable depth texture, and the depth-edge
     // outline option needs one — so fall back to the plain depth-texture target
     // only when depth edges are enabled (off by default).
@@ -1073,7 +1115,7 @@
           '  float edgeShade = mix(0.82, 0.62, clamp(max(depthEdgeStrength, normalEdgeStrength), 0.0, 1.0));',
           '  col = mix(col, col * edgeShade, edge * 0.72);',
           '  gl_FragColor = vec4(col, 1.0);',
-          '  #include <encodings_fragment>',
+          '  #include <colorspace_fragment>',
           '}',
         ].join('\n'),
         depthTest: false,
@@ -1144,10 +1186,11 @@
   }
 
   function renderCullTopContentOpacity(surfaceWorldY) {
-    // Gradual fade: top content stays fully visible until the camera dips just
-    // below the surface, then eases out over ~3.4 world units of further dip
-    // before it stops rendering (opacity ~0). Wider window = slower, smoother.
-    return renderCullSmoothstep(-2.85, 0.55, camera.position.y - surfaceWorldY);
+    // Temporary hard cutoff: the old under-island fade made objects/terrain look
+    // transparent while tilting below the island. Keep top-side content fully
+    // opaque until the camera is deep enough below the surface that the top side
+    // should no longer render at all.
+    return (camera.position.y - surfaceWorldY) > -2.85 ? 1 : 0;
   }
 
   function renderCullTopContentVisible(surfaceWorldY) {
@@ -1161,6 +1204,13 @@
 
   function updateUnderOcclusionCloudWipe(strength, phase) {
     if (!underOcclusionCloudWipe) return;
+    if (!(strength > 0.001)) {
+      underOcclusionWipeOpacity = 0;
+      underOcclusionWipeActive = 0;
+      underOcclusionWipeLastPhase = Math.max(0, Math.min(1, phase));
+      underOcclusionCloudWipe.style.opacity = '0';
+      return;
+    }
     const now = performance.now();
     const dt = underOcclusionWipeLastTime ? Math.min(0.08, Math.max(0.001, (now - underOcclusionWipeLastTime) / 1000)) : 0.016;
     underOcclusionWipeLastTime = now;
@@ -1307,7 +1357,7 @@
         wipeStrength = transitionStrength;
         wipePhase = 1 - topOpacity;
       }
-      if (topOpacity < 0.999) renderCullStats.topHidden++;
+      if (!topVisible) renderCullStats.topHidden++;
       const visible = renderCullCellVisible(x, z, island);
       if (!visible) renderCullStats.cells++;
       setRenderCullVisible(entry.tile, visible);
@@ -1365,7 +1415,7 @@
         setRenderCullVisible(island.baseGroup, visible && lod === 'full', lod === 'full');
         setRenderCullVisible(island.contentGroup, visible && lod === 'full', lod === 'full');
         setRenderCullVisible(island.proxyGroup, visible && lod === 'proxy', lod === 'proxy');
-        if (topOpacity < 0.999 && lod === 'full') renderCullStats.topHidden++;
+        if (topOpacity <= 0.001 && lod === 'full') renderCullStats.topHidden++;
       }
     }
     // Group-cull the decorative distant-worlds ring. Its merged meshes have

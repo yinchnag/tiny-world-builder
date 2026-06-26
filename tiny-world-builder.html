@@ -166,7 +166,7 @@
   <div class="topbar-popup time-popup" id="time-popup" hidden role="menu">
     <div class="topbar-popup-title" data-i18n="time.title">Time &amp; weather</div>
     <label class="time-row">
-      <span class="time-row-label" data-i18n="time.timeOfDay">Time of day (BST)</span>
+      <span class="time-row-label" data-i18n="time.timeOfDay">Time of day</span>
       <input id="time-range" type="range" min="0" max="1440" step="5" value="720" />
       <span class="time-row-val" id="time-readout">12:00</span>
     </label>
@@ -216,7 +216,7 @@
       <button class="world-menu-item" data-action="new" role="menuitem">
         <span class="world-menu-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
         <span class="world-menu-label" data-i18n="worldmenu.new">New world</span>
-        <span class="world-menu-hint" data-i18n="worldmenu.new.hint">clear to grass</span>
+        <span class="world-menu-hint" data-i18n="worldmenu.new.hint">random island</span>
       </button>
       <button class="world-menu-item" data-action="duplicate" role="menuitem">
         <span class="world-menu-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></span>
@@ -1661,18 +1661,8 @@
     </div>
   </div>
 
-  <script defer src="vendor/three/three.r128.min.js"></script>
-  <script defer src="vendor/three/DRACOLoader.r128.js"></script>
-  <script defer src="vendor/three/meshopt_decoder.r128.js"></script>
-  <script defer src="vendor/three/GLTFLoader.r128.js"></script>
-  <script defer src="vendor/three/libs/fflate.min.js"></script>
-  <script defer src="vendor/three/USDZExporter.r128.js"></script>
-  <script defer src="vendor/three/curves/NURBSUtils.r128.js"></script>
-  <script defer src="vendor/three/curves/NURBSCurve.r128.js"></script>
-  <script defer src="vendor/three/FBXLoader.r128.js"></script>
-  <script defer src="vendor/three/VOXLoader.r128.js"></script>
-  <script defer src="vendor/three/VDBLoader.r128.js"></script>
-  <script type="module" src="vendor/three/KTX2Loader.bootstrap.r128.js"></script>
+  <script defer src="vendor/three/tinyworld-three.r185.min.js"></script>
+  <script defer src="vendor/three/VDBLoader.tinyworld.js"></script>
   <script defer src="vendor/tiny-crowd-layer.js"></script>
   <script defer src="LandscapeEngine.js"></script>
   <script defer src="engine/landscape/noise.js"></script>
@@ -1832,6 +1822,7 @@
   <script defer src="engine/world/67-cctv-view.js"></script>
   <script defer src="engine/world/68-notifications.js"></script>
   <script defer src="engine/world/69-watcher-layer.js"></script>
+  <script defer src="engine/world/70-animal-anim.js"></script>
   <script defer src="engine/world/99-late-boot.js"></script>
 </body>
 </html>

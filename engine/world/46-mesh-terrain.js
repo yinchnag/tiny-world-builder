@@ -37,6 +37,7 @@
     // Grass voxels show a band of the grass TOP colour draping down each exposed
     // side before the dirt riser, like the home-island edge. World units; ~thick.
     const GRASS_BAND = 0.16;
+    const SCULPT_PRESSURE_RATE = 2.4; // world units per second at brush center
     const BASE_SKIRT = 0.25;     // how far boundary walls drop below the lowest block
     const MAX_HEIGHT = 40;       // cap on how high a voxel can be pulled
     // Ground level is the floor: voxels cannot be pushed below 0 (no digging
@@ -74,7 +75,7 @@
     let positions = null, colors = null, normals = null;
 
     let surfaceMesh = null, brushRing = null, grabHandle = null, geom = null;
-    let ray = null, drag = null, tmpColor = null, ndc = null, rebuildRAF = 0;
+    let ray = null, drag = null, tmpColor = null, ndc = null, rebuildRAF = 0, sculptPressureRAF = 0;
 
     // ---- real-material wiring ----
     let useRealMats = false;
@@ -204,7 +205,7 @@
       return m;
     }
     // Double-sided clone that preserves the world-UV shader (onBeforeCompile is
-    // NOT copied by Material.clone in r128, so copy it across explicitly).
+    // NOT reliably copied by Material.clone, so copy it across explicitly).
     function dsClone(orig) {
       if (!orig) return null;
       let c = matClones.get(orig.uuid);
@@ -311,12 +312,20 @@
       // Per-voxel geometry scratch (scalars only, no per-voxel allocation — matches the
       // low-level writer contract). vg() fills these from the heightfield + neighbours.
       let _topY, _nE, _nW, _nS, _nN, _eE, _eW, _eS, _eN, _bd, _wy, _x0b, _x1b, _z0b, _z1b;
+      function neighborTopY(ni, nj) {
+        if (ni < 0 || nj < 0 || ni >= N || nj >= N) return baseY;
+        // Preserved water/stone holes skip their own mesh quads. Treat them as
+        // open cuts so adjacent blocks emit the vertical panels around the hole;
+        // otherwise deleting adjacent blocks leaves see-through missing sides.
+        if (voxelIsPreservedSunken(ni, nj)) return baseY;
+        return surfaceY + cellH[nj * N + ni];
+      }
       function vg(i, j, idx, x0, x1, z0, z1) {
         _topY = surfaceY + cellH[idx];
-        _nE = (i + 1 < N) ? surfaceY + cellH[idx + 1] : baseY;
-        _nW = (i - 1 >= 0) ? surfaceY + cellH[idx - 1] : baseY;
-        _nS = (j + 1 < N) ? surfaceY + cellH[idx + N] : baseY;
-        _nN = (j - 1 >= 0) ? surfaceY + cellH[idx - N] : baseY;
+        _nE = neighborTopY(i + 1, j);
+        _nW = neighborTopY(i - 1, j);
+        _nS = neighborTopY(i, j + 1);
+        _nN = neighborTopY(i, j - 1);
         _eE = _topY > _nE + 1e-6; _eW = _topY > _nW + 1e-6;
         _eS = _topY > _nS + 1e-6; _eN = _topY > _nN + 1e-6;
         let md = Infinity;
@@ -427,13 +436,13 @@
           const wr = cr * 0.78, wg = cg * 0.78, wb = cb * 0.78;
           let o = idx * FLOATS_PER_VOXEL;
           quad(o, x0, topY, z0, x0, topY, z1, x1, topY, z1, x1, topY, z0, 0, 1, 0, cr, cg, cb); o += 18;
-          const nE = (i + 1 < N) ? surfaceY + cellH[idx + 1] : baseY;
+          const nE = (i + 1 < N && !voxelIsPreservedSunken(i + 1, j)) ? surfaceY + cellH[idx + 1] : baseY;
           if (topY > nE + 1e-6) quad(o, x1, nE, z0, x1, nE, z1, x1, topY, z1, x1, topY, z0, 1, 0, 0, wr, wg, wb); else writeDegenerate(o); o += 18;
-          const nW = (i - 1 >= 0) ? surfaceY + cellH[idx - 1] : baseY;
+          const nW = (i - 1 >= 0 && !voxelIsPreservedSunken(i - 1, j)) ? surfaceY + cellH[idx - 1] : baseY;
           if (topY > nW + 1e-6) quad(o, x0, nW, z1, x0, nW, z0, x0, topY, z0, x0, topY, z1, -1, 0, 0, wr, wg, wb); else writeDegenerate(o); o += 18;
-          const nS = (j + 1 < N) ? surfaceY + cellH[idx + N] : baseY;
+          const nS = (j + 1 < N && !voxelIsPreservedSunken(i, j + 1)) ? surfaceY + cellH[idx + N] : baseY;
           if (topY > nS + 1e-6) quad(o, x0, nS, z1, x1, nS, z1, x1, topY, z1, x0, topY, z1, 0, 0, 1, wr, wg, wb); else writeDegenerate(o); o += 18;
-          const nN = (j - 1 >= 0) ? surfaceY + cellH[idx - N] : baseY;
+          const nN = (j - 1 >= 0 && !voxelIsPreservedSunken(i, j - 1)) ? surfaceY + cellH[idx - N] : baseY;
           if (topY > nN + 1e-6) quad(o, x1, nN, z0, x0, nN, z0, x0, topY, z0, x1, topY, z0, 0, 0, -1, wr, wg, wb); else writeDegenerate(o); o += 18;
         }
       }
@@ -554,13 +563,15 @@
     function showBrushAt(point) {
       if (!brushRing) return;
       brushRing.scale.set(brushRadius, 1, brushRadius);
-      // ride the actual surface (point.y is the raycast hit on the block top)
-      brushRing.position.set(point.x, point.y + 0.02, point.z);
-      brushRing.visible = true;
       const v = voxelAt(point), ctr = voxelCenter(v.i, v.j);
+      const y = surfaceY + cellH[v.j * N + v.i];
+      // Ride the live voxel height so pressure sculpting updates the brush even
+      // before the coalesced geometry rebuild lands on the next animation frame.
+      brushRing.position.set(point.x, y + 0.02, point.z);
+      brushRing.visible = true;
       const hs = clamp(spacing * 0.45, 0.05, 0.45);
       grabHandle.scale.set(hs, hs, hs);
-      grabHandle.position.set(ctr.x, surfaceY + cellH[v.j * N + v.i] + hs, ctr.z);
+      grabHandle.position.set(ctr.x, y + hs, ctr.z);
       grabHandle.visible = (toolMode === 'sculpt');
     }
     function hideBrush() { if (brushRing) brushRing.visible = false; if (grabHandle) grabHandle.visible = false; }
@@ -580,22 +591,46 @@
     function cancelScheduledRebuild() {
       if (rebuildRAF) { cancelAnimationFrame(rebuildRAF); rebuildRAF = 0; }
     }
-    function applySculpt(worldDy) {
-      const gc = voxelCenter(drag.i0, drag.j0);
+    function stopSculptPressureTick() {
+      if (sculptPressureRAF) { cancelAnimationFrame(sculptPressureRAF); sculptPressureRAF = 0; }
+    }
+    function applySculptPressure(point, direction, dt) {
       const reach = Math.ceil(brushRadius / spacing) + 1;
+      const v = voxelAt(point);
+      const delta = direction * SCULPT_PRESSURE_RATE * Math.max(0.004, Math.min(0.08, dt || 0.016));
+      let changed = false;
       for (let dj = -reach; dj <= reach; dj++) {
-        const j = drag.j0 + dj; if (j < 0 || j >= N) continue;
+        const j = v.j + dj; if (j < 0 || j >= N) continue;
         for (let di = -reach; di <= reach; di++) {
-          const i = drag.i0 + di; if (i < 0 || i >= N) continue;
+          const i = v.i + di; if (i < 0 || i >= N) continue;
           const ctr = voxelCenter(i, j);
-          const w = falloff(Math.hypot(ctr.x - gc.x, ctr.z - gc.z));
+          const w = falloff(Math.hypot(ctr.x - point.x, ctr.z - point.z));
           if (w <= 0) continue;
+          const idx = j * N + i;
           // clamp at ground level (0) so you can't build below the ground
-          cellH[j * N + i] = clamp(drag.startH[j * N + i] + worldDy * w, 0, MAX_HEIGHT);
+          const next = clamp(cellH[idx] + delta * w, 0, MAX_HEIGHT);
+          if (Math.abs(next - cellH[idx]) > 1e-5) { cellH[idx] = next; changed = true; }
         }
       }
-      scheduleRebuild();
-      grabHandle.position.y = surfaceY + cellH[drag.j0 * N + drag.i0] + grabHandle.scale.y;
+      if (changed) scheduleRebuild();
+      showBrushAt(point);
+    }
+    function applySculptDragPoint(point, now = performance.now()) {
+      if (!drag || drag.kind !== 'sculpt') return;
+      drag.point = point;
+      const prev = drag.lastTime || now;
+      const dt = Math.max(0.004, (now - prev) / 1000);
+      drag.lastTime = now;
+      applySculptPressure(point, drag.direction, dt);
+    }
+    function sculptPressureTick(now) {
+      if (!drag || drag.kind !== 'sculpt') { sculptPressureRAF = 0; return; }
+      if (drag.point) applySculptDragPoint(drag.point, now || performance.now());
+      sculptPressureRAF = requestAnimationFrame(sculptPressureTick);
+    }
+    function ensureSculptPressureTick() {
+      if (sculptPressureRAF) return;
+      sculptPressureRAF = requestAnimationFrame(sculptPressureTick);
     }
     function applyPaint(point) {
       const reach = Math.ceil(brushRadius / spacing) + 1;
@@ -612,44 +647,43 @@
       }
       if (changed) scheduleRebuild();
     }
-    function perPixelWorldY(atPoint) {
-      const h = renderer.domElement.clientHeight || window.innerHeight || 800;
-      if (camera.isOrthographicCamera) return ((camera.top - camera.bottom) / (camera.zoom || 1)) / h;
-      const dist = camera.position.distanceTo(atPoint);
-      const fov = (camera.fov || 45) * Math.PI / 180;
-      return (2 * dist * Math.tan(fov / 2)) / h;
-    }
-
     // ---- pointer handlers (window capture phase) ----
     function inPanel(t) { return (panel && panel.contains(t)) || (toggleBtn && toggleBtn.contains(t)); }
     function onDown(e) {
       if (!editing || inPanel(e.target)) return;
       if (e.target !== renderer.domElement) return;
-      if (e.button !== 0) return;
+      if (toolMode === 'sculpt') {
+        if (e.button !== 0 && e.button !== 2) return;
+      } else if (e.button !== 0) return;
       const point = raycastSurface(e.clientX, e.clientY);
       if (!point) return;
       e.stopPropagation(); e.preventDefault();
       try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
       if (toolMode === 'sculpt') {
-        const v = voxelAt(point);
-        drag = { kind: 'sculpt', i0: v.i, j0: v.j, startClientY: e.clientY, perPixel: perPixelWorldY(point), startH: cellH.slice() };
-        showBrushAt(point);
+        drag = {
+          kind: 'sculpt',
+          pointerId: e.pointerId,
+          direction: e.button === 2 ? -1 : 1,
+          point,
+          lastTime: performance.now() - 24,
+        };
+        applySculptDragPoint(point);
+        ensureSculptPressureTick();
       } else {
-        drag = { kind: 'paint' };
+        drag = { kind: 'paint', pointerId: e.pointerId };
         applyPaint(point); showBrushAt(point);
       }
     }
     function onMove(e) {
       if (!editing || inPanel(e.target)) return;
       if (drag) {
+        if (drag.pointerId !== undefined && e.pointerId !== drag.pointerId) return;
         e.stopPropagation(); e.preventDefault();
+        const p = raycastSurface(e.clientX, e.clientY);
         if (drag.kind === 'sculpt') {
-          applySculpt((drag.startClientY - e.clientY) * drag.perPixel);
-          const ctr = voxelCenter(drag.i0, drag.j0);
-          brushRing.position.set(ctr.x, surfaceY + cellH[drag.j0 * N + drag.i0] + 0.02, ctr.z);
-        } else {
-          const p = raycastSurface(e.clientX, e.clientY);
-          if (p) { applyPaint(p); showBrushAt(p); }
+          if (p) applySculptDragPoint(p);
+        } else if (p) {
+          applyPaint(p); showBrushAt(p);
         }
         return;
       }
@@ -660,23 +694,35 @@
     function onUp(e) {
       if (!editing) return;
       if (drag) {
+        if (drag.pointerId !== undefined && e.pointerId !== drag.pointerId) return;
         e.stopPropagation();
         try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (_) {}
+        stopSculptPressureTick();
         drag = null;
         flushRebuild(); // make sure the final edit is rendered this frame
         // No persistence here: edits stay in memory so Cancel can truly discard.
         // The design is only written to storage on Apply.
       }
     }
+    function onContextMenu(e) {
+      if (!editing || inPanel(e.target) || e.target !== renderer.domElement) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }
     function attachPointer() {
       window.addEventListener('pointerdown', onDown, true);
       window.addEventListener('pointermove', onMove, true);
       window.addEventListener('pointerup', onUp, true);
+      window.addEventListener('pointercancel', onUp, true);
+      window.addEventListener('contextmenu', onContextMenu, true);
     }
     function detachPointer() {
+      stopSculptPressureTick();
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('pointermove', onMove, true);
       window.removeEventListener('pointerup', onUp, true);
+      window.removeEventListener('pointercancel', onUp, true);
+      window.removeEventListener('contextmenu', onContextMenu, true);
     }
 
     // ---- hide/show the flat home tiles under the block terrain ----
@@ -998,7 +1044,7 @@
       panel.appendChild(actions);
 
       const hint = document.createElement('div'); hint.className = 'mesh-terrain-hint';
-      hint.textContent = 'Sculpt: drag a voxel up/down — flat-topped blocks, neighbours follow with tension. Paint: drag to lay material. Drag empty space to orbit. Apply keeps the blocks as the terrain.';
+      hint.textContent = 'Sculpt: hold/drag left to raise, right to lower — pressure brush with neighbour tension. Paint: drag left to lay material. Drag empty space to orbit. Apply keeps the blocks as the terrain.';
       panel.appendChild(hint);
 
       document.body.appendChild(panel);

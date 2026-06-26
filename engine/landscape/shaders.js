@@ -70,8 +70,8 @@
         }
 
         void main() {
-          float edgeFade = 1.0;
-          // Clip bounds discard
+          // Clip bounds discard. The boundary is filled by opaque cut-cap
+          // geometry; do not fade the terrain/water to blue fog at the edge.
           if (clipEnabled > 0.5) {
             float dx1 = vWorldPos.x - clipMin.x;
             float dx2 = clipMax.x - vWorldPos.x;
@@ -80,9 +80,6 @@
             float minDist = min(min(dx1, dx2), min(dz1, dz2));
             if (minDist < 0.0) {
               discard;
-            } else {
-              float fadeZone = 2.5;
-              edgeFade = clamp(minDist / fadeZone, 0.0, 1.0);
             }
           }
 
@@ -135,7 +132,7 @@
           float horizon = pow(clamp(1.0 - abs(V.y), 0.0, 1.0), hazeExponent);
           float haze = clamp(fogF * (0.86 + horizon * hazeStrength), 0.0, 1.0);
           vec3 hazeColor = mix(fogColor, skyTint, 0.38 + horizon * 0.22);
-          color = mix(hazeColor, color, edgeFade);
+          // No clip-edge haze fade; cut caps fill the boundary.
 
           gl_FragColor = vec4(color, 1.0);
         }
@@ -162,8 +159,8 @@
         varying vec3 vNormal;
 
         void main() {
-          float edgeFade = 1.0;
-          // Clip bounds discard
+          // Clip bounds discard. The boundary is filled by opaque cut-cap
+          // geometry; do not fade the terrain/water to blue fog at the edge.
           if (clipEnabled > 0.5) {
             float dx1 = vWorldPos.x - clipMin.x;
             float dx2 = clipMax.x - vWorldPos.x;
@@ -172,9 +169,6 @@
             float minDist = min(min(dx1, dx2), min(dz1, dz2));
             if (minDist < 0.0) {
               discard;
-            } else {
-              float fadeZone = 2.5;
-              edgeFade = clamp(minDist / fadeZone, 0.0, 1.0);
             }
           }
 
@@ -222,7 +216,7 @@
           float horizon = pow(clamp(1.0 - abs(V.y), 0.0, 1.0), hazeExponent);
           float haze = clamp(fogF * (0.96 + horizon * (hazeStrength + 0.18)), 0.0, 1.0);
           vec3 hazeColor = mix(fogColor, skyTint, 0.66 + horizon * 0.16);
-          color = mix(hazeColor, color, edgeFade);
+          // No clip-edge haze fade; cut caps fill the boundary.
 
           gl_FragColor = vec4(color, 1.0);
         }

@@ -19,7 +19,7 @@ Guidance for AI coding agents working in this repo. Read this before touching
   declared` and silently kills the *entire* module at instantiation (its globals
   never appear) while other modules keep loading. Prefix module-local scratch
   globals (e.g. flight uses `_fl…`).
-- Three.js **r128** and GLTFLoader are self-hosted under `vendor/three/`.
+- Three.js **r185** is self-hosted under `vendor/three/` as a generated classic-global bundle (`tinyworld-three.r185.min.js`) plus decoder assets.
   `publish.sh` copies the whole `engine/` tree, `styles/`, and `vendor/` into
   `dist/`. Vercel (`vercel.json`) and Netlify (`netlify.toml`) use that static
   build output.
@@ -110,9 +110,7 @@ or you will desync intent from rendering.
 
 ## Three.js gotchas in this codebase
 
-- **r128** is pinned. `MeshLambertMaterial`, `ExtrudeGeometry`, and the
-  shadow setup all assume r128 semantics. Do not bump the version casually —
-  shadows and material color spaces have changed in newer releases.
+- **r185** is pinned through the vendored TinyWorld global bundle. `MeshLambertMaterial`, `ExtrudeGeometry`, shadows, colour spaces, and classic-script globals all rely on this compatibility layer. Do not bump the version casually — regenerate `vendor/three/tinyworld-three.r185.min.js` with `npm run vendor:three` and re-check rendering/imports when upgrading.
 - Materials in `M.*` are **shared** across many meshes. Don't mutate
   `M.foo.color` in place; clone first.
 - `disposeGroup(group)` disposes geometries but **not** materials, because

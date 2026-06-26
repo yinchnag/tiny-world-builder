@@ -21,8 +21,8 @@
       plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
     };
 
-    // Root ring — angles in screen degrees (0=right, 90=down, 270=up). The top
-    // slot (270) is reserved for Close / Back.
+    // Root ring — angles in screen degrees (0=right, 90=down, 270=up).
+    // Close / Back sits at the centre; action buttons orbit it tightly.
     const ROOT = [
       { id: 'color',     label: window.t('radial.color'),     icon: 'palette',  angle: 225, submenu: 'color', posType: 'primary' },
       { id: 'style',     label: window.t('radial.style'),     icon: 'sparkles', angle: 315, action: 'style', posType: 'primary' },
@@ -42,8 +42,7 @@
       { label: window.t('radial.color.blue'),    hex: '#3a72c8' },
       { label: window.t('radial.color.purple'),  hex: '#8b5ec8' },
     ];
-    const RADIUS = 116;
-    const TOP_ANGLE = 270;
+    const RADIUS = 86;
     const radialProjectPoint = new THREE.Vector3();
     const radialBoxCorners = [
       new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(),
@@ -115,24 +114,27 @@
     root.hidden = true;
     document.body.appendChild(root);
 
-    // Distribute n items across the bottom ~300° arc, leaving the top open.
+    // Distribute submenu items around the centre button. Two-way controls read
+    // best as left/right; larger menus use a full circle instead of the old open
+    // arc because Back no longer occupies an outer slot.
     function arcAngles(n) {
       if (n <= 0) return [];
       if (n === 1) return [90];
-      const span = 300, start = -60; // -60 → 240 (clockwise), gap centred on 270
+      if (n === 2) return [180, 0];
+      const start = -90;
       const out = [];
-      for (let i = 0; i < n; i++) out.push(start + (span * i) / (n - 1));
+      for (let i = 0; i < n; i++) out.push(start + (360 * i) / n);
       return out;
     }
 
     function makeBtn(cls, html, angle, idx, posType = 'primary') {
-      const a = angle * Math.PI / 180;
+      const a = Number.isFinite(angle) ? angle * Math.PI / 180 : null;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'radial-btn ' + cls;
       if (posType) btn.dataset.posType = posType;
-      btn.style.left = (Math.cos(a) * RADIUS) + 'px';
-      btn.style.top = (Math.sin(a) * RADIUS) + 'px';
+      btn.style.left = (a === null ? 0 : Math.cos(a) * RADIUS) + 'px';
+      btn.style.top = (a === null ? 0 : Math.sin(a) * RADIUS) + 'px';
       btn.style.setProperty('--d', (idx * 0.035) + 's');
       btn.innerHTML = html;
       btn.addEventListener('pointerdown', e => { e.stopPropagation(); extendRadialFreeze(); });
@@ -149,8 +151,8 @@
     function renderLevel(level) {
       currentLevel = level;
       root.innerHTML = '';
-      // Top Close (root) / Back (submenu).
-      const top = makeBtn('radial-top', iconHtml(level === 'root' ? 'close' : 'back'), TOP_ANGLE, 0, 'neutral');
+      // Centre Close (root) / Back (submenu).
+      const top = makeBtn('radial-center', iconHtml(level === 'root' ? 'close' : 'back'), null, 0, 'neutral');
       top.title = level === 'root' ? window.t('radial.close') : window.t('radial.back');
       top.addEventListener('click', e => {
         e.stopPropagation();
@@ -375,7 +377,7 @@
 
     function radialCenterAroundBounds(bounds, fallbackX, fallbackY, margin) {
       if (!bounds) return { x: fallbackX, y: fallbackY };
-      const gap = RADIUS + 46;
+      const gap = RADIUS + 34;
       const candidates = [
         { x: bounds.maxX + gap, y: bounds.cy, clear: window.innerWidth - bounds.maxX, rank: 0 },
         { x: bounds.minX - gap, y: bounds.cy, clear: bounds.minX, rank: 1 },
@@ -411,7 +413,7 @@
       const rect = dom.getBoundingClientRect();
       const sx = rect.left + (p.x * 0.5 + 0.5) * rect.width;
       const sy = rect.top + (-p.y * 0.5 + 0.5) * rect.height;
-      const m = RADIUS + 52;
+      const m = RADIUS + 38;
       // Frozen while the user is on the ring — reuse the last position so the
       // buttons stay put under the cursor while scaling/duplicating. Otherwise
       // recompute around the (possibly resized) object's projected bounds.

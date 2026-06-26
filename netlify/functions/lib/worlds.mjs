@@ -27,6 +27,25 @@ function worldCellX(cell) { return Array.isArray(cell) ? cell[0] : (cell && cell
 function worldCellZ(cell) { return Array.isArray(cell) ? cell[1] : (cell && cell.z); }
 function worldCellKind(cell) { return Array.isArray(cell) ? cell[3] : (cell && cell.kind); }
 function worldCellTerrain(cell) { return Array.isArray(cell) ? cell[2] : (cell && cell.terrain); }
+// Supported home-board sizes (mirrors the client HOME_GRID_OPTIONS / HOME_GRID_MAX).
+// The client renderer is capped at 20x20 with this discrete set, so the server must
+// not serve or persist a size outside it — older seeds shipped 18x18 / 22x22, which
+// the client cannot render faithfully (board, movement, and stargate diverge). Snap
+// any off-list size UP to the nearest legal option that covers it, capped at 20.
+const WORLD_GRID_OPTIONS = [8, 10, 12, 16, 20];
+const WORLD_GRID_MAX = 20;
+export function snapWorldGridSize(n) {
+  const v = Math.max(1, Math.round(Number(n) || 0));
+  for (const size of WORLD_GRID_OPTIONS) if (size >= v) return size;
+  return WORLD_GRID_MAX;
+}
+export function effectiveWorldGridSize(data, gridSizeHint) {
+  const fromData = data && typeof data === 'object' ? Number(data.gridSize) : NaN;
+  const fromHint = Number(gridSizeHint);
+  const raw = Number.isFinite(fromData) && fromData > 0 ? fromData
+    : (Number.isFinite(fromHint) && fromHint > 0 ? fromHint : 8);
+  return snapWorldGridSize(raw);
+}
 function worldSelectionGateCell(gridSize) {
   const center = Math.floor(Math.max(1, gridSize) / 2);
   return { x: center, z: center, terrain: 'grass', kind: 'stargate', dest: WORLD_SELECTION_GATE_DEST };
@@ -41,7 +60,7 @@ function isResourceStandableObjectKind(kind) {
 
 export function normalizeWorldSelectionGateData(data, gridSizeHint) {
   const src = data && typeof data === 'object' ? data : { v: 4, cells: [] };
-  const gridSize = Math.max(1, Math.round(Number(src.gridSize || gridSizeHint) || 8));
+  const gridSize = effectiveWorldGridSize(src, gridSizeHint);
   const gate = worldSelectionGateCell(gridSize);
   const cells = Array.isArray(src.cells) ? src.cells : [];
   const nextCells = [];
@@ -162,7 +181,7 @@ export function computeWorldPurchasePrice(tileCount, economy, resourceStats) {
 // and the regrowth simulation stay consistent with the actual build. Accepts the
 // tuple form ([x,z,terrain,kind,...]) and the object form ({terrain,kind,...}).
 export function deriveTerrainCounts(data, gridSize) {
-  const size = Math.max(1, Math.round(Number(gridSize) || 8));
+  const size = effectiveWorldGridSize(data, gridSize);
   const out = { tileCount: size * size, stone: 0, grass: 0, water: 0 };
   const cells = data && Array.isArray(data.cells) ? data.cells : [];
   let nonGrass = 0;
@@ -181,7 +200,7 @@ export function deriveTerrainCounts(data, gridSize) {
 // body, one ore node per stone cell, one plant node per crop cell, and wildlife
 // is available when the room has non-stone standable spawn cells.
 export function deriveResourceStats(data, gridSizeHint) {
-  const gridSize = Math.max(1, Math.round(Number((data && data.gridSize) || gridSizeHint) || 8));
+  const gridSize = effectiveWorldGridSize(data, gridSizeHint);
   const cells = data && Array.isArray(data.cells) ? data.cells : [];
   const byXZ = new Map();
   for (const c of cells) {
@@ -345,8 +364,11 @@ export function worldPreview(data, max = 1500) {
   return out;
 }
 
-export function worldDto(row, { includeData = false } = {}) {
+// ownerEmail is PII and is OPT-IN only (includeOwnerEmail) — never expose it on paths a
+// non-owner/non-admin can reach (e.g. the now-public early-preview starter worlds).
+export function worldDto(row, { includeData = false, includeOwnerEmail = false } = {}) {
   if (!row) return null;
+  const gridSize = effectiveWorldGridSize(row.data, row.grid_size);
   const out = {
     id: Number(row.id),
     slug: row.slug,
@@ -355,16 +377,16 @@ export function worldDto(row, { includeData = false } = {}) {
     name: row.name || '',
     taxPercent: Number(row.tax_percent),
     priceUsdc: row.price_usdc != null ? String(row.price_usdc) : '0',
-    gridSize: Number(row.grid_size),
+    gridSize,
     tileCount: Number(row.tile_count),
     activePlayers: Number(row.active_players) || 0,
     ownerProfileId: row.owner_profile_id != null ? Number(row.owner_profile_id) : null,
     ownerName: row.owner_name || '',
-    ownerEmail: row.owner_email || '',
-    resourceStats: deriveResourceStats(row.data, row.grid_size),
+    ownerEmail: includeOwnerEmail ? (row.owner_email || '') : '',
+    resourceStats: deriveResourceStats(row.data, gridSize),
     publishedAt: row.published_at || null,
   };
-  if (includeData) out.data = normalizeWorldSelectionGateData(row.data, out.gridSize);
+  if (includeData) out.data = normalizeWorldSelectionGateData(row.data, gridSize);
   return out;
 }
 

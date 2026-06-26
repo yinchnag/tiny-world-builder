@@ -112,8 +112,8 @@
           }
 
           void main() {
-            float edgeFade = 1.0;
-            // Clip bounds discard
+            // Clip bounds discard. The boundary is filled by opaque cut-cap
+            // geometry; do not fade the terrain/water to blue fog at the edge.
             if (clipEnabled > 0.5) {
               float dx1 = vWorldPos.x - clipMin.x;
               float dx2 = clipMax.x - vWorldPos.x;
@@ -122,9 +122,6 @@
               float minDist = min(min(dx1, dx2), min(dz1, dz2));
               if (minDist < 0.0) {
                 discard;
-              } else {
-                float fadeZone = 2.5;
-                edgeFade = clamp(minDist / fadeZone, 0.0, 1.0);
               }
             }
 
@@ -193,7 +190,7 @@
               col *= mix(1.0, planetDistanceDim, distMix);
             }
 
-            gl_FragColor = vec4(col, waterOpacity * rwFade * edgeFade);
+            gl_FragColor = vec4(col, waterOpacity * rwFade);
           }
         `,
         transparent: true,

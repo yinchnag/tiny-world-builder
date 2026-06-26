@@ -78,10 +78,12 @@ Raised, outlined square (per posType; same pattern for `.tool` and
   `.tool-palette`; keep that block after generic flyout sizing rules.
 - Selection radial buttons stay circular, but they still use the same category
   contract. `33-radial-menu.js` passes `data-pos-type` through `makeBtn()`
-  (root actions = `primary`, close/back = `neutral`, reset swatch = `neutral`),
-  and the mooring style radial in `36-mooring-interaction.js` uses
-  `tertiary`. Style them via `.radial-btn[data-pos-type]`, not by returning to
-  pale generic circles.
+  (root actions = `primary`, close/back = `neutral`, reset swatch = `neutral`).
+  Close/Back sits as the compact center button (`.radial-center`), with action
+  buttons on a tight orbit; do not put close/back back into an outer top slot or
+  expand the ring radius. The mooring style radial in `36-mooring-interaction.js`
+  uses `tertiary`. Style them via `.radial-btn[data-pos-type]`, not by returning
+  to pale generic circles.
 - Radial labels/icons need a separate high-contrast `--radial-ink` on an
   opaque `--radial-bg`. Do not use very transparent category fills for radial
   buttons; the 3D scene bleeds through and makes the icon text unreadable.

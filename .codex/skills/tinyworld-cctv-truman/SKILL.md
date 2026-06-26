@@ -45,7 +45,7 @@ Show. Do not mount CCTV or the big screen in non-lobby worlds.
   material is tagged `userData.windowLightEffect = true` + `lightVisual = true`
   so `prepareFadeable()` does NOT swap it for a fade material (skill:
   tinyworld-render-performance).
-- Must end the fragment with `#include <encodings_fragment>` (r128 output color
+- Must end the fragment with `#include <colorspace_fragment>` (r185 output color
   space), like every other ShaderMaterial here.
 - **Subjects**: `setSubjectsProvider(() => [{pos:Vector3, name}])`. The room
   feeds `WS.subjects()` (self + peer avatar sprite positions). Cameras + monitors

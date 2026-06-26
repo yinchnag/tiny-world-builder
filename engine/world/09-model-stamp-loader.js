@@ -834,7 +834,7 @@
         if (typeof opts.onError === 'function') { try { opts.onError(err); } catch (_) {} }
       });
       tex.flipY = opts.flipY !== false;
-      tex.encoding = THREE.sRGBEncoding;
+      twSetTextureSRGB(tex);
       tex.magFilter = THREE.LinearFilter;
       tex.minFilter = THREE.LinearMipmapLinearFilter || THREE.LinearFilter;
       tex.anisotropy = Math.min(8, renderer && renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 1);
@@ -875,10 +875,10 @@
     mats.forEach(mat => {
       if (!mat) return;
       ['map', 'emissiveMap'].forEach(key => {
-        if (mat[key]) mat[key].encoding = THREE.sRGBEncoding;
+        if (mat[key]) twSetTextureSRGB(mat[key]);
       });
       ['aoMap', 'lightMap', 'normalMap', 'metalnessMap', 'roughnessMap'].forEach(key => {
-        if (mat[key] && THREE.LinearEncoding !== undefined) mat[key].encoding = THREE.LinearEncoding;
+        if (mat[key]) twSetTextureLinear(mat[key]);
       });
       mat.needsUpdate = true;
     });
@@ -1730,12 +1730,15 @@
         return cache;
       }
       const loader = new THREE.VOXLoader(createModelStampLoadingManager(asset));
-      loader.load(asset.url, chunks => {
+      loader.load(asset.url, result => {
         try {
           const group = new THREE.Group();
-          (chunks || []).forEach(chunk => {
+          const chunks = Array.isArray(result) ? result : ((result && result.chunks) || []);
+          chunks.forEach(chunk => {
             try {
-              const voxMesh = new THREE.VOXMesh(chunk);
+              const voxMesh = typeof THREE.buildVOXMesh === 'function'
+                ? THREE.buildVOXMesh(chunk)
+                : new THREE.VOXMesh(chunk);
               // VOXMesh's constructor requires a chunk, so it is NOT clone-safe:
               // THREE's clone() calls `new VOXMesh()` with no args, which throws.
               // Placing a stamp clones the cached scene, so re-wrap the generated

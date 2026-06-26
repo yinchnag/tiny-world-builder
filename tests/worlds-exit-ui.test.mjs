@@ -137,7 +137,7 @@ test('world picker is a carousel overlay with search and filter controls', () =>
 
 test('world picker cards display owner-backed resource readiness stats', () => {
   assert.match(worldsFunctionJs, /p\.email AS owner_email/);
-  assert.match(worldsFunctionJs, /function ensureTinyverseStarterOwnership\(sql, profile\)/);
+  assert.match(worldsFunctionJs, /function ensureTinyverseStarterOwnership\(sql, profile, verifiedEmail\)/);
   assert.match(universeJs, /function resourceStatsText\(stats\)/);
   assert.match(universeJs, /w\.resourceStats/);
   assert.match(universeJs, /class: 'tw-worlds-resources'/);

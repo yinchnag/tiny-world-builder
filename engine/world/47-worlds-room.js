@@ -258,7 +258,16 @@ function computeTaxCooldown(lastTaxChangeAt) {
       try { window.__tinyworldIsHubWorld = (w && w.slug === 'tinyverse-nexus'); } catch (_) {}
       rememberActiveTinyverseSession(w && w.slug);
       selectionGateArrivalPending = true;
-      gridSize = Math.max(1, Math.round(Number(w.gridSize || (w.data && w.data.gridSize) || 8)));
+      // Resolve the SAME grid size the terrain/board uses (applyState -> coerceGridSize),
+      // so movement clamp, stargate cell, and worldRoomTilePos can't diverge from the
+      // rendered ground. coerceGridSize snaps off-list sizes (e.g. 18, 22) to a legal
+      // option; falling back to the raw value here would re-introduce the mismatch.
+      {
+        const raw = (w.data && w.data.gridSize) || w.gridSize || 8;
+        gridSize = (typeof coerceGridSize === 'function')
+          ? coerceGridSize(raw, 8)
+          : Math.max(1, Math.round(Number(raw)));
+      }
       taxPercent = w.taxPercent != null ? w.taxPercent : null;
       taxCooldown = w.taxCooldown || (w.lastTaxChange ? computeTaxCooldown(w.lastTaxChange) : null);
       cells = w.data && Array.isArray(w.data.cells) ? w.data.cells : [];
@@ -430,7 +439,12 @@ function computeTaxCooldown(lastTaxChangeAt) {
           break;
         case 'world.state':
           sawWorldState = true;
-          gridSize = d.gridSize || gridSize; taxPercent = d.taxPercent != null ? d.taxPercent : taxPercent;
+          // Snap the server's broadcast grid to the same legal size the terrain
+          // renders at (a warm PartyKit room cached before the cap fix can still
+          // push a raw off-list size like 18); otherwise movement/gate diverge
+          // from the board. coerceGridSize lives in 01-render-core's shared scope.
+          if (d.gridSize) gridSize = (typeof coerceGridSize === 'function') ? coerceGridSize(d.gridSize, gridSize) : (d.gridSize || gridSize);
+          taxPercent = d.taxPercent != null ? d.taxPercent : taxPercent;
           you = Object.assign(you, d.you || {});
           if (typeof you.role === 'string') role = you.role;
           nodes = d.nodes || {}; animals = d.animals || [];
@@ -857,6 +871,43 @@ function computeTaxCooldown(lastTaxChangeAt) {
         else if (typeof WS.leaveRoom === 'function') WS.leaveRoom();
       } catch (_) {}
     }
+    // The emerge animation (56's arriveFromGate) walks the VISUAL avatar a couple of feet
+    // out the gate's front, but the logical grid cell stays on the stargate tile. The moment
+    // travel ends, animVoxel tweens the avatar back toward that cell — so the player appears
+    // to arrive, turn around, and walk straight back into the portal. Fix: when arrival
+    // completes, settle the player's grid cell to a standable tile in the SAME direction they
+    // emerged (the gate's local +z), so the avatar drifts forward off the gate and stops
+    // there. Stepping off the gate cell also avoids instantly re-triggering its travel.
+    function settleAfterGateArrival(gateCell, gate) {
+      if (!selfEnt || !gateCell) return;
+      const gx = cellXOf(gateCell), gz = cellZOf(gateCell);
+      if (gx == null || gz == null) return;
+      // Emerge direction in world space = the gate opening's +z. worldRoomTilePos maps grid
+      // axes 1:1 onto world x/z, so snap that vector to the dominant cardinal to get the row
+      // or column the avatar walks out along.
+      let dx = 0, dz = 1;
+      try {
+        if (gate && gate.group && typeof THREE !== 'undefined') {
+          gate.group.updateWorldMatrix(true, false);
+          const fwd = new THREE.Vector3(0, 0, 1).transformDirection(gate.group.matrixWorld);
+          if (Math.abs(fwd.x) >= Math.abs(fwd.z)) { dx = Math.sign(fwd.x) || 1; dz = 0; }
+          else { dz = Math.sign(fwd.z) || 1; dx = 0; }
+        }
+      } catch (_) {}
+      // Prefer 2 cells out (≈ where the emerge animation ends) so the avatar steps FORWARD;
+      // fall back to 1 cell, then leave them on the gate if both are blocked.
+      let nx = gx, nz = gz;
+      for (const d of [2, 1]) {
+        const cx = gx + dx * d, cz = gz + dz * d;
+        if (standable(cx, cz)) { nx = cx; nz = cz; break; }
+      }
+      if (nx === gx && nz === gz) return;
+      you.x = nx; you.z = nz;
+      moveEntity(selfEnt, nx, nz);
+      try { send({ type: 'move', x: nx, z: nz }); } catch (_) {}
+      emit('you', you);
+      if (typeof drawMinimap === 'function') drawMinimap();
+    }
     function scheduleSelectionGateArrival() {
       if (!selectionGateArrivalPending || selectionGateArrivalTimer) return;
       let tries = 0;
@@ -874,7 +925,10 @@ function computeTaxCooldown(lastTaxChangeAt) {
         selectionGateArrivalPending = false;
         selfEnt._traveling = true;
         const ok = GT.arriveFromGate(gate, selfEnt.voxel, {
-          onArrive: () => { if (selfEnt) selfEnt._traveling = false; },
+          onArrive: () => {
+            settleAfterGateArrival(gateCell, gate);
+            if (selfEnt) selfEnt._traveling = false;
+          },
         });
         if (!ok && selfEnt) selfEnt._traveling = false;
       };
@@ -2413,8 +2467,7 @@ function tryEnterGate() {
       _texLoader = _texLoader || new THREE.TextureLoader();
       const t = _texLoader.load(url, undefined, undefined, () => avatarError(url));
       t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter;
-      if ('colorSpace' in t && THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
-      else if ('encoding' in t && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+      twSetTextureSRGB(t);
       return t;
     }
     function disposeAvatarTextures(ent) {
@@ -2935,8 +2988,7 @@ function tryEnterGate() {
       if (ent.bubble.texture) ent.bubble.texture.dispose();
       const tex = new THREE.CanvasTexture(cv);
       tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
-      if ('colorSpace' in tex && THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-      else if ('encoding' in tex && THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+      twSetTextureSRGB(tex);
       tex.needsUpdate = true;
       ent.bubble.sprite.material.map = tex;
       ent.bubble.sprite.material.needsUpdate = true;

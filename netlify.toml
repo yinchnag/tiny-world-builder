@@ -72,6 +72,31 @@
   status = 200
 
 [[redirects]]
+  from = "/featured"
+  to = "/featured.html"
+  status = 200
+
+[[redirects]]
+  from = "/leaderboard"
+  to = "/leaderboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/badges"
+  to = "/badges.html"
+  status = 200
+
+[[redirects]]
+  from = "/templates"
+  to = "/templates.html"
+  status = 200
+
+[[redirects]]
+  from = "/rewards"
+  to = "/rewards.html"
+  status = 200
+
+[[redirects]]
   from = "/worlds"
   to = "/worlds.html"
   status = 200
@@ -84,6 +109,11 @@
 [[redirects]]
   from = "/harvest"
   to = "/harvest.html"
+  status = 200
+
+[[redirects]]
+  from = "/builder"
+  to = "/builder.html"
   status = 200
 
 [[headers]]

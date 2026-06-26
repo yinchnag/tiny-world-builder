@@ -34,9 +34,9 @@ open index.html
 The app deploys as a static site on Vercel or Netlify. Both host configs run
 `./publish.sh` and serve the generated `dist/` directory. The root
 `index.html` is the landing page, and the builder stays available at
-`/tiny-world-builder.html` and `/tiny-world-builder`. Three.js r128 and
-GLTFLoader are self-hosted from `vendor/three/` so deploys do not depend on
-runtime CDNs.
+`/tiny-world-builder.html` and `/tiny-world-builder`. Three.js r185 and
+its loaders/decoders are self-hosted from `vendor/three/` so deploys do not
+depend on runtime CDNs.
 
 ```bash
 npm test
@@ -206,5 +206,5 @@ AGENTS.md                        guidance for AI coding agents
 world.schema.json                import/export schema mirrored into the app
 tools/check.js                   static syntax/schema/asset check
 tools/smoke-static.js            no-browser smoke guard for key app contracts
-vendor/three/                    self-hosted Three.js r128 runtime files
+vendor/three/                    self-hosted Three.js r185 bundle + decoder files
 ```

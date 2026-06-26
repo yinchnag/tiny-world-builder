@@ -36,8 +36,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        "three": "https://unpkg.com/three@0.185.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.185.0/examples/jsm/"
       }
     }
   </script>
@@ -57,7 +57,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     document.body.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -254,7 +254,21 @@
     const edges = new THREE.Group();
     // Keeping simple: voxel grid faces do the work.
 
-    const clock = new THREE.Clock();
+    function makeTinyClock() {
+      const start = performance.now() / 1000;
+      let last = start;
+      return {
+        elapsedTime: 0,
+        getDelta() {
+          const now = performance.now() / 1000;
+          const dt = now - last;
+          last = now;
+          this.elapsedTime = now - start;
+          return dt;
+        },
+      };
+    }
+    const clock = makeTinyClock();
     function animate() {
       const dt = clock.getDelta();
       propeller.rotation.z += dt * 20;

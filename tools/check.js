@@ -275,8 +275,8 @@ const modelStampScanBody = sourceFunctionBody(html, 'modelStampScanApiEnabled');
 if (!/modelApi'\)\s*===\s*'1'/.test(modelStampScanBody) || !/return false;/.test(modelStampScanBody) || /return stored !== '0'/.test(modelStampScanBody)) {
   fail('model-stamp scan API must stay local or explicitly opted in');
 }
-if (!/DRACOLoader\.r128\.js/.test(htmlRaw) || !/meshopt_decoder\.r128\.js/.test(htmlRaw) || !/KTX2Loader\.bootstrap\.r128\.js/.test(htmlRaw) || !/setDRACOLoader\(modelStampDracoLoader\)/.test(html) || !/setMeshoptDecoder\(MeshoptDecoder\)/.test(html) || !/setKTX2Loader\(modelStampKtx2Loader\)/.test(html)) {
-  fail('model-stamp GLB imports must wire r128 Draco, Meshopt, and KTX2 decoder support');
+if (!/tinyworld-three\.r185\.min\.js/.test(htmlRaw) || !/VDBLoader\.tinyworld\.js/.test(htmlRaw) || !/setDRACOLoader\(modelStampDracoLoader\)/.test(html) || !/setMeshoptDecoder\(MeshoptDecoder\)/.test(html) || !/setKTX2Loader\(modelStampKtx2Loader\)/.test(html)) {
+  fail('model-stamp GLB imports must wire r185 Draco, Meshopt, and KTX2 decoder support');
 }
 if (!/function modelStampMaterialNeedsTinyWorldLighting\(material\)/.test(html) || !/function createTinyWorldLitModelStampMaterial\(source\)/.test(html) || !/new THREE\.MeshLambertMaterial\(params\)/.test(html) || !/modelStampTinyWorldLit/.test(html) || !/node\.material = adapted\.material/.test(html)) {
   fail('model-stamp GLB PBR materials must be adapted to TinyWorld Lambert lighting so imports do not render black');
@@ -779,8 +779,8 @@ if (/const useShaderAA = renderShaderAntialias > 0\.001 && !xrPresenting && !use
 if (/const wantNormals = usePixelation && \(renderPixelNormalEdge > 0\.001 \|\| renderShaderAntialias > 0\.001\)/.test(html) || !/function disposePixelNormalResources/.test(html)) {
   fail('shader antialiasing must not force the expensive normal pass when normal edges are disabled');
 }
-if (/#include <encodings_pars_fragment>/.test(html) || !/#include <encodings_fragment>/.test(html)) {
-  fail('pixel post shader must apply renderer output encoding so pixel mode does not darken the scene');
+if (/#include <encodings_pars_fragment>/.test(html) || /#include <encodings_fragment>/.test(html) || !/#include <colorspace_fragment>/.test(html)) {
+  fail('pixel post shader must apply renderer output color space so pixel mode does not darken the scene');
 }
 if (!/id="render-backdrop-vignette"/.test(html) || !/--backdrop-vignette/.test(html) || !/backdropVignette: 'tinyworld:render:backdropVignette'/.test(html)) {
   fail('environment settings must expose a persisted backdrop vignette control');

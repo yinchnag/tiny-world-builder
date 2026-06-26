@@ -94,10 +94,14 @@ does the same on demand. It's opt-in so default scenes are untouched.
 - New `engine/**` files are auto-collected by `check.js` (per-file `new Function`
   syntax check + cross-file duplicate-decl scan) and copied to `dist/` by
   `publish.sh` — no extra wiring beyond the `<script src>` tag in the HTML.
-- ShaderMaterial fragments need `#include <encodings_fragment>` at the end to match
-  the app's output color space (the waterfall + FX materials all do this).
-- r128 is WebGL1-default: use `gl_FragColor`, constant-bound `for` loops, and
-  `cameraPosition` (auto-injected) in ShaderMaterial.
+- ShaderMaterial fragments need `#include <colorspace_fragment>` at the end to match
+  the app's r185 output color space (the waterfall + FX materials all do this).
+- When patching stock materials that sample `material.map`, write map UVs to r185's
+  `vMapUv` (guarded by `#ifdef USE_MAP`), not the old generic `vUv`. `vUv` only
+  exists when `USE_UV` is defined; map sampling uses `<map_fragment>` → `vMapUv`.
+- Keep fragment shaders compatible with the app's WebGLRenderer path: use
+  `gl_FragColor`, constant-bound `for` loops, and `cameraPosition`
+  (auto-injected) in ShaderMaterial.
 - Don't convert the existing chimney-smoke `MeshBasicMaterial` pipeline to a
   ShaderMaterial — it's cached/cloned by `getCachedParticleMaterial`. Use
   `makeSmokeMaterial` for new emitters instead.

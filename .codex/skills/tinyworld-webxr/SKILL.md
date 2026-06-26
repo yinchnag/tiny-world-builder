@@ -5,13 +5,13 @@ description: Use when adding or modifying WebXR, AR placement, VR immersion, hea
 
 # Tiny World WebXR
 
-Tiny World uses the pinned global `THREE` r128 build, not module imports or `ARButton`/`VRButton` addons. Keep WebXR integration vanilla and single-file inside `tiny-world-builder.html`.
+Tiny World uses a pinned global `THREE` r185 compatibility bundle (`vendor/three/tinyworld-three.r185.min.js`), not runtime module imports or `ARButton`/`VRButton` addons. Keep WebXR integration vanilla and single-file inside `tiny-world-builder.html`.
 
 Platform split — WebXR covers "Google" AR (Android Chrome / Quest, via `immersive-ar` + `hit-test`), but Apple devices have no WebXR. iOS/iPadOS web AR is **AR Quick Look only**: an `<a rel="ar">` pointing at a `.usdz` opens the system viewer, which finds a surface, places the model, and lets the user walk around it. So both paths must exist for full coverage.
 
 Patterns:
 
-- For Apple AR, export the live world to USDZ on demand with `THREE.USDZExporter` (vendored as a classic global script `vendor/three/USDZExporter.r128.js`, which uses the global `fflate`). USDZExporter only understands `MeshStandardMaterial`, so snapshot `worldGroup` into a fresh group, convert each Lambert/Basic/Shader material to a Standard equivalent (preserving colour/emissive/map), recentre on the origin with the base at y=0, and scale to a tabletop size. Wrap the resulting `Uint8Array` in a `model/vnd.usdz+zip` Blob → object URL, and launch via an `<a rel="ar">` that contains a single `<img>` child (Safari's requirement) clicked programmatically.
+- For Apple AR, export the live world to USDZ on demand with `THREE.USDZExporter` from the r185 global bundle. USDZExporter only understands `MeshStandardMaterial`, so snapshot `worldGroup` into a fresh group, convert each Lambert/Basic/Shader material to a Standard equivalent (preserving colour/emissive/map), recentre on the origin with the base at y=0, and scale to a tabletop size. Wrap the resulting `Uint8Array` in a `model/vnd.usdz+zip` Blob → object URL, and launch via an `<a rel="ar">` that contains a single `<img>` child (Safari's requirement) clicked programmatically.
 - Gate the Apple AR button on `document.createElement('a').relList.supports('ar')`; gate the WebXR buttons on `navigator.xr` support. Show the XR panel if either is available so iOS users see just the Apple AR button.
 
 - Enable WebXR with `renderer.xr.enabled = true` and drive the main loop with `renderer.setAnimationLoop(animate)` so desktop and headset frames share one path.
