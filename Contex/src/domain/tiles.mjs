@@ -21,7 +21,7 @@ export const DEFAULT_HEARTBEAT_TIMEOUT_MS = 30_000;
 // (explicit or heartbeat timeout).
 const TRANSITIONS = {
   offline: ['idle', 'working'],
-  idle: ['idle', 'working', 'offline'],
+  idle: ['idle', 'working', 'waiting', 'blocked', 'offline'],
   working: ['working', 'waiting', 'blocked', 'paused', 'done', 'error', 'idle', 'offline'],
   waiting: ['working', 'blocked', 'paused', 'error', 'idle', 'offline'],
   blocked: ['working', 'paused', 'error', 'idle', 'offline'],
@@ -40,7 +40,8 @@ export function isValidTransition(from, to) {
 // Register a tile or update its presence. Enforces the status machine and
 // optimistic concurrency (expected_version), then syncs file claims when a
 // `files` array is supplied. Returns the normalized tile (with new version).
-export function setTileState(db, input, { clock, heartbeatTimeoutMs = DEFAULT_HEARTBEAT_TIMEOUT_MS } = {}) {
+export function setTileState(db, input, opts = {}) {
+  const { clock, heartbeatTimeoutMs = DEFAULT_HEARTBEAT_TIMEOUT_MS, correlation_id } = opts;
   const tileId = input.tile_id;
   if (!tileId) throw err.badRequest('tile_id is required');
   if (input.tile_type && !TILE_TYPES.has(input.tile_type)) {
@@ -99,6 +100,7 @@ export function setTileState(db, input, { clock, heartbeatTimeoutMs = DEFAULT_HE
       audit(db, {
         workspace_id: input.workspace_id, actor_type: 'tile', actor_id: tileId, tile_id: tileId,
         event_type: 'tile_reconnected', entity_type: 'tile', entity_id: tileId,
+        correlation_id: correlation_id ?? null,
         payload: { from: existingRow.client_instance_id, to: input.client_instance_id }, created_at: ts,
       });
     }
@@ -132,6 +134,7 @@ export function setTileState(db, input, { clock, heartbeatTimeoutMs = DEFAULT_HE
     event_type: 'tile_state_changed',
     entity_type: 'tile',
     entity_id: tileId,
+    correlation_id: opts?.correlation_id ?? null,
     payload: { status: requestedStatus, task: input.task ?? null },
     created_at: ts,
   });

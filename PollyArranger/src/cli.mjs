@@ -16,7 +16,7 @@ import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from './util/env.mjs';
-import { createFileStore, createEmptyRegistry, saveRegistry, loadRegistry } from './registry/store.mjs';
+import { createFileStore, createEmptyRegistry, loadRegistry } from './registry/store.mjs';
 import { seedItems } from './planner.mjs';
 import { createGitServices, localMergeStrategy } from './services/git.mjs';
 import { createRealAdapters } from './adapters/factory.mjs';
@@ -25,6 +25,7 @@ import { createOrchestrator } from './orchestrator.mjs';
 import { createDaemon } from './daemon.mjs';
 import { createPlan } from './plan.mjs';
 import { createFileMemory } from './memory.mjs';
+import { contexOptionsFromCli, createContexSyncFromOptions, createContexSyncedStore } from './contex.mjs';
 import { formatStatus, formatHistory } from './status.mjs';
 import { ACTIVE } from './state-machine.mjs';
 
@@ -68,6 +69,10 @@ run/daemon options:
   --local-pr             fully local: no gh, no remote/push — stub the PR + merge locally
   --env <path>           .env file with API keys (default: PollyArranger/.env)
   --interval <sec>       daemon idle poll interval (default: 5)
+  --contex               enable optional Contex observe-only sync
+  --contex-url <url>     Contex MCP URL or base URL (env: CONTEX_URL)
+  --contex-token <tok>   Contex bearer token, or env:NAME (env: CONTEX_TOKEN)
+  --contex-workspace <w> Contex workspace id (env: CONTEX_WORKSPACE)
 
 harness tuning (for claude_code / codex vendors — no key needed, uses the CLI's own auth):
   --harness-command <c>  override the CLI command (e.g. codex.cmd on Windows)
@@ -155,13 +160,24 @@ function registryPathFor(opts) {
 }
 
 /** Create an empty registry file if it doesn't exist yet. */
-function ensureRegistry(registryPath, { vendors, concurrency, merge }) {
-  if (existsSync(registryPath)) return loadRegistry(registryPath);
+function ensureRegistry(registryPath, { vendors, concurrency, merge }, store = createFileStore()) {
+  if (existsSync(registryPath)) return store.load(registryPath);
   const reg = createEmptyRegistry({ vendors });
   reg.policy.concurrency = concurrency;
   reg.policy.merge = merge;
-  saveRegistry(registryPath, reg);
+  store.save(registryPath, reg);
   return reg;
+}
+
+function contexStoreFor(opts, { registryPath, repoPath }) {
+  const contexSync = createContexSyncFromOptions(contexOptionsFromCli(opts), {
+    registryPath,
+    repoPath,
+  });
+  return {
+    store: createContexSyncedStore(createFileStore(), contexSync),
+    contexSync,
+  };
 }
 
 /** S3 — build a routing policy from CLI flags (or a --routing JSON file). */
@@ -256,10 +272,11 @@ function buildContext(opts) {
   });
   const adapters = createRealAdapters({ vendors, repoPath, harness: harnessOverrideFor(opts, vendors) });
   const memoryPath = opts.memory ? resolve(opts.memory) : join(dirname(registryPath), 'memory.md');
+  const { store, contexSync } = contexStoreFor(opts, { registryPath, repoPath });
   const orchestrator = createOrchestrator({
-    store: createFileStore(), registryPath, adapters, services, memory: createFileMemory(memoryPath),
+    store, registryPath, adapters, services, memory: createFileMemory(memoryPath),
   });
-  return { repoPath, vendors, registryPath, concurrency, merge, orchestrator, memoryPath };
+  return { repoPath, vendors, registryPath, concurrency, merge, orchestrator, memoryPath, store, contexSync };
 }
 
 // Print the item snapshot only when it changes.
@@ -279,21 +296,22 @@ async function runPipeline(opts) {
   reg.policy.merge = ctx.merge;
   applyRouting(reg, opts); // S3 — routing/escalation
   seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
-  saveRegistry(ctx.registryPath, reg);
+  ctx.store.save(ctx.registryPath, reg);
 
   console.log(`Polly: ${reg.items.length} item(s), vendors=${ctx.vendors.join('→')}, ` +
     `concurrency=${ctx.concurrency}, merge=${ctx.merge}`);
   console.log(`Repo: ${ctx.repoPath}\nRegistry: ${ctx.registryPath}\n`);
 
   await ctx.orchestrator.run({ onTick: snapshotPrinter() });
+  await ctx.contexSync?.flush();
   console.log('\n' + formatStatus(loadRegistry(ctx.registryPath)));
 }
 
 async function runDaemon(opts) {
   const ctx = buildContext(opts);
-  const reg = ensureRegistry(ctx.registryPath, { vendors: ctx.vendors, concurrency: ctx.concurrency, merge: ctx.merge });
+  const reg = ensureRegistry(ctx.registryPath, { vendors: ctx.vendors, concurrency: ctx.concurrency, merge: ctx.merge }, ctx.store);
   applyRouting(reg, opts); // S3 — apply routing/escalation flags onto the registry
-  saveRegistry(ctx.registryPath, reg);
+  ctx.store.save(ctx.registryPath, reg);
   const intervalMs = Number(opts.interval ?? 5) * 1000;
 
   console.log(`Polly daemon: polling ${ctx.registryPath} every ${intervalMs / 1000}s. Ctrl-C to stop.`);
@@ -316,20 +334,25 @@ async function runDaemon(opts) {
   });
 
   await daemon.start();
+  await ctx.contexSync?.flush();
   console.log('\n' + formatStatus(loadRegistry(ctx.registryPath)));
 }
 
-function runAdd(opts) {
+async function runAdd(opts) {
+  loadEnv(opts.env ? resolve(opts.env) : join(HERE, '..', '.env'));
   const registryPath = registryPathFor(opts);
   if (!registryPath) throw new Error('add: pass --registry <path> or --repo <path>');
+  const repoPath = opts.repo ? resolve(opts.repo) : dirname(dirname(registryPath));
+  const { store, contexSync } = contexStoreFor(opts, { registryPath, repoPath });
   const vendors = String(opts.vendors ?? 'deepseek,qwen').split(',').map((s) => s.trim()).filter(Boolean);
   const reg = ensureRegistry(registryPath, {
     vendors,
     concurrency: Number(opts.concurrency ?? 1),
     merge: opts.merge === 'auto' ? 'auto' : 'human',
-  });
+  }, store);
   const created = seedItems(reg, loadBacklog(opts), { wave: opts.wave ?? null });
-  saveRegistry(registryPath, reg);
+  store.save(registryPath, reg);
+  await contexSync?.flush();
   console.log(`Added ${created.length} item(s) to ${registryPath}:`);
   for (const i of created) console.log(`  ${i.id}  ${i.title}`);
 }

@@ -12,9 +12,11 @@ import { nowIso, audit } from '../store.mjs';
 
 const LINK_KINDS = new Set([
   'collaborates_with', 'reports_to', 'feeds', 'controls', 'observes', 'references',
+  'handoff', 'reviews', 'review', 'broadcast_group',
 ]);
 
-export function linkTiles(db, { workspace_id, source_tile_id, target_tile_id, kind = 'collaborates_with', directed = false }, { clock } = {}) {
+export function linkTiles(db, { workspace_id, source_tile_id, target_tile_id, kind = 'collaborates_with', directed = false }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const k = LINK_KINDS.has(kind) ? kind : 'collaborates_with';
   // Reuse an existing live link between the same pair rather than duplicating.
   const existing = activeLinkBetween(db, workspace_id, source_tile_id, target_tile_id);
@@ -25,16 +27,17 @@ export function linkTiles(db, { workspace_id, source_tile_id, target_tile_id, ki
     `INSERT INTO tile_link (id, workspace_id, source_tile_id, target_tile_id, kind, directed, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).run(id, workspace_id, source_tile_id, target_tile_id, k, directed ? 1 : 0, ts);
-  audit(db, { workspace_id, actor_type: 'canvas', event_type: 'peer_link_changed', entity_type: 'link', entity_id: id, payload: { source_tile_id, target_tile_id, kind: k, action: 'created' }, created_at: ts });
+  audit(db, { workspace_id, actor_type: 'canvas', event_type: 'peer_link_changed', entity_type: 'link', entity_id: id, correlation_id: correlation_id ?? null, payload: { source_tile_id, target_tile_id, kind: k, action: 'created' }, created_at: ts });
   return db.prepare(`SELECT * FROM tile_link WHERE id = ?`).get(id);
 }
 
-export function unlinkTiles(db, { workspace_id, source_tile_id, target_tile_id }, { clock } = {}) {
+export function unlinkTiles(db, { workspace_id, source_tile_id, target_tile_id }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const ts = nowIso(clock);
   const link = activeLinkBetween(db, workspace_id, source_tile_id, target_tile_id);
   if (!link) return false;
   db.prepare(`UPDATE tile_link SET deleted_at = ? WHERE id = ?`).run(ts, link.id);
-  audit(db, { workspace_id, actor_type: 'canvas', event_type: 'peer_link_changed', entity_type: 'link', entity_id: link.id, payload: { source_tile_id, target_tile_id, action: 'deleted' }, created_at: ts });
+  audit(db, { workspace_id, actor_type: 'canvas', event_type: 'peer_link_changed', entity_type: 'link', entity_id: link.id, correlation_id: correlation_id ?? null, payload: { source_tile_id, target_tile_id, action: 'deleted' }, created_at: ts });
   return true;
 }
 

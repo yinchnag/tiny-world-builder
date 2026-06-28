@@ -57,6 +57,17 @@ Unread or recent messages.
 
 Workspace task and todo view.
 
+### `context://workspace/{workspaceId}/timeline`
+
+Normalized Agent collaboration timeline for the workspace. Items include stable
+`category`, `summary`, original `payload`, sequence, actor, tile, and entity
+fields.
+
+### `context://tile/{tileId}/timeline`
+
+Normalized timeline for one Agent/tile, filtered to status, message, task, and
+link events involving that tile.
+
 ### `context://workspace/{workspaceId}/audit`
 
 Permission-gated event stream.
@@ -180,6 +191,122 @@ Acknowledges receipt or completion of a chat request.
 
 Creates a workspace notification, including `human_attention` priority.
 
+### `agent_register`
+
+Registers an Agent identity backed by an existing Contex tile row. Phase 2 does
+not add new tables; agent metadata is stored as stable capability markers:
+`agent`, `role:<role>`, and `runtime:<runtime>`.
+
+```json
+{
+  "agent_id": "agent_worker_1",
+  "tile_id": "terminal_worker_1",
+  "runtime": "codex",
+  "role": "worker",
+  "display_name": "Worker 1",
+  "capabilities": ["chat", "code_edit"],
+  "status": "idle",
+  "task": "Waiting for work"
+}
+```
+
+### `agent_update_state`
+
+Updates an Agent's status, task, progress, summary, blocker, branch, worktree,
+or capabilities without requiring callers to know the lower-level
+`peer_set_state` schema.
+
+### `agent_list`
+
+Lists registered Agents in a workspace. Optional filters: `role`, `runtime`,
+`status`, and `capability`.
+
+### `agent_send_message`
+
+Sends a link-gated message from one Agent to another Agent/tile. Directed links
+allow source → target messages only; undirected links allow both directions.
+
+### `agent_read_messages`
+
+Reads messages addressed to an Agent, marking them delivered/read and optionally
+acknowledged.
+
+### `agent_claim_task`
+
+Claims an open or already-owned task for an Agent. Open tasks move to
+`assigned`; already-assigned work can move to `in_progress`.
+
+```json
+{
+  "agent_id": "agent_worker_1",
+  "task_id": "task_123",
+  "status": "in_progress",
+  "expected_version": 2
+}
+```
+
+### `agent_complete_task`
+
+Completes a task for an Agent, walking the existing lifecycle through `review`
+to `done` when needed and storing an optional result summary.
+
+### `agent_request_handoff`
+
+Moves task ownership to another linked Agent/tile and sends an ack-required
+handoff message.
+
+```json
+{
+  "from_agent_id": "agent_worker_1",
+  "to_agent_id": "agent_reviewer_1",
+  "task_id": "task_123",
+  "text": "Please review this implementation."
+}
+```
+
+### `agent_report`
+
+Sends a linked report message from one Agent to another Agent/tile, optionally
+updating a task result summary.
+
+### `agent_broadcast`
+
+Sends a link-gated broadcast to Agents selected by `role`, `runtime`, `status`,
+or `capability`. Delivery is attempted per selected recipient; unlinked
+recipients are reported as failures instead of bypassing link policy.
+
+### `agent_request_human_input`
+
+Puts an Agent into `waiting` or `blocked` state and emits
+`notifications/context/human_attention`. Use this when an Agent reaches a
+permission boundary, missing credential, destructive operation, or major product
+decision that needs the human.
+
+```json
+{
+  "agent_id": "agent_worker_1",
+  "question": "May I modify files outside the project folder?",
+  "severity": "permission",
+  "task_id": "task_123"
+}
+```
+
+### `get_agent_timeline`
+
+Reads a normalized status/message/task timeline for one Agent/tile.
+
+```json
+{
+  "agent_id": "agent_worker_1",
+  "since_sequence": 120,
+  "limit": 50
+}
+```
+
+### `get_workspace_timeline`
+
+Reads a normalized workspace-wide Agent collaboration timeline.
+
 ### `get_context`
 
 Returns objective, skills, selected memory, peers, tasks, and attachments for a
@@ -258,4 +385,3 @@ Local defaults per token:
 - retain historical aliases for at least one major version;
 - reject unknown fields only where security-sensitive;
 - support additive schema evolution.
-

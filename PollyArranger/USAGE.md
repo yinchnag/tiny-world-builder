@@ -170,7 +170,33 @@ reviews. They must be different families.
 | `--wave <id>` | — | Tag tasks into a wave for grouped reporting. |
 | `--registry <path>` | `<repo>/.polly/registry.json` | Where state is stored. |
 
-## 7. Running against a REAL project (recommended flow)
+## 7. Optional Contex visibility
+
+Polly can push observe-only snapshots into Contex after registry saves. This is
+optional: if Contex is unavailable, Polly logs the sync failure and keeps running
+from `.polly/registry.json`.
+
+```bash
+npm run polly -- daemon --repo /path/to/project \
+  --contex \
+  --contex-url http://127.0.0.1:7777/mcp \
+  --contex-token env:CONTEX_TOKEN \
+  --contex-workspace ws_1
+```
+
+Environment fallback:
+
+```bash
+POLLY_CONTEX_SYNC=1
+CONTEX_URL=http://127.0.0.1:7777/mcp
+CONTEX_TOKEN=...
+CONTEX_WORKSPACE=ws_1
+```
+
+With Contex enabled, `run`, `daemon`, and `add` sync snapshots through the
+`polly_sync_snapshot` MCP tool. Contex remains read-only for Polly in this mode.
+
+## 8. Running against a REAL project (recommended flow)
 
 Park work for your review instead of auto-merging, and use your real test suite
 as the gate:
@@ -193,7 +219,7 @@ yourself when happy.
 **To open real GitHub PRs** instead: drop `--local-pr` (the branch is pushed to
 `origin` and `gh pr create` opens a PR). Requires `gh auth login` and push access.
 
-## 8. Codex on Mac / Windows (home machines)
+## 9. Codex on Mac / Windows (home machines)
 
 Codex is a harness CLI like Claude — no key. Defaults usually work on macOS. On
 Windows the `codex` shim often needs a shell + stdin:
@@ -211,7 +237,7 @@ First time on a machine, check `codex --help` (and `codex exec --help`) to confi
 the headless subcommand. See [docs/08-providers.md](docs/08-providers.md) for the
 full per-machine checklist.
 
-## 9. What Polly creates in your project (and gitignore)
+## 10. What Polly creates in your project (and gitignore)
 
 Inside your target repo it uses:
 
@@ -229,14 +255,14 @@ Add these to your project's `.gitignore`:
 (The `polly/*` branches are real branches in your repo — that's intended; delete
 them after merging if you like.)
 
-## 10. Cost awareness
+## 11. Cost awareness
 
 Every model call is real money. Rough guide: **Claude (Opus)** is the expensive
 implementer (a real multi-file task can be cents to a couple dollars);
 **DeepSeek/Qwen** reviewers are very cheap. The status report prints total tokens;
 `--output-format json` cost is tracked per item. Start with one small task.
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
@@ -248,7 +274,7 @@ implementer (a real multi-file task can be cents to a couple dollars);
 | Push fails on `--local-pr` | Shouldn't happen now — `--local-pr` is fully local (no push). Update to the latest `pollyarranger`. |
 | Want to reset | Delete `<repo>/.polly/` and the `polly/*` branches + `.worktrees/`. |
 
-## 12. Cheat sheet
+## 13. Cheat sheet
 
 ```bash
 # fastest real try (local, auto-merge, Claude+DeepSeek):

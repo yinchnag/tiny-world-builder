@@ -2,7 +2,8 @@
 import { newWorkspaceId } from '../ids.mjs';
 import { nowIso, audit, parseJson } from '../store.mjs';
 
-export function createWorkspace(db, { name, repository_path = null, settings = null } = {}, { clock } = {}) {
+export function createWorkspace(db, { name, repository_path = null, settings = null } = {}, opts = {}) {
+  const { clock } = opts;
   const id = newWorkspaceId();
   const ts = nowIso(clock);
   db.prepare(

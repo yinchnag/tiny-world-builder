@@ -8,6 +8,9 @@ context.md
 models/stamp-defaults.local.json
 node_modules/
 *.log
+*.db
+*.db-shm
+*.db-wal
 /.playwright-mcp
 dist/
 *.zip

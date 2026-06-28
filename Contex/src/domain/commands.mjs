@@ -12,7 +12,8 @@ import { err } from '../errors.mjs';
 
 const TERMINAL_STATES = new Set(['completed', 'failed', 'expired']);
 
-export function enqueueCommand(db, { workspace_id, requester_tile_id = null, target_tile_id = null, kind, payload = null }, { clock } = {}) {
+export function enqueueCommand(db, { workspace_id, requester_tile_id = null, target_tile_id = null, kind, payload = null }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const id = newCommandId();
   const ts = nowIso(clock);
   db.prepare(
@@ -21,7 +22,8 @@ export function enqueueCommand(db, { workspace_id, requester_tile_id = null, tar
   ).run(id, workspace_id, requester_tile_id, target_tile_id, kind, payload ? JSON.stringify(payload) : null, ts);
   audit(db, {
     workspace_id, actor_type: 'tile', actor_id: requester_tile_id, tile_id: target_tile_id,
-    event_type: 'canvas_command_enqueued', entity_type: 'command', entity_id: id, payload: { kind }, created_at: ts,
+    event_type: 'canvas_command_enqueued', entity_type: 'command', entity_id: id,
+    correlation_id: correlation_id ?? null, payload: { kind }, created_at: ts,
   });
   return getCommand(db, id);
 }
@@ -50,7 +52,8 @@ export function nextCommands(db, workspaceId, { limit = 20, clock } = {}) {
 }
 
 // Consumer reports the outcome. Idempotent: a second completion is a no-op.
-export function completeCommand(db, { command_id, result = null, error = null }, { clock } = {}) {
+export function completeCommand(db, { command_id, result = null, error = null }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const r = db.prepare(`SELECT * FROM canvas_command WHERE id = ?`).get(command_id);
   if (!r) throw err.badRequest(`Unknown command: ${command_id}`);
   if (TERMINAL_STATES.has(r.status)) return mapCommand(r);
@@ -60,7 +63,8 @@ export function completeCommand(db, { command_id, result = null, error = null },
     .run(status, result ? JSON.stringify(result) : null, error, ts, command_id);
   audit(db, {
     workspace_id: r.workspace_id, actor_type: 'canvas', tile_id: r.target_tile_id,
-    event_type: 'canvas_command_completed', entity_type: 'command', entity_id: command_id, payload: { status }, created_at: ts,
+    event_type: 'canvas_command_completed', entity_type: 'command', entity_id: command_id,
+    correlation_id: correlation_id ?? null, payload: { status }, created_at: ts,
   });
   return getCommand(db, command_id);
 }

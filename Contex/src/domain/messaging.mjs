@@ -7,10 +7,11 @@
 import { newMessageId, newTodoId } from '../ids.mjs';
 import { nowIso, audit } from '../store.mjs';
 import { getTileRow } from './tiles.mjs';
-import { linkedTileIds } from './links.mjs';
+import { canActOn } from './links.mjs';
 import { err } from '../errors.mjs';
 
-export function sendMessage(db, input, { clock } = {}) {
+export function sendMessage(db, input, opts = {}) {
+  const { clock, correlation_id } = opts;
   const { from_tile_id, to_tile_id, text } = input;
   if (!from_tile_id || !to_tile_id || !text) {
     throw err.badRequest('from_tile_id, to_tile_id and text are required');
@@ -20,7 +21,7 @@ export function sendMessage(db, input, { clock } = {}) {
   const to = getTileRow(db, to_tile_id);
   if (!to) throw err.tileNotFound(to_tile_id);
   // direct messages need a link (peer graph gates communication)
-  if (!linkedTileIds(db, from.workspace_id, from_tile_id).includes(to_tile_id)) {
+  if (!canActOn(db, from.workspace_id, from_tile_id, to_tile_id)) {
     throw err.peerNotLinked(from_tile_id, to_tile_id);
   }
 
@@ -36,6 +37,7 @@ export function sendMessage(db, input, { clock } = {}) {
   audit(db, {
     workspace_id: from.workspace_id, actor_type: 'tile', actor_id: from_tile_id, tile_id: to_tile_id,
     event_type: 'message_sent', entity_type: 'message', entity_id: id,
+    correlation_id: correlation_id ?? null,
     payload: { from: from_tile_id, to: to_tile_id, requires_ack: !!input.requires_ack }, created_at: ts,
   });
   return mapMessage(db.prepare(`SELECT * FROM message WHERE id = ?`).get(id));
@@ -113,7 +115,8 @@ export function purgeExpiredMessages(db, { olderThanDays = 30, clock } = {}) {
 }
 
 // -------- todos --------
-export function addTodo(db, input, { clock } = {}) {
+export function addTodo(db, input, opts = {}) {
+  const { clock, correlation_id } = opts;
   const { creator_tile_id, assignee_tile_id, title } = input;
   if (!title) throw err.badRequest('title is required');
   const creator = creator_tile_id ? getTileRow(db, creator_tile_id) : null;
@@ -131,12 +134,14 @@ export function addTodo(db, input, { clock } = {}) {
   audit(db, {
     workspace_id: workspaceId, actor_type: 'tile', actor_id: creator_tile_id, tile_id: assignee_tile_id,
     event_type: 'todo_assigned', entity_type: 'todo', entity_id: id,
+    correlation_id: correlation_id ?? null,
     payload: { title, assignee: assignee_tile_id ?? null }, created_at: ts,
   });
   return mapTodo(db.prepare(`SELECT * FROM todo WHERE id = ?`).get(id));
 }
 
-export function completeTodo(db, { todo_id, completing_tile_id, result_summary = null }, { clock } = {}) {
+export function completeTodo(db, { todo_id, completing_tile_id, result_summary = null }, opts = {}) {
+  const { clock, correlation_id } = opts;
   if (!todo_id) throw err.badRequest('todo_id is required');
   const row = db.prepare(`SELECT * FROM todo WHERE id = ?`).get(todo_id);
   if (!row) throw err.badRequest(`Unknown todo: ${todo_id}`);
@@ -145,6 +150,7 @@ export function completeTodo(db, { todo_id, completing_tile_id, result_summary =
   audit(db, {
     workspace_id: row.workspace_id, actor_type: 'tile', actor_id: completing_tile_id, tile_id: completing_tile_id,
     event_type: 'todo_completed', entity_type: 'todo', entity_id: todo_id,
+    correlation_id: correlation_id ?? null,
     payload: { result_summary }, created_at: ts,
   });
   return mapTodo(db.prepare(`SELECT * FROM todo WHERE id = ?`).get(todo_id));

@@ -10,6 +10,7 @@
 //   <id>/workspace.json            — metadata (name, repo path, timestamps)
 //   <id>/layout.json               — viewport + tiles + links
 //   <id>/layout.json.bak           — previous good layout (rotated on save)
+//   <id>/memory.json               — generated + user-pinned Workspace Memory
 //   <id>/workspace.lock            — single-open guard ({ pid, host, at })
 //
 // Zero runtime dependencies; node built-ins only.
@@ -26,6 +27,10 @@ export const LAYOUT_SCHEMA_VERSION = 1;
 /** A blank layout for a fresh workspace. */
 export function emptyLayout() {
   return { schemaVersion: LAYOUT_SCHEMA_VERSION, viewport: { x: 0, y: 0, zoom: 1 }, tiles: [], links: [] };
+}
+
+export function emptyMemory() {
+  return { schemaVersion: 1, pins: [], markers: [], generated: null, updatedAt: null };
 }
 
 // ---- atomic write helpers ------------------------------------------------
@@ -110,6 +115,7 @@ export class WorkspaceStore {
   _dir(id) { return join(this.root, id); }
   _metaPath(id) { return join(this._dir(id), 'workspace.json'); }
   _layoutPath(id) { return join(this._dir(id), 'layout.json'); }
+  _memoryPath(id) { return join(this._dir(id), 'memory.json'); }
   _lockPath(id) { return join(this._dir(id), 'workspace.lock'); }
 
   // -- lifecycle ----------------------------------------------------------
@@ -190,7 +196,26 @@ export class WorkspaceStore {
   exportWorkspace(id) {
     const meta = this._readMeta(id);
     const { layout } = this._loadLayout(id);
-    return scrubSecrets({ meta, layout, exportedAt: new Date().toISOString() });
+    const memory = this.loadMemory(id);
+    return scrubSecrets({ meta, layout, memory, exportedAt: new Date().toISOString() });
+  }
+
+  loadMemory(id) {
+    if (!existsSync(this._dir(id))) throw notFound(`workspace not found: ${id}`);
+    if (!existsSync(this._memoryPath(id))) return emptyMemory();
+    try {
+      const raw = readJson(this._memoryPath(id));
+      return validateMemory(raw);
+    } catch {
+      return emptyMemory();
+    }
+  }
+
+  saveMemory(id, memory) {
+    if (!existsSync(this._dir(id))) throw notFound(`workspace not found: ${id}`);
+    const validated = validateMemory(memory);
+    writeJsonAtomic(this._memoryPath(id), validated);
+    return validated;
   }
 
   // -- layout loading + recovery -----------------------------------------
@@ -271,5 +296,16 @@ export function validateLayout(layout) {
     viewport: { x: num(vp.x, 0), y: num(vp.y, 0), zoom: num(vp.zoom, 1) },
     tiles: layout.tiles,
     links: layout.links,
+  };
+}
+
+export function validateMemory(memory) {
+  const m = memory && typeof memory === 'object' ? memory : {};
+  return {
+    schemaVersion: 1,
+    pins: Array.isArray(m.pins) ? m.pins : [],
+    markers: Array.isArray(m.markers) ? m.markers : [],
+    generated: m.generated && typeof m.generated === 'object' ? m.generated : null,
+    updatedAt: typeof m.updatedAt === 'string' ? m.updatedAt : null,
   };
 }

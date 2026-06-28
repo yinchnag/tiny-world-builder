@@ -8,6 +8,7 @@ import { activeClaimsForTile } from './domain/tiles.mjs';
 import { availableToolsForType } from './domain/peers.mjs';
 import { activeTileCount } from './domain/workspace.mjs';
 import { err } from './errors.mjs';
+import { listAuditFeed } from './store.mjs';
 
 const JSON_MIME = 'application/json';
 const MD_MIME = 'text/markdown';
@@ -19,12 +20,22 @@ export function listResources(contex) {
     out.push({ uri: `context://workspace/${ws.id}`, name: `workspace: ${ws.name}`, description: 'Workspace metadata', mimeType: JSON_MIME });
     out.push({ uri: `context://workspace/${ws.id}/graph`, name: `graph: ${ws.name}`, description: 'Tiles + canvas links', mimeType: JSON_MIME });
     out.push({ uri: `context://workspace/${ws.id}/tasks`, name: `tasks: ${ws.name}`, description: 'Tasks + todos', mimeType: JSON_MIME });
+    out.push({ uri: `context://workspace/${ws.id}/timeline`, name: `timeline: ${ws.name}`, description: 'Agent status/message/task timeline', mimeType: JSON_MIME });
+    out.push({ uri: `context://workspace/${ws.id}/audit`, name: `audit: ${ws.name}`, description: 'Recent audit events (forward-scannable for Workspace Memory)', mimeType: JSON_MIME });
+    out.push({ uri: `context://workspace/${ws.id}/polly`, name: `polly: ${ws.name}`, description: 'Polly Arranger registry views', mimeType: JSON_MIME });
+    out.push({ uri: `context://workspace/${ws.id}/polly/actions`, name: `polly actions: ${ws.name}`, description: 'Polly Arranger operator action requests', mimeType: JSON_MIME });
+    for (const reg of pollyRegistryRows(contex, ws.id)) {
+      out.push({ uri: `context://workspace/${ws.id}/polly/${reg.registry_hash}`, name: `polly registry: ${reg.registry_hash}`, description: 'Polly Arranger registry summary', mimeType: JSON_MIME });
+      out.push({ uri: `context://workspace/${ws.id}/polly/${reg.registry_hash}/items`, name: `polly items: ${reg.registry_hash}`, description: 'Polly Arranger item tasks', mimeType: JSON_MIME });
+      out.push({ uri: `context://workspace/${ws.id}/polly/${reg.registry_hash}/actions`, name: `polly actions: ${reg.registry_hash}`, description: 'Polly Arranger registry action requests', mimeType: JSON_MIME });
+    }
     for (const tile of contex.listTiles(ws.id)) {
       out.push({ uri: `context://tile/${tile.tile_id}/state`, name: `state: ${tile.tile_id}`, description: 'Current tile status + claims', mimeType: JSON_MIME });
       out.push({ uri: `context://tile/${tile.tile_id}/objective`, name: `objective: ${tile.tile_id}`, description: 'Objective (objective.md)', mimeType: MD_MIME });
       out.push({ uri: `context://tile/${tile.tile_id}/skills`, name: `skills: ${tile.tile_id}`, description: 'Enabled/disabled skills (skills.json)', mimeType: JSON_MIME });
       out.push({ uri: `context://tile/${tile.tile_id}/peers`, name: `peers: ${tile.tile_id}`, description: 'Linked peers (peers.md)', mimeType: MD_MIME });
       out.push({ uri: `context://tile/${tile.tile_id}/inbox`, name: `inbox: ${tile.tile_id}`, description: 'Recent messages', mimeType: JSON_MIME });
+      out.push({ uri: `context://tile/${tile.tile_id}/timeline`, name: `timeline: ${tile.tile_id}`, description: 'Status/message/task timeline for this tile/Agent', mimeType: JSON_MIME });
     }
   }
   return out;
@@ -43,6 +54,30 @@ export function readResource(contex, uri) {
   if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/tasks$/))) {
     return jsonResource(uri, tasksView(contex, m[1]));
   }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/timeline$/))) {
+    return jsonResource(uri, timelineView(contex, { workspace_id: m[1] }));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/audit$/))) {
+    return jsonResource(uri, auditView(contex, m[1]));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly$/))) {
+    return jsonResource(uri, pollyView(contex, m[1]));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly\/actions$/))) {
+    return jsonResource(uri, pollyActionsView(contex, m[1]));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly\/([^/]+)$/))) {
+    return jsonResource(uri, pollyRegistryView(contex, m[1], m[2]));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly\/([^/]+)\/actions$/))) {
+    return jsonResource(uri, pollyActionsView(contex, m[1], { registry_hash: m[2] }));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly\/([^/]+)\/items$/))) {
+    return jsonResource(uri, pollyItemsView(contex, m[1], m[2]));
+  }
+  if ((m = uri.match(/^context:\/\/workspace\/([^/]+)\/polly\/([^/]+)\/item\/([^/]+)$/))) {
+    return jsonResource(uri, pollyItemView(contex, m[1], m[2], decodeURIComponent(m[3])));
+  }
   if ((m = uri.match(/^context:\/\/tile\/([^/]+)\/state$/))) {
     return jsonResource(uri, tileStateView(contex, m[1]));
   }
@@ -58,6 +93,10 @@ export function readResource(contex, uri) {
   if ((m = uri.match(/^context:\/\/tile\/([^/]+)\/inbox$/))) {
     contex.getTile(m[1]); // throws TILE_NOT_FOUND for unknown tiles
     return jsonResource(uri, { tile_id: m[1], messages: contex.listInbox(m[1]) });
+  }
+  if ((m = uri.match(/^context:\/\/tile\/([^/]+)\/timeline$/))) {
+    contex.getTile(m[1]); // throws TILE_NOT_FOUND for unknown tiles
+    return jsonResource(uri, timelineView(contex, { tile_id: m[1] }));
   }
   throw err.badRequest(`Unknown or unsupported resource uri: ${uri}`);
 }
@@ -95,6 +134,65 @@ function tasksView(contex, id) {
   const ws = contex.getWorkspace(id);
   if (!ws) throw err.workspaceNotFound(id);
   return { workspace_id: id, tasks: contex.listTasks(id), todos: contex.listTodos(id) };
+}
+
+function auditView(contex, id) {
+  const ws = contex.getWorkspace(id);
+  if (!ws) throw err.workspaceNotFound(id);
+  // Return last 100 events in forward order so a consumer can read and
+  // checkpoint by the highest `sequence` value.
+  const events = listAuditFeed(contex.db, id, { since_sequence: 0, limit: 100 });
+  return { workspace_id: id, event_count: events.length, events };
+}
+
+function timelineView(contex, input) {
+  const workspaceId = input.workspace_id || contex.getTile(input.tile_id).workspace_id;
+  const ws = contex.getWorkspace(workspaceId);
+  if (!ws) throw err.workspaceNotFound(workspaceId);
+  const events = contex.listTimeline({ ...input, workspace_id: workspaceId, limit: 100 });
+  return {
+    workspace_id: workspaceId,
+    tile_id: input.tile_id ?? null,
+    event_count: events.length,
+    events,
+  };
+}
+
+function pollyView(contex, id) {
+  const ws = contex.getWorkspace(id);
+  if (!ws) throw err.workspaceNotFound(id);
+  return { workspace_id: id, registries: pollyRegistryRows(contex, id) };
+}
+
+function pollyRegistryView(contex, id, hash) {
+  const registries = pollyRegistryRows(contex, id).filter((r) => r.registry_hash === hash);
+  if (registries.length === 0) throw err.badRequest(`Unknown Polly registry: ${hash}`);
+  const items = pollyItemRows(contex, id, hash);
+  return {
+    ...registries[0],
+    items_total: items.length,
+    items_by_status: countBy(items, (item) => item.polly_status || item.status),
+  };
+}
+
+function pollyItemsView(contex, id, hash) {
+  contex.getWorkspace(id) || (() => { throw err.workspaceNotFound(id); })();
+  return { workspace_id: id, registry_hash: hash, items: pollyItemRows(contex, id, hash) };
+}
+
+function pollyItemView(contex, id, hash, itemId) {
+  const item = pollyItemRows(contex, id, hash).find((row) => row.item_id === itemId);
+  if (!item) throw err.badRequest(`Unknown Polly item: ${itemId}`);
+  return item;
+}
+
+function pollyActionsView(contex, id, filter = {}) {
+  const ws = contex.getWorkspace(id);
+  if (!ws) throw err.workspaceNotFound(id);
+  return {
+    workspace_id: id,
+    ...contex.listPollyActionRequests({ workspace_id: id, ...filter }),
+  };
 }
 
 function tileStateView(contex, tileId) {
@@ -143,4 +241,67 @@ function peersMarkdown(contex, tileId) {
   }
   lines.push('', '_Generated from canvas links; regenerated when links change._');
   return lines.join('\n');
+}
+
+function pollyRegistryRows(contex, workspaceId) {
+  const rows = contex.db.prepare(
+    `SELECT channel, COUNT(*) AS item_count
+       FROM task
+      WHERE workspace_id = ? AND channel LIKE 'polly:%'
+      GROUP BY channel
+      ORDER BY channel`
+  ).all(workspaceId);
+  return rows.map((row) => {
+    const hash = String(row.channel).slice('polly:'.length);
+    const daemon = contex.db.prepare('SELECT * FROM tile WHERE id = ?').get(`polly:${hash}:daemon`);
+    return {
+      workspace_id: workspaceId,
+      registry_hash: hash,
+      channel: row.channel,
+      item_count: row.item_count,
+      daemon_tile_id: `polly:${hash}:daemon`,
+      daemon_status: daemon?.status ?? null,
+      updated_at: daemon?.updated_at ?? null,
+    };
+  });
+}
+
+function pollyItemRows(contex, workspaceId, hash) {
+  const channel = `polly:${hash}`;
+  const tasks = contex.db.prepare(
+    `SELECT * FROM task WHERE workspace_id = ? AND channel = ? ORDER BY created_at ASC`
+  ).all(workspaceId, channel);
+  return tasks.map((task) => {
+    const itemId = String(task.owner_tile_id || '').replace(`polly:${hash}:item:`, '');
+    const tile = contex.db.prepare('SELECT * FROM tile WHERE id = ?').get(task.owner_tile_id);
+    const claims = activeClaimsForTile(contex.db, task.owner_tile_id)
+      .map((claim) => ({ path: claim.path, mode: claim.mode, section: claim.section }));
+    return {
+      workspace_id: workspaceId,
+      registry_hash: hash,
+      item_id: itemId,
+      task_id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      polly_status: tile?.progress ?? null,
+      blocker: task.blocker,
+      result_summary: task.result_summary,
+      owner_tile_id: task.owner_tile_id,
+      branch: tile?.branch ?? null,
+      worktree: tile?.worktree ?? null,
+      claims,
+      updated_at: task.updated_at,
+      completed_at: task.completed_at,
+    };
+  });
+}
+
+function countBy(items, keyFn) {
+  const out = {};
+  for (const item of items) {
+    const key = keyFn(item) || 'unknown';
+    out[key] = (out[key] || 0) + 1;
+  }
+  return out;
 }

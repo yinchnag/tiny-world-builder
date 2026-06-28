@@ -34,6 +34,9 @@ The reconstruction is based on:
   records, storage choices, and migrations.
 - [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) — detailed phased implementation,
   tests, security work, observability, deployment, and acceptance criteria.
+- [POLLY_ARRANGER_INTEGRATION.md](POLLY_ARRANGER_INTEGRATION.md) — optional
+  observe-first integration design for surfacing Polly Arranger runs through
+  Contex and CodeSurf without making Contex Polly's source of truth.
 - [WORK_SCHEDULE.md](WORK_SCHEDULE.md) — Contex 与 CodeSurf 的推荐开发顺序、
   并行分工、分支策略和第一轮迭代任务。
 

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "vendors": ["claude_code", "codex", "openclaude", "cursor"],
+  "policy": {
+    "merge": "human",
+    "maxReviewRounds": 3,
+    "concurrency": 4
+  },
+  "items": [
+    {
+      "id": "p8",
+      "wave": "wave1",
+      "title": "GitHub stars badge + star-history + live home pill",
+      "spec": "Add a stars badge to README, a Star History chart, and a home-page stars pill.",
+      "branch": "polly/p8-github-stars",
+      "worktree": null,
+      "pr": 56,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "status": "MERGED",
+      "blockedOn": null
+    },
+    {
+      "id": "p15",
+      "wave": "wave1",
+      "title": "LLM lobby population layer",
+      "spec": "Add LLM-driven NPC peers that join the lobby room.",
+      "branch": "polly/p15-lobby-population",
+      "worktree": ".worktrees/p15-lobby-population",
+      "pr": 65,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "status": "RE_REVIEW",
+      "blockedOn": null
+    },
+    {
+      "id": "p9",
+      "wave": "wave2",
+      "title": "WAVE indicator -> inline ADMIN control",
+      "spec": "Make wave assignment an inline admin-only control.",
+      "branch": "polly/p9-wave-inline-edit",
+      "worktree": ".worktrees/p9-wave-inline-edit",
+      "pr": null,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "status": "BUILDING",
+      "blockedOn": null
+    },
+    {
+      "id": "p10",
+      "wave": "wave2",
+      "title": "Forced profile onboarding + email-verify gate on community",
+      "spec": "Require profile completion on first run and hard-gate chat/community behind a verified email.",
+      "branch": "polly/p10-onboarding-foundation",
+      "worktree": ".worktrees/p10-onboarding-foundation",
+      "pr": null,
+      "implementer": "codex",
+      "reviewer": "claude_code",
+      "status": "BLOCKED",
+      "blockedOn": "OPEN DECISION: wallet-only users have no Identity email."
+    },
+    {
+      "id": "p20",
+      "wave": "wave2",
+      "title": "Roadmap countdown header",
+      "spec": "Add a countdown header to the roadmap page.",
+      "branch": null,
+      "worktree": null,
+      "pr": null,
+      "implementer": null,
+      "reviewer": null,
+      "status": "PLANNED",
+      "blockedOn": null
+    },
+    {
+      "id": "p21",
+      "wave": "wave2",
+      "title": "Human merge gate",
+      "spec": "Wait for human approval before merge.",
+      "branch": "polly/p21-human-merge",
+      "worktree": ".worktrees/p21-human-merge",
+      "pr": 66,
+      "implementer": "claude_code",
+      "reviewer": "codex",
+      "status": "READY_FOR_HUMAN_MERGE",
+      "blockedOn": null
+    }
+  ]
+}

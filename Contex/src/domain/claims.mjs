@@ -7,7 +7,7 @@
 // Contex never reads file contents to create a claim — a claim is just a label.
 
 import { posix } from 'node:path';
-import { nowIso } from '../store.mjs';
+import { nowIso, audit } from '../store.mjs';
 import { err } from '../errors.mjs';
 
 // Normalize `input` to a workspace-relative posix path. Rejects traversal
@@ -32,12 +32,18 @@ export function normalizeClaimPath(repoPath, input) {
 // Release a tile's claim(s) — owner override or self-release. With a path,
 // releases just that claim; without, releases all of the tile's active claims.
 // Returns the number released.
-export function releaseClaim(db, { tile_id, path }, { clock } = {}) {
+export function releaseClaim(db, { tile_id, path }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const ts = nowIso(clock);
   const info = path
     ? db.prepare(`UPDATE file_claim SET released_at = ? WHERE tile_id = ? AND path = ? AND released_at IS NULL`).run(ts, tile_id, path)
     : db.prepare(`UPDATE file_claim SET released_at = ? WHERE tile_id = ? AND released_at IS NULL`).run(ts, tile_id);
-  return Number(info.changes);
+  const released = Number(info.changes);
+  if (released > 0) {
+    const workspace_id = db.prepare('SELECT workspace_id FROM tile WHERE id = ?').get(tile_id)?.workspace_id ?? null;
+    audit(db, { workspace_id, actor_type: 'owner', actor_id: tile_id, tile_id, event_type: 'claim_released', entity_type: 'file_claim', correlation_id: correlation_id ?? null, payload: { path: path ?? 'all', count: released }, created_at: ts });
+  }
+  return released;
 }
 
 // Release claims whose expires_at has passed. Returns the number expired.

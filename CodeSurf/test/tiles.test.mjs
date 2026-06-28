@@ -10,6 +10,8 @@ test('registry registers and resolves known types', () => {
   assert.ok(reg.has('terminal'));
   assert.equal(reg.get('terminal').label, 'Terminal');
   assert.deepEqual(reg.get('terminal').capabilities, ['terminal_input']);
+  assert.ok(reg.has('agent'));
+  assert.deepEqual(reg.get('agent').capabilities, ['agent', 'chat', 'terminal_input']);
   assert.ok(reg.list().length >= 5);
 });
 
@@ -91,6 +93,25 @@ test('safeRender returns ok html for a healthy renderer', () => {
   const out = safeRender(reg.get('note'), { type: 'note', data: { note: 'hi <there>' } });
   assert.equal(out.ok, true);
   assert.match(out.html, /hi &lt;there&gt;/); // escaped
+});
+
+test('agent tile renderer includes terminal controls, actions, handoff banner, and timeline shell', () => {
+  const reg = createDefaultRegistry();
+  const out = safeRender(reg.get('agent'), {
+    type: 'agent',
+    data: {
+      command: 'node CodeSurf/scripts/agent-runtime-codex.mjs',
+      agentProfile: { role: 'reviewer', runtime: 'codex', model: 'gpt-5' },
+    },
+  });
+  assert.equal(out.ok, true);
+  assert.match(out.html, /agent-actions/);
+  assert.match(out.html, /agent-action-claim/);
+  assert.match(out.html, /agent-handoff/);
+  assert.match(out.html, /Reply and continue/);
+  assert.match(out.html, /agent-activity/);
+  assert.match(out.html, /agent-activity-list/);
+  assert.match(out.html, /reviewer/);
 });
 
 test('focusOrder is reading-order with pinned first', () => {

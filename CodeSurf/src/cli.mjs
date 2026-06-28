@@ -8,6 +8,8 @@ import { ContexSupervisor } from './contex.mjs';
 import { ContexConnection } from './contex-connection.mjs';
 import { TerminalManager, ptyAvailable } from './terminal.mjs';
 
+const CONTEX_CLI = new URL('../../Contex/src/cli.mjs', import.meta.url).pathname;
+
 const [, , cmd, ...rest] = process.argv;
 
 function fail(msg) {
@@ -50,7 +52,13 @@ switch (cmd) {
     const port = Number(flag('port') ?? 0) || 0;
     let contex = null;
     if (rest.includes('--contex')) {
-      const supervisor = new ContexSupervisor({}); // spawns `node --experimental-sqlite Contex/src/cli.mjs serve`
+      const contexRateLimit = flag('contex-rate-limit') ?? '0';
+      const supervisor = new ContexSupervisor({
+        // Embedded Contex is a token-protected loopback service; CodeSurf's own
+        // command drain plus chat/agent polling can exceed Contex's standalone
+        // default of 60 req/min, so disable it unless explicitly overridden.
+        args: ['--experimental-sqlite', CONTEX_CLI, 'serve', '--rate-limit', contexRateLimit],
+      });
       supervisor.on('error', (e) => process.stderr.write(`Contex supervisor error: ${e.message}\n`));
       contex = new ContexConnection({ supervisor });
       contex.on('status', (s) => process.stderr.write(`Contex: ${s}\n`));

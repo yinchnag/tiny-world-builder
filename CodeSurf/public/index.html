@@ -10,36 +10,243 @@
 <body>
   <header id="topbar">
     <span class="brand">CodeSurf</span>
-    <select id="workspace-select" title="Workspace"></select>
-    <button id="new-workspace" title="New workspace">+ New</button>
-    <span class="spacer"></span>
-    <select id="tile-type" title="Tile type to add"></select>
-    <button id="add-tile" title="Add a tile (or double-click the canvas)">+ Tile</button>
-    <button id="fit" title="Zoom to fit">Fit</button>
-    <button id="reset-zoom" title="Reset zoom to 100%">100%</button>
-    <span id="contex" class="contex" title="Contex coordination backend">Contex: …</span>
-    <span id="status" class="status"></span>
+    <section class="toolbar-group" aria-label="Workspace">
+      <span class="toolbar-label">Workspace</span>
+      <select id="workspace-select" title="Workspace" aria-label="Current workspace"></select>
+      <button id="new-workspace" title="New workspace">+ New</button>
+    </section>
+    <section class="toolbar-group" aria-label="Create">
+      <span class="toolbar-label">Create</span>
+      <select id="tile-type" title="Tile type to add" aria-label="Tile type"></select>
+      <button id="add-tile" title="Add a tile (or double-click the canvas)">+ Tile</button>
+      <button id="create-agent" title="Create an Agent tile">+ Agent</button>
+      <button id="create-workflow" title="Create a preset Agent workflow">Workflow</button>
+      <select id="link-kind" title="Semantic kind for new links" aria-label="Link kind">
+        <option value="handoff">handoff</option>
+        <option value="controls">controls</option>
+        <option value="reports_to">reports_to</option>
+        <option value="reviews">reviews</option>
+        <option value="broadcast_group">broadcast_group</option>
+        <option value="">link</option>
+      </select>
+      <label class="link-directed" for="link-directed" title="New links allow source to target messages only">
+        <input id="link-directed" type="checkbox" checked />
+        Directed
+      </label>
+    </section>
+    <section class="toolbar-group" aria-label="View">
+      <span class="toolbar-label">View</span>
+      <button id="fit" title="Zoom to fit">Fit</button>
+      <button id="reset-zoom" title="Reset zoom to 100%">Reset zoom</button>
+      <span id="zoom-status" class="zoom-status" role="status" aria-live="polite">100%</span>
+      <button id="help" title="Show keyboard shortcuts and canvas help">? Help</button>
+    </section>
+    <section class="toolbar-group toolbar-group-status" aria-label="Collaboration">
+      <span class="toolbar-label">Collaborate</span>
+      <span id="contex" class="contex" role="status" aria-live="polite" title="Checking Contex status">Contex: checking…</span>
+      <span id="contex-help" class="status-detail">Checking optional agent backend.</span>
+    </section>
+    <section class="toolbar-group toolbar-group-status" aria-label="Save status">
+      <span class="toolbar-label">Save</span>
+      <span id="status" class="status" role="status" aria-live="polite">Not saved yet</span>
+    </section>
   </header>
 
-  <main id="canvas">
+  <main id="canvas" aria-label="CodeSurf infinite canvas">
     <div id="world">
       <svg id="links" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
-    <canvas id="minimap" width="200" height="140" title="Minimap — click to recenter"></canvas>
+    <section id="empty-state" class="empty-state" hidden aria-labelledby="empty-title">
+      <button id="empty-dismiss" class="empty-dismiss" type="button" title="Hide this guide" aria-label="Hide getting-started guide">×</button>
+      <p class="eyebrow">Workspace ready</p>
+      <h1 id="empty-title">Start building your canvas</h1>
+      <ol class="empty-steps">
+        <li><span>Add a Tile</span><small>Use the button below, the toolbar, or press <kbd>N</kbd>.</small></li>
+        <li><span>Move it</span><small>Drag the Tile header to arrange your workspace.</small></li>
+        <li><span>Connect work</span><small>Drag the blue port onto another Tile to create a link.</small></li>
+        <li><span>Bring agents later</span><small>Contex is optional; local canvas, links, and saving work without it.</small></li>
+      </ol>
+      <div class="empty-actions">
+        <button id="empty-add-tile" type="button">Add your first Tile</button>
+        <button id="empty-demo-layout" type="button">Create safe demo layout</button>
+      </div>
+      <p class="empty-note">Contex is optional: local tiles, links, and layout saving work without it. Start CodeSurf with <code>--contex</code> to enable agent collaboration.</p>
+    </section>
+    <aside id="activity-feed" class="activity-feed" aria-label="Agent activity feed">
+      <section class="attention-feed" aria-label="Pending human attention">
+        <div class="activity-feed-head">
+          <b>Human Attention</b>
+          <button id="attention-refresh" type="button" title="Refresh human attention">Refresh</button>
+        </div>
+        <div id="attention-list" class="attention-list empty">No pending human requests.</div>
+      </section>
+      <div class="activity-feed-head">
+        <b>Agent Activity</b>
+        <button id="activity-refresh" type="button" title="Refresh agent activity">Refresh</button>
+      </div>
+      <div id="activity-list" class="timeline-list empty">Connect Contex to see collaboration activity.</div>
+    </aside>
+    <canvas id="minimap" width="200" height="140" title="Minimap — click to recenter" aria-label="Minimap — click to recenter"></canvas>
   </main>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 
   <!-- New-workspace dialog -->
   <dialog id="new-dialog">
-    <form method="dialog">
+    <form id="new-workspace-form" novalidate>
       <h3>New workspace</h3>
-      <label>Name <input id="nw-name" required /></label>
-      <label>Repository path <input id="nw-repo" required placeholder="d:\\path\\to\\repo" /></label>
-      <p id="nw-error" class="error"></p>
+      <label for="nw-name">Name</label>
+      <input id="nw-name" name="name" required autocomplete="off" maxlength="80" />
+      <label for="nw-repo">Repository path</label>
+      <div class="path-row">
+        <input id="nw-repo" name="repositoryPath" required autocomplete="off" aria-describedby="nw-repo-help nw-path-example nw-mode-note nw-error" />
+        <button id="nw-browse" type="button">Choose folder…</button>
+      </div>
+      <p id="nw-repo-help" class="field-help">Use an absolute path to an existing local folder. This path stays on your device.</p>
+      <p id="nw-path-example" class="field-help">Example format: <code id="nw-path-example-value">/Users/name/project/repo</code></p>
+      <p id="nw-mode-note" class="field-help">Browser mode: paste the absolute path manually.</p>
+      <p id="nw-error" class="error" role="alert" aria-live="polite"></p>
       <menu>
-        <button value="cancel">Cancel</button>
-        <button id="nw-create" value="create">Create</button>
+        <button id="nw-cancel" type="button">Cancel</button>
+        <button id="nw-create" type="submit">Create</button>
       </menu>
     </form>
+  </dialog>
+
+  <dialog id="agent-dialog" aria-labelledby="agent-title">
+    <form id="agent-form" class="agent-dialog" novalidate>
+      <h3 id="agent-title">Create Agent</h3>
+      <div class="agent-grid">
+        <label for="agent-name">Name</label>
+        <input id="agent-name" name="name" value="Worker Agent" maxlength="80" />
+        <label for="agent-runtime">Runtime</label>
+        <select id="agent-runtime" name="runtime">
+          <option value="codex">Codex</option>
+          <option value="shell">Shell</option>
+          <option value="node">Node Script</option>
+          <option value="custom">Custom</option>
+        </select>
+        <label for="agent-role">Role</label>
+        <select id="agent-role" name="role">
+          <option value="worker">Worker</option>
+          <option value="coordinator">Coordinator</option>
+          <option value="planner">Planner</option>
+          <option value="reviewer">Reviewer</option>
+          <option value="researcher">Researcher</option>
+        </select>
+        <label for="agent-model">Model</label>
+        <input id="agent-model" name="model" placeholder="default" />
+        <label for="agent-cwd">Working directory</label>
+        <input id="agent-cwd" name="cwd" />
+        <label for="agent-capabilities">Capabilities</label>
+        <input id="agent-capabilities" name="capabilities" value="chat, code_edit, terminal_input" />
+        <label for="agent-command">Command</label>
+        <input id="agent-command" name="command" />
+        <label for="agent-system-prompt">System prompt</label>
+        <textarea id="agent-system-prompt" name="systemPrompt" rows="5">You are a CodeSurf agent. Help the team by reporting status clearly and using Contex messages to coordinate.</textarea>
+      </div>
+      <label class="agent-check" for="agent-auto-start">
+        <input id="agent-auto-start" name="autoStart" type="checkbox" checked />
+        Auto-start
+      </label>
+      <p id="agent-error" class="error" role="alert" aria-live="polite"></p>
+      <menu>
+        <button id="agent-cancel" type="button">Cancel</button>
+        <button id="agent-create" type="submit">Create Agent</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="workflow-dialog" aria-labelledby="workflow-title">
+    <form id="workflow-form" class="workflow-dialog" novalidate>
+      <h3 id="workflow-title">Create workflow</h3>
+      <label for="workflow-preset">Preset</label>
+      <select id="workflow-preset" name="preset">
+        <option value="coordinator-worker-reviewer">Coordinator + Worker + Reviewer</option>
+        <option value="planner-workers-reviewer">Planner + 2 Workers + Reviewer</option>
+        <option value="human-coordinator-worker-reviewer">Human Chat + Coordinator + Worker + Reviewer</option>
+      </select>
+      <label class="agent-check" for="workflow-auto-start">
+        <input id="workflow-auto-start" name="autoStart" type="checkbox" />
+        Auto-start agents
+      </label>
+      <p class="field-help">Presets create editable Agent tiles and directed links. Auto-start is off by default.</p>
+      <p id="workflow-error" class="error" role="alert" aria-live="polite"></p>
+      <menu>
+        <button id="workflow-cancel" type="button">Cancel</button>
+        <button id="workflow-create" type="submit">Create workflow</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <section class="help-dialog">
+      <h2 id="help-title">Canvas controls</h2>
+      <dl>
+        <div><dt>Add a Tile</dt><dd><kbd>N</kbd> or <kbd>Double-click</kbd> the canvas</dd></div>
+        <div><dt>Move a Tile</dt><dd>Drag its header</dd></div>
+        <div><dt>Connect Tiles</dt><dd>Drag the blue port onto another Tile</dd></div>
+        <div><dt>Fit / reset view</dt><dd><kbd>F</kbd> / <kbd>0</kbd></dd></div>
+        <div><dt>Select Tiles</dt><dd><kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd></dd></div>
+        <div><dt>Delete selected Tile</dt><dd><kbd>Delete</kbd></dd></div>
+        <div><dt>Close dialogs / link drag</dt><dd><kbd>Esc</kbd></dd></div>
+      </dl>
+      <p>Contex is optional. The local canvas, Tile links, and saved layout work when it is not running.</p>
+      <menu><button id="help-close" type="button">Close</button></menu>
+    </section>
+  </dialog>
+
+  <dialog id="context-dialog" aria-labelledby="context-title">
+    <section class="context-dialog">
+      <header class="context-head">
+        <div>
+          <h2 id="context-title">Tile context</h2>
+          <p id="ctx-subtitle" class="field-help">Objective, skills, and attached context for this Tile.</p>
+        </div>
+        <button id="ctx-close" type="button" aria-label="Close context panel">×</button>
+      </header>
+      <p id="ctx-status" class="context-status" role="status" aria-live="polite"></p>
+
+      <label for="ctx-objective">Objective markdown</label>
+      <textarea id="ctx-objective" rows="7" placeholder="# Objective&#10;&#10;- What should this Tile do?"></textarea>
+      <div class="context-actions">
+        <button id="ctx-refresh" type="button">Refresh</button>
+        <button id="ctx-save-objective" type="button">Save objective</button>
+        <button id="ctx-reload" type="button">Ack reload</button>
+      </div>
+
+      <section class="context-section" aria-labelledby="ctx-skills-title">
+        <h3 id="ctx-skills-title">Skills</h3>
+        <div id="ctx-skills-list" class="context-list empty">No skills loaded.</div>
+        <div class="context-grid">
+          <label for="ctx-skill-key">Skill key</label>
+          <input id="ctx-skill-key" placeholder="tinyworld-integrations" />
+          <label class="context-check" for="ctx-skill-enabled">
+            <input id="ctx-skill-enabled" type="checkbox" checked />
+            Enabled
+          </label>
+          <button id="ctx-save-skill" type="button">Save skill</button>
+        </div>
+      </section>
+
+      <section class="context-section" aria-labelledby="ctx-attachments-title">
+        <h3 id="ctx-attachments-title">Context attachments</h3>
+        <div id="ctx-attachments-list" class="context-list empty">No attachments loaded.</div>
+        <div class="context-grid">
+          <label for="ctx-attachment-kind">Kind</label>
+          <select id="ctx-attachment-kind">
+            <option value="file">file</option>
+            <option value="url">url</option>
+            <option value="note">note</option>
+            <option value="resource">resource</option>
+          </select>
+          <label for="ctx-attachment-label">Label</label>
+          <input id="ctx-attachment-label" placeholder="Design plan" />
+          <label for="ctx-attachment-uri">URI</label>
+          <input id="ctx-attachment-uri" placeholder="file:///path/to/doc.md" />
+          <button id="ctx-add-attachment" type="button">Add attachment</button>
+        </div>
+      </section>
+    </section>
   </dialog>
 
   <script type="module" src="/canvas.js"></script>

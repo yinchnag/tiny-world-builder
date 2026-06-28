@@ -1,9 +1,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request } from 'node:http';
+import { execFileSync } from 'node:child_process';
 import { WorkspaceStore } from '../src/store.mjs';
 import { startServer } from '../src/server.mjs';
 
@@ -21,6 +22,21 @@ function rawGet(port, path, host) {
 }
 
 function tmp(p) { return mkdtempSync(join(tmpdir(), p)); }
+
+function git(cwd, args) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8' });
+}
+
+function makeGitRepo() {
+  const dir = tmp('codesurf-git-repo-');
+  git(dir, ['init', '-b', 'main']);
+  git(dir, ['config', 'user.email', 'codesurf@example.test']);
+  git(dir, ['config', 'user.name', 'CodeSurf Test']);
+  writeFileSync(join(dir, 'README.md'), '# Repo\n');
+  git(dir, ['add', 'README.md']);
+  git(dir, ['commit', '-m', 'init']);
+  return dir;
+}
 
 let server, base, store, repo, port;
 
@@ -65,6 +81,16 @@ test('static assets are served with correct content types', async () => {
   assert.equal(tiles.status, 200);
   assert.match(tiles.headers.get('content-type'), /javascript/);
   assert.match(await tiles.text(), /createDefaultRegistry/);
+});
+
+test('Codex agent runtime endpoint returns the local adapter command', async () => {
+  const r = await call('GET', '/api/agent-runtimes/codex');
+  assert.equal(r.status, 200);
+  assert.equal(r.json.runtime, 'codex');
+  assert.equal(r.json.command, process.execPath);
+  assert.ok(Array.isArray(r.json.args));
+  assert.match(r.json.script, /agent-runtime-codex\.mjs$/);
+  assert.ok(!JSON.stringify(r.json).includes('CONTEX_TOKEN'));
 });
 
 test('path traversal outside public/ is rejected', async () => {
@@ -117,10 +143,116 @@ test('workspace create / list / open / save / close over HTTP', async () => {
   await call('POST', `/api/workspaces/${id}/close`);
 });
 
+test('workspace repository file endpoint reads only repo-relative files', async () => {
+  writeFileSync(join(repo, 'PHASE9.md'), '# Phase 9\n\n- Browser tile\n');
+  const created = await call('POST', '/api/workspaces', { name: 'Docs', repositoryPath: repo });
+  const id = created.json.id;
+  await call('GET', `/api/workspaces/${id}`);
+
+  let r = await call('GET', `/api/workspaces/${id}/file?path=${encodeURIComponent('PHASE9.md')}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.path, 'PHASE9.md');
+  assert.match(r.json.content, /Browser tile/);
+
+  r = await call('GET', `/api/workspaces/${id}/file?path=${encodeURIComponent('/etc/passwd')}`);
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error.code, 'CODESURF_BAD_REQUEST');
+
+  r = await call('GET', `/api/workspaces/${id}/file?path=${encodeURIComponent('../outside.md')}`);
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error.code, 'CODESURF_BAD_REQUEST');
+
+  r = await call('GET', `/api/workspaces/${id}/file?path=${encodeURIComponent('missing.md')}`);
+  assert.equal(r.status, 404);
+  assert.equal(r.json.error.code, 'CODESURF_NOT_FOUND');
+  await call('POST', `/api/workspaces/${id}/close`);
+});
+
+test('workspace git endpoints expose status and create explicit worktrees', async () => {
+  const gitRepo = makeGitRepo();
+  writeFileSync(join(gitRepo, 'README.md'), '# Repo\n\nchanged\n');
+  const created = await call('POST', '/api/workspaces', { name: 'Git', repositoryPath: gitRepo });
+  const id = created.json.id;
+  await call('GET', `/api/workspaces/${id}`);
+
+  let r = await call('GET', `/api/workspaces/${id}/git/status`);
+  assert.equal(r.status, 200);
+  assert.equal(r.json.branch.name, 'main');
+  assert.equal(r.json.branch.protected, true);
+  assert.equal(r.json.dirty, true);
+  assert.equal(r.json.files[0].path, 'README.md');
+
+  const wt = join(tmpdir(), 'codesurf-git-wt-' + Date.now());
+  r = await call('POST', `/api/workspaces/${id}/git/worktrees`, { path: wt, branch: 'codex/phase-10-test' });
+  assert.equal(r.status, 201);
+  assert.equal(r.json.branch, 'codex/phase-10-test');
+
+  r = await call('GET', `/api/workspaces/${id}/git/worktrees`);
+  assert.equal(r.status, 200);
+  assert.ok(r.json.worktrees.some((w) => w.branch === 'codex/phase-10-test'));
+
+  r = await call('POST', `/api/workspaces/${id}/git/worktrees`, { path: 'relative/wt', branch: 'bad' });
+  assert.equal(r.status, 400);
+  assert.equal(r.json.error.code, 'CODESURF_BAD_REQUEST');
+  await call('POST', `/api/workspaces/${id}/close`);
+});
+
+test('workspace memory endpoints generate redacted proposals and persist user facts', async () => {
+  const gitRepo = makeGitRepo();
+  writeFileSync(join(gitRepo, 'TODO.md'), 'Bearer should-not-leak\n');
+  const created = await call('POST', '/api/workspaces', { name: 'Memory', repositoryPath: gitRepo });
+  const id = created.json.id;
+  await call('GET', `/api/workspaces/${id}`);
+  await call('PUT', `/api/workspaces/${id}/layout`, {
+    layout: {
+      viewport: { x: 0, y: 0, zoom: 1 },
+      tiles: [{ id: 'tile_mem', type: 'document', title: 'Secret doc', x: 0, y: 0, w: 300, h: 220, data: { token: 'sk-1234567890abcdef', text: 'safe text' } }],
+      links: [],
+    },
+  });
+
+  let r = await call('POST', `/api/workspaces/${id}/memory/pins`, { text: 'API token sk-1234567890abcdef must not appear' });
+  assert.equal(r.status, 200);
+  assert.ok(!JSON.stringify(r.json).includes('sk-1234567890abcdef'));
+  assert.match(JSON.stringify(r.json), /\[redacted\]/);
+
+  r = await call('POST', `/api/workspaces/${id}/memory/markers`, { kind: 'stale', text: 'Old deployment note is stale' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.memory.markers[0].kind, 'stale');
+
+  r = await call('POST', `/api/workspaces/${id}/memory/proposal`, {});
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.proposal.sections));
+  assert.ok(r.json.proposal.evidence.some((ev) => ev.kind === 'layout'));
+  assert.ok(!JSON.stringify(r.json.proposal).includes('sk-1234567890abcdef'));
+
+  r = await call('POST', `/api/workspaces/${id}/memory/accept`, { proposal: r.json.proposal });
+  assert.equal(r.status, 200);
+  assert.ok(r.json.memory.generated);
+
+  r = await call('GET', `/api/workspaces/${id}/memory`);
+  assert.equal(r.status, 200);
+  assert.ok(r.json.memory.generated);
+  assert.ok(r.json.memory.pins.length >= 1);
+  await call('POST', `/api/workspaces/${id}/close`);
+});
+
 test('creating with a missing repo returns 400 with a code', async () => {
   const r = await call('POST', '/api/workspaces', { name: 'Bad', repositoryPath: join(tmpdir(), 'nope-xyz-123') });
   assert.equal(r.status, 400);
   assert.equal(r.json.error.code, 'CODESURF_REPO_INVALID');
+});
+
+test('creating with missing workspace fields returns a useful 400 response', async () => {
+  const noName = await call('POST', '/api/workspaces', { repositoryPath: repo });
+  assert.equal(noName.status, 400);
+  assert.equal(noName.json.error.code, 'CODESURF_BAD_REQUEST');
+  assert.match(noName.json.error.message, /name required/i);
+
+  const noRepo = await call('POST', '/api/workspaces', { name: 'No repo' });
+  assert.equal(noRepo.status, 400);
+  assert.equal(noRepo.json.error.code, 'CODESURF_BAD_REQUEST');
+  assert.match(noRepo.json.error.message, /repositoryPath required/i);
 });
 
 test('opening a held workspace from a second store returns 409', async () => {

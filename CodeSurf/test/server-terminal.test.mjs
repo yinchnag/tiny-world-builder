@@ -47,6 +47,26 @@ test('terminal endpoints: start, status+scrollback, input, stop over HTTP', asyn
   terminals.stopAll();
 });
 
+test('terminal start endpoint injects per-agent env', async () => {
+  const store = new WorkspaceStore(tmp('cs-term-env-'));
+  const terminals = new TerminalManager();
+  const { server, url } = await startServer({ store, terminals, port: 0 });
+  const base = url.replace(/\/$/, '');
+  const id = 'tile_agent_env';
+  const script = `process.stdout.write('AGENT=' + process.env.AGENT_ID + ':' + process.env.AGENT_ROLE + '\\n')`;
+
+  const start = await fetch(`${base}/api/terminals/${id}/start`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ command: process.execPath, args: ['-e', script], env: { AGENT_ID: 'agent_1', AGENT_ROLE: 'reviewer' } }),
+  });
+  assert.equal(start.status, 200);
+
+  await until(() => fetch(`${base}/api/terminals/${id}`).then((r) => r.json()), (s) => /AGENT=agent_1:reviewer/.test(s.scrollback));
+
+  server.close();
+  terminals.stopAll();
+});
+
 test('terminal stream delivers scrollback + live output via SSE', async () => {
   const store = new WorkspaceStore(tmp('cs-term2-'));
   const terminals = new TerminalManager();

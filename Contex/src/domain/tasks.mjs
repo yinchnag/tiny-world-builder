@@ -30,7 +30,8 @@ export function isValidTaskTransition(from, to) {
   return (TASK_TRANSITIONS[from] || []).includes(to);
 }
 
-export function createTask(db, { workspace_id, channel = null, title, description = null, priority = 'normal', creator_tile_id = null, owner_tile_id = null }, { clock } = {}) {
+export function createTask(db, { workspace_id, channel = null, title, description = null, priority = 'normal', creator_tile_id = null, owner_tile_id = null }, opts = {}) {
+  const { clock, correlation_id } = opts;
   if (!title) throw err.badRequest('title is required');
   const id = newTaskId();
   const ts = nowIso(clock);
@@ -38,11 +39,12 @@ export function createTask(db, { workspace_id, channel = null, title, descriptio
     `INSERT INTO task (id, workspace_id, channel, title, description, status, priority, owner_tile_id, creator_tile_id, version, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, 1, ?, ?)`
   ).run(id, workspace_id, channel, title, description, priority, owner_tile_id, creator_tile_id, ts, ts);
-  auditTask(db, ts, workspace_id, creator_tile_id, id, 'created', { title, channel });
+  auditTask(db, ts, workspace_id, creator_tile_id, id, 'created', { title, channel, owner_tile_id, creator_tile_id, status: 'open' }, correlation_id ?? null);
   return getTask(db, id);
 }
 
-export function updateTask(db, { task_id, status, owner_tile_id, blocker, result_summary, priority, expected_version, actor_tile_id }, { clock } = {}) {
+export function updateTask(db, { task_id, status, owner_tile_id, blocker, result_summary, priority, expected_version, actor_tile_id }, opts = {}) {
+  const { clock, correlation_id } = opts;
   const row = db.prepare(`SELECT * FROM task WHERE id = ?`).get(task_id);
   if (!row) throw err.badRequest(`Unknown task: ${task_id}`);
   if (expected_version != null && expected_version !== row.version) throw err.versionConflict(expected_version, row.version);
@@ -63,7 +65,13 @@ export function updateTask(db, { task_id, status, owner_tile_id, blocker, result
     `UPDATE task SET status=?, owner_tile_id=?, blocker=?, result_summary=?, priority=?, version=?, updated_at=?, completed_at=? WHERE id=?`
   ).run(nextStatus, newOwner, newBlocker, newSummary, newPriority, row.version + 1, ts, completedAt, task_id);
 
-  auditTask(db, ts, row.workspace_id, actor_tile_id ?? null, task_id, 'updated', { status: nextStatus, blocker: newBlocker });
+  auditTask(db, ts, row.workspace_id, actor_tile_id ?? null, task_id, 'updated', {
+    status: nextStatus,
+    owner_tile_id: newOwner,
+    blocker: newBlocker,
+    result_summary: newSummary,
+    priority: newPriority,
+  }, correlation_id ?? null);
   return getTask(db, task_id);
 }
 
@@ -95,10 +103,11 @@ export function importTaskState(db, { workspace_id, channel = null, state }, opt
   return tasks.length;
 }
 
-function auditTask(db, ts, workspaceId, actorId, taskId, action, extra) {
+function auditTask(db, ts, workspaceId, actorId, taskId, action, extra, correlationId = null) {
   audit(db, {
     workspace_id: workspaceId, actor_type: 'tile', actor_id: actorId, tile_id: actorId,
-    event_type: `task_${action}`, entity_type: 'task', entity_id: taskId, payload: extra, created_at: ts,
+    event_type: `task_${action}`, entity_type: 'task', entity_id: taskId,
+    correlation_id: correlationId, payload: extra, created_at: ts,
   });
 }
 

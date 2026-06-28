@@ -30,3 +30,68 @@ export function parseBearer(authorizationHeader) {
   const m = authorizationHeader.match(/^Bearer\s+(.+)$/i);
   return m ? m[1].trim() : null;
 }
+
+// -------- scoped token store (Phase 12) --------
+// Maps token strings -> { scopes: Set<string>, expiresAt: number|null, label: string }.
+// The master token is immutable and always has ['*'] scope.
+// Client tokens are issued with a restricted scope set (e.g. ['agent']).
+export function createTokenStore(masterToken) {
+  const store = new Map();
+  store.set(masterToken, { scopes: new Set(['*']), expiresAt: null, label: 'master' });
+
+  return {
+    // Authenticate: returns the entry or null (absent / expired).
+    authenticate(provided) {
+      if (typeof provided !== 'string') return null;
+      const entry = store.get(provided);
+      if (!entry) return null;
+      if (entry.expiresAt && Date.now() > entry.expiresAt) {
+        store.delete(provided);
+        return null;
+      }
+      return entry;
+    },
+
+    // Issue a new client token.
+    issue({ scopes = ['agent'], ttlSeconds = null, label = '' } = {}) {
+      const token = createToken();
+      const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : null;
+      const scopeSet = new Set(Array.isArray(scopes) ? scopes : [scopes]);
+      store.set(token, { scopes: scopeSet, expiresAt, label: String(label) });
+      return {
+        token,
+        scopes: [...scopeSet],
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        label: String(label),
+      };
+    },
+
+    // Revoke a non-master token by value. Returns true if found and removed.
+    revoke(provided) {
+      if (typeof provided !== 'string' || provided === masterToken) return false;
+      return store.delete(provided);
+    },
+
+    // List active non-master tokens (prefix only — never return full value).
+    list() {
+      const result = [];
+      const now = Date.now();
+      for (const [t, e] of store) {
+        if (t === masterToken) continue;
+        if (e.expiresAt && now > e.expiresAt) continue;
+        result.push({
+          token_prefix: t.slice(0, 8) + '...',
+          scopes: [...e.scopes],
+          expires_at: e.expiresAt ? new Date(e.expiresAt).toISOString() : null,
+          label: e.label,
+        });
+      }
+      return result;
+    },
+
+    // True when an auth entry carries admin (*) or admin scope.
+    isAdmin(entry) {
+      return !!(entry?.scopes?.has('*') || entry?.scopes?.has('admin'));
+    },
+  };
+}

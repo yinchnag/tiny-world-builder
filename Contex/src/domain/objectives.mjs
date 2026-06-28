@@ -8,7 +8,8 @@ import { newObjectiveId } from '../ids.mjs';
 import { nowIso, audit, parseJson } from '../store.mjs';
 import { err } from '../errors.mjs';
 
-export function setObjective(db, { tile_id, markdown = '', rules = null, generated_by = null, workspace_id = null }, { clock } = {}) {
+export function setObjective(db, { tile_id, markdown = '', rules = null, generated_by = null, workspace_id = null }, opts = {}) {
+  const { clock, correlation_id } = opts;
   if (!tile_id) throw err.badRequest('tile_id is required');
   const version = latestVersion(db, tile_id) + 1;
   const ts = nowIso(clock);
@@ -18,7 +19,8 @@ export function setObjective(db, { tile_id, markdown = '', rules = null, generat
   ).run(newObjectiveId(), workspace_id, tile_id, version, markdown, rules ? JSON.stringify(rules) : null, generated_by, ts);
   audit(db, {
     workspace_id, actor_type: 'canvas', tile_id, event_type: 'objective_updated',
-    entity_type: 'objective', entity_id: tile_id, payload: { version }, created_at: ts,
+    entity_type: 'objective', entity_id: tile_id,
+    correlation_id: correlation_id ?? null, payload: { version }, created_at: ts,
   });
   return getObjective(db, tile_id);
 }

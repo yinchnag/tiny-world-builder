@@ -8,8 +8,9 @@
 
 Design docs live alongside this file (`README.md`, `ARCHITECTURE.md`,
 `FUNCTIONAL_SPEC.md`, `TILE_AND_EXTENSION_MODEL.md`, `DEVELOPMENT_PLAN.md`,
-`EVIDENCE.md`, `HISTORICAL_TIMELINE.md`). Implementation is under `src/`, tests
-under `test/`.
+`EVIDENCE.md`, `HISTORICAL_TIMELINE.md`). Agent UI follow-up plan:
+[`AGENT_PLATFORM_UI_UPGRADE.md`](./AGENT_PLATFORM_UI_UPGRADE.md). Implementation
+is under `src/`, tests under `test/`.
 
 ## Scope decision (2026-06-26)
 
@@ -57,6 +58,10 @@ Data dir resolves to `%LOCALAPPDATA%/CodeSurf/workspaces` (win) or
 - [x] **M3 — generic tile host** (type registry, serialization, unknown-type preservation, error boundary, badges, minimize/pin, focus order)
 - [x] **M4 — Contex launcher + MCP client** (supervisor, MCP Streamable-HTTP client, connection orchestrator, link mirror, command-bus drain, status/events to browser)
 - [x] **M5 — terminal tile** (real process per tile, env injection, live stream, stdin; command-bus consumer; `.mcp.json` auto-discovery; **real PTY via optional node-pty** + Electron shell)
+- [x] **Phase 7 increment — objective / skill / context controls** (Tile context panel + Contex context-tool proxy; full skill discovery and objective history still pending)
+- [x] **Agent Platform Upgrade Phase 3 — generic Codex runtime adapter** (`agent-runtime-codex.mjs`, profile/role/model/system prompt env, legacy bridge compatibility, Contex `agent_*` tools)
+- [x] **Agent Platform Upgrade Phase 4 — Create Agent UI** (`+ Agent` dialog, Agent tile type, codex runtime path endpoint, per-Agent env/profile/autostart wiring)
+- [x] **Agent Platform UI follow-up** (`AGENT_PLATFORM_UI_UPGRADE.md`: Phase A timeline panels, Phase B human handoff, Phase C action menus, Phase D workflow presets, and Phase E link semantics shipped)
 
 ## M1 — workspace store + shell (this session)
 
@@ -435,15 +440,341 @@ built. Commits: chat-demo = `afa5f9f`, claude-bridge (接真 Claude, 不再是�
 `080e91f`. Branch `codex/contex-codesurf-development` pushed to the `fork` remote
 (yinchnag) through `080e91f`; not pushed to `origin` (upstream jasonkneen).
 
+## Phase 7 increment — objective / skill / context controls (this session)
+
+CodeSurf now has the first usable slice of the historical Phase 7 plan: per-Tile
+context editing through Contex.
+
+- **Server proxy** (`src/server.mjs`): added loopback endpoints under
+  `/api/contex/context/:tileId` that call Contex's existing `get_context`,
+  `set_objective`, `set_skill`, `add_context_attachment`, and
+  `reload_objective` tools. If CodeSurf is running canvas-only, these endpoints
+  return `503 CODESURF_NO_CONTEX`.
+- **Canvas UI** (`public/index.html`, `public/canvas.js`, `public/style.css`):
+  every Tile header now has an accessible Context button (`◫`). It opens a
+  modal panel for objective markdown, skill enable/disable, context attachments,
+  refresh, and reload acknowledgement. Offline mode is explicit: Contex is not
+  started, but the local canvas still works.
+- **Notifications**: `objective_reload_required` Contex notifications flash the
+  affected Tile and update the status line.
+- **Tests**: server tests cover the new proxy endpoints and no-Contex 503 path;
+  browser smoke covers the Context button, offline fallback copy, and Escape
+  close behavior.
+
+Full notes and remaining Phase 7 scope are in
+[`PHASE7_OBJECTIVE_SKILL_CONTEXT.md`](PHASE7_OBJECTIVE_SKILL_CONTEXT.md).
+
+## Phase 8 increment — status / tasks / file claims (this session)
+
+CodeSurf now has the first usable Phase 8 status surface without changing the
+Contex backend.
+
+- **Server proxy** (`src/server.mjs`): added `/api/contex/status-view` to gather
+  peers, tasks, and file claims via Contex MCP (`list_peers`, `list_tasks`,
+  `list_file_claims`) with partial-failure reporting so one unavailable tool
+  does not blank the panel. Added task status updates and file-claim release
+  endpoints (`update_task`, `release_file_claim`).
+- **Status Tile** (`public/tiles.mjs`, `public/canvas.js`, `public/style.css`):
+  the built-in Status tile now renders a compact workspace overview: active and
+  blocked tasks, conflict/stale file claims, focus-source buttons, Done/Block
+  task actions, release-claim actions, manual refresh, and explicit offline
+  behavior when Contex is not started.
+- **Notifications**: task/claim/conflict notifications refresh status tiles;
+  human-attention notifications also refresh the status view and flash the
+  affected Tile.
+- **Tests**: server tests cover no-Contex 503, status-view aggregation,
+  partial tool failures, task transitions, and claim release. Browser smoke has
+  offline Status tile checks, but this environment skipped the harness because
+  Playwright is not installed.
+
+## Phase 9 increment — Browser and Document tiles (this session)
+
+CodeSurf now has usable Browser and Document tiles without adding runtime
+dependencies or changing Contex.
+
+- **Browser Tile** (`public/tiles.mjs`, `public/canvas.js`, `public/style.css`):
+  added local URL entry, iframe preview, reload, compact console/status line,
+  finding capture, local finding history, and "send finding" to linked agents
+  through the existing Contex chat/message proxy. It stays useful offline by
+  saving findings locally when Contex is not started.
+- **Document Tile** (`public/tiles.mjs`, `public/canvas.js`, `public/style.css`):
+  added Markdown editing/preview, Objective/Spec/Plan presets, repository file
+  path loading, comments, revision count/history storage, and "send selection"
+  to linked agents.
+- **Server proxy** (`src/server.mjs`): added
+  `/api/workspaces/:id/file?path=...` for repository-relative text file loading,
+  with absolute-path and `..` escape rejection. Also made `/favicon.ico` quiet
+  so embedded local previews do not create console-noise.
+- **Tests**: server tests cover repository file loading and path containment;
+  browser smoke covers local Browser preview, finding storage, Document presets,
+  comments, repo-file load, and Markdown preview.
+
+## Phase 10 increment — Git and worktree visibility (this session)
+
+CodeSurf now has a low-risk Git/worktree surface for parallel-agent isolation.
+
+- **Git backend** (`src/git.mjs`, `src/server.mjs`): added zero-dependency Git
+  CLI wrappers for branch/status/diff/worktree inspection plus explicit
+  `git worktree add -b ...` creation. Stage, commit, push, and PR operations are
+  intentionally not implemented in this slice.
+- **Git Tile** (`public/tiles.mjs`, `public/canvas.js`, `public/style.css`):
+  added a compact Git tile that shows the current branch, protected-branch
+  warning (`main`/`master`/`production`), dirty file list, worktree list, manual
+  refresh, and a worktree creation form.
+- **Terminal groundwork** (`public/canvas.js`): terminal process start now uses
+  `tile.data.cwd || workspace.repositoryPath`, preserving current behavior while
+  allowing future assignment to a worktree path.
+- **Tests**: server tests cover Git status, protected main detection, dirty
+  files, explicit worktree creation, worktree listing, and rejection of relative
+  worktree paths. Browser smoke covers Git tile branch/warning/dirty-file UI.
+
+## Phase 11 increment — Workspace Memory proposal + tile (this session)
+
+CodeSurf now has the first usable Workspace Memory surface: evidence-backed,
+redacted, user-reviewable memory proposals persisted with the workspace.
+
+- **Memory store** (`src/store.mjs`): each workspace can persist `memory.json`
+  with generated memory, user-pinned facts, correction markers, and stale
+  markers. Workspace export now includes sanitized memory.
+- **Memory generator** (`src/memory.mjs`, `src/server.mjs`): added proposal
+  generation from workspace metadata, canvas layout, Git branch/dirty files,
+  optional Contex tasks/file claims, and user pins/markers. Secret-like keys and
+  token-shaped string values are redacted before being returned or persisted.
+- **Memory Tile** (`public/tiles.mjs`, `public/canvas.js`, `public/style.css`):
+  added a Memory tile that generates proposals, shows evidence chips, accepts
+  proposals, adds pinned durable facts, and records correction/stale notes. A
+  user can reject a proposal simply by not accepting it.
+- **Tests**: server tests cover redaction, proposal generation, persistence,
+  pins, stale markers, and accept/readback. Browser smoke covers proposal
+  generation, evidence display, pinned facts, stale markers, and acceptance.
+
+## Agent Platform Upgrade Phase 3 — generic Codex runtime adapter (this session)
+
+CodeSurf now has a profile-aware Codex runtime adapter for Contex Agent Platform
+workflows.
+
+- **Runtime adapter** (`scripts/agent-runtime-codex.mjs`, new): registers through
+  Contex's Phase-2 `agent_register`, updates state with `agent_update_state`,
+  polls `agent_read_messages`, invokes `codex exec`, and replies with
+  `agent_send_message`.
+- **Profile/env support**: accepts `AGENT_ID`, `AGENT_TILE_ID`,
+  `AGENT_PROFILE_JSON`, `AGENT_ROLE`, `AGENT_MODEL`, `AGENT_SYSTEM_PROMPT`,
+  and `AGENT_CWD`. Legacy `CARD_ID` and `CODEX_CHAT_MODEL` still work.
+- **Compatibility entry** (`scripts/codex-chat-agent.mjs`): kept as the old
+  command path, now a thin forwarder to the generic runtime.
+- **Tests** (`test/agent-runtime-codex.test.mjs`, new): covers legacy env
+  compatibility, profile/env override precedence, Codex prompt assembly, and the
+  message-handling path through `agent_update_state` / `agent_send_message`.
+- **Shared tooling note**: Playwright is local at `/Users/sking/codeSurf` rather
+  than global; use `npm --prefix /Users/sking/codeSurf exec playwright -- ...`
+  when browser checks need it.
+
+**Tests: 83 passing** (`npm --prefix CodeSurf test`).
+
+## Agent Platform Upgrade Phase 4 — Create Agent UI (this session)
+
+CodeSurf can now create Agent tiles directly from the toolbar.
+
+- **Create Agent dialog** (`public/index.html`, `public/canvas.js`,
+  `public/style.css`): captures runtime, role, model, system prompt, working
+  directory, capabilities, command, and auto-start.
+- **Agent tile type** (`public/tiles.mjs`): new `agent` tile renders a compact
+  role/runtime/model strip above the existing terminal runtime controls, so it
+  can start/stop and stream like a terminal while reading as an Agent in the
+  canvas.
+- **Runtime path endpoint** (`src/server.mjs`): `GET /api/agent-runtimes/codex`
+  returns the actual local Node command + `agent-runtime-codex.mjs` path without
+  exposing Contex tokens.
+- **Per-Agent env** (`src/server.mjs`, terminal start): terminal start accepts
+  `env`, so generated Agent tiles can pass `AGENT_ID`, `AGENT_TILE_ID`,
+  `AGENT_ROLE`, `AGENT_MODEL`, `AGENT_SYSTEM_PROMPT`, `AGENT_CWD`, and
+  `AGENT_PROFILE_JSON` to the runtime.
+- **Tests**: server endpoint coverage, terminal env injection, registry coverage
+  for the Agent tile, plus a Playwright smoke using the local
+  `/Users/sking/codeSurf` install to create an Agent tile and verify saved
+  profile/env data.
+
+**Tests: 85 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright 1.61.1 from `/Users/sking/codeSurf`; verified
+`+ Agent` creates a persisted `agent` tile with `agent-runtime-codex.mjs`,
+`AGENT_PROFILE_JSON`, role `reviewer`, and model `gpt-test`.
+
+## Agent runtime human handoff (this session)
+
+`CodeSurf/scripts/agent-runtime-codex.mjs` now supports the Contex
+`agent_request_human_input` flow:
+
+- The default Codex runtime prompt tells the model to output
+  `HUMAN_ATTENTION: <question>` when it needs human permission, credentials,
+  destructive approval, or a major product decision.
+- The runtime parses `HUMAN_ATTENTION:` and
+  `HUMAN_ATTENTION[permission]:` markers.
+- When detected, it calls Contex `agent_request_human_input`, optionally reports
+  upstream that it is waiting for human input, and does not send the marker as a
+  normal Agent reply.
+- Tests cover marker parsing and runtime escalation behavior.
+
+This keeps Agent processes independent while giving CodeSurf/Contex a crisp
+human-control boundary.
+
+## Agent Platform UI Phase A — Timeline panels (this session)
+
+CodeSurf now has the first visible Agent observability slice from
+`AGENT_PLATFORM_UI_UPGRADE.md`.
+
+- **Timeline API proxy** (`src/server.mjs`): `GET /api/contex/timeline` calls
+  Contex `get_workspace_timeline`; `GET /api/contex/timeline/:tileId` calls
+  `get_agent_timeline`. Both preserve the normalized `events[]` shape for the UI
+  and return 503 cleanly when Contex is not connected.
+- **Agent tile activity** (`public/tiles.mjs`, `public/canvas.js`,
+  `public/style.css`): Agent tiles now include an Activity section showing recent
+  status/message/task/link/notification events with focus buttons back to the
+  related tile.
+- **Workspace activity feed** (`public/index.html`, `public/canvas.js`,
+  `public/style.css`): the canvas has a compact Agent Activity feed that refreshes
+  on Contex connection and relevant SSE notifications.
+- **Tests**: server coverage for workspace and Agent timeline proxy calls, plus
+  registry coverage that the Agent tile renders its timeline shell.
+
+**Tests: 89 passing** (`npm --prefix CodeSurf test`).
+
+## Agent Platform UI Phase B — Human Handoff panel (this session)
+
+CodeSurf now makes Contex `human_attention` actionable in the canvas.
+
+- **Human attention API proxy** (`src/server.mjs`): `GET
+  /api/contex/human-attention` lists blocked/waiting Agents via Contex
+  `agent_list`. `POST /api/contex/human-attention/:tileId/reply|reject|handled`
+  routes replies with `agent_send_message` when possible and updates Agent state
+  through `agent_update_state`.
+- **Pending attention feed** (`public/index.html`, `public/canvas.js`,
+  `public/style.css`): the right-side Agent Activity panel now includes a Human
+  Attention section with pending requests, focus, refresh, and mark-handled
+  controls.
+- **Agent tile handoff banner** (`public/tiles.mjs`, `public/canvas.js`,
+  `public/style.css`): Agent tiles show a waiting/blocked banner with the
+  blocker/question, reply textarea, Reply and continue, Reject, and Mark handled.
+- **Notifications**: `human_attention` and `agent_state_changed` notifications
+  refresh pending attention, status tiles, and timelines without a page reload.
+- **Tests**: server tests cover listing blocked/waiting Agents and the three
+  handoff actions; tile registry tests cover the handoff shell; browser smoke
+  remains green.
+
+**Tests: 90 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright from `/Users/sking/codeSurf`; 109/109 checks
+passing (`NODE_PATH=/Users/sking/codeSurf/node_modules npm --prefix CodeSurf run
+smoke:browser`).
+
+## Agent Platform UI Phase C — Agent collaboration actions (this session)
+
+CodeSurf now exposes the core Contex Agent collaboration tools through the Agent
+tile UI.
+
+- **Agent action proxy** (`src/server.mjs`): added
+  `/api/contex/agent-actions/:tileId/:action` for `claim`, `complete`,
+  `handoff`, `report`, and `broadcast`, mapping to Contex `agent_claim_task`,
+  `agent_complete_task`, `agent_request_handoff`, `agent_report`, and
+  `agent_broadcast`.
+- **Agent tile Actions panel** (`public/tiles.mjs`, `public/canvas.js`,
+  `public/style.css`): Agent tiles now include a compact collapsible Actions
+  panel with task id, target Agent id, broadcast role, message/result text, and
+  action buttons.
+- **Runtime behavior**: actions display success/failure in the tile, surface
+  Contex policy errors as warnings, and refresh status views, timelines, and
+  pending human attention after completion.
+- **Tests**: server tests cover all five action endpoints and expected tool
+  arguments; tile registry tests cover the Actions shell; browser smoke remains
+  green.
+
+**Tests: 91 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright from `/Users/sking/codeSurf`; 109/109 checks
+passing (`NODE_PATH=/Users/sking/codeSurf/node_modules npm --prefix CodeSurf run
+smoke:browser`).
+
+## Agent Platform UI Phase D — Workflow presets (this session)
+
+CodeSurf can now create common multi-Agent workflow layouts from the toolbar.
+
+- **Workflow entrypoint** (`public/index.html`, `public/canvas.js`): added a
+  `Workflow` button beside `+ Agent` and a preset dialog. Auto-start is off by
+  default.
+- **Presets** (`public/canvas.js`): added Coordinator → Worker → Reviewer,
+  Planner → Worker A / Worker B → Reviewer, and Human Chat → Coordinator →
+  Worker → Reviewer → Human Chat.
+- **Agent defaults** (`public/canvas.js`): extracted Agent tile/profile/env
+  creation into a shared helper so manual `+ Agent` and workflow presets use the
+  same runtime/profile shape.
+- **Links** (`public/canvas.js`, `src/server.mjs`): preset links are directed
+  and carry a `kind` such as `controls`, `handoff`, or `reports_to`; Contex
+  mirroring now forwards that kind.
+- **Tests**: browser smoke covers the Workflow dialog, no-auto-start default,
+  three-Agent preset creation, directed links, role titles, and persisted
+  `autostart=false` profile data.
+
+**Tests: 91 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright from `/Users/sking/codeSurf`; 115/115 checks
+passing (`NODE_PATH=/Users/sking/codeSurf/node_modules npm --prefix CodeSurf run
+smoke:browser`).
+
+## Agent Platform UI Phase E — Link semantics polish (this session)
+
+- **Link controls** (`public/index.html`, `public/canvas.js`): manual port-drag
+  links now use toolbar-selected `kind` and directed/undirected settings.
+- **Visual semantics** (`public/canvas.js`, `public/style.css`): links render
+  arrowheads, midpoint labels, kind-specific styling, and visible sync-failure
+  state while preserving local links.
+- **Contex mirror** (`public/canvas.js`, `src/server.mjs`): link POST now mirrors
+  `kind` and `directed`; failed POSTs mark the local link as sync failed instead
+  of losing the user's canvas intent.
+- **Workflow carry-through** (`public/canvas.js`, `scripts/browser-smoke.mjs`):
+  preset links show controls/handoff/reports-to labels, so generated Agent chains
+  are readable directly on the canvas.
+- **Tests**: server tests assert semantic link forwarding; browser smoke covers
+  manual semantic link labels and workflow semantic labels.
+
+**Tests: 91 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright from `/Users/sking/codeSurf`; 117/117 checks
+passing (`NODE_PATH=/Users/sking/codeSurf/node_modules npm --prefix CodeSurf run
+smoke:browser`).
+
 ## Next session
 
-Phase 6 stretch (unread badges / human-attention polish) or **Phase 8** (status
-tile + task board + file-claim/conflict overlays — Contex tasks/claims backend
-ready), or polish (`--pty` default, command-arg quoting, project-trust prompt,
-packaged `.exe`). Run a real agent process inside a tile: a PTY (or
-piped child as a zero-dep fallback) backend, xterm-style output in the tile body,
-inject `CARD_ID` = tile id + the Contex url/token so the agent self-registers via
-the MANDATORY `.claude/CLAUDE.md` protocol, process start/stop/restart, and the
-`terminal_send_input` consumer path (already gated by the `terminal_input`
-capability the registry advertises). This is where Electron may re-enter for a
-real PTY; evaluate a zero-dep child-process fallback first.
+## Live Contex validation polish (this session)
+
+The first real CodeSurf + Contex linked run exposed three integration gaps, now
+closed:
+
+- **Status view compatibility** (`src/server.mjs`): `/api/contex/status-view`
+  falls back from `list_peers` to `agent_list` when connected to a Contex build
+  that only exposes the semantic Agent API. Handoff/report actions now omit empty
+  `task_id` fields so pure Agent messages do not become accidental task writes.
+- **Real status lifecycle**: live Agents must follow `idle -> working -> done`;
+  the runtime already does this for message handling, and tests now cover the
+  real proxy/fallback path that surfaced during validation.
+- **Tests**: CodeSurf server coverage includes the `agent_list` fallback.
+
+**Tests: 92 passing** (`npm --prefix CodeSurf test`).
+
+**Browser smoke:** local Playwright from `/Users/sking/codeSurf`; 117/117 checks
+passing (`NODE_PATH=/Users/sking/codeSurf/node_modules npm --prefix CodeSurf run
+smoke:browser`).
+
+## Next session
+
+Natural next step: deeper live QA against long-running real Agents. Recommended
+files:
+
+```text
+CodeSurf/public/canvas.js
+CodeSurf/src/server.mjs
+CodeSurf/test/server-contex.test.mjs
+CodeSurf/scripts/browser-smoke.mjs
+```
+
+Focus: run longer workflows with real Codex/Claude runtimes, task creation,
+human attention, and file claims active at the same time.
