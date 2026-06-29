@@ -424,7 +424,7 @@ message.rejected      运行期类型拒投   必填 edgeId（payload: {reason}�
 底层设计文档集（00/10/20/30/GUIDE）已全部成稿，愿景文档已收敛进 `docs/vision/`。后续：
 
 1. **评审定稿** —— 确认本文 §2/§4/§5/§6 四处基线，以及 10/20/30 的逐模块设计。
-2. **进入 F-guard 阶段**（GUIDE §10）：搭 monorepo 脚手架（workspaces + Vite + TS）+ 护栏（ESLint 边界/体积 + 契约自校验 + Vitest），护栏先于代码。
+2. **进入 F-guard 阶段**（GUIDE §10）：搭 monorepo 脚手架（pnpm workspaces + Vite + TS，设定基线见 30 §7）+ 护栏（ESLint 边界/体积 + 契约自校验 + Vitest），护栏先于代码。
 3. **F0**：在护栏之内写 `core/`，再依次 F1–F3（runtime）、F4–F6（editor）。
 
 > 评审请重点确认：§2 共享 `core` 的边界、§4 模块分解与 LOC 预算、§5 规范数据结构的字段命名、§6 依赖红线。这四处是 10/20/30/GUIDE 的不可动摇基线。

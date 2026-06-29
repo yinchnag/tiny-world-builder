@@ -113,7 +113,7 @@ function project(ev, state) { ... }
 ## 5. 目录与命名规范
 
 ```text
-blueprint-runtime/            （pnpm/npm workspaces monorepo）
+blueprint-runtime/            （pnpm workspaces monorepo · 三包 @blueprint/{core,runtime,editor} + tools，见 30 §7）
   core/        共享 TS 包（types/ graph/ contracts/ state/ validate.ts）
   runtime/     后端 TS（kernel/ persist/ engine/ mcp/ cross/）
   editor/      前端 React+Vite（src/{app,graph,state,nodes,inspector,sync,workspace,lib}）
@@ -158,7 +158,7 @@ blueprint-runtime/            （pnpm/npm workspaces monorepo）
 - 纯函数（投影、校验、状态机、命令、连接校验）必须 100% 分支覆盖意图。
 - 集成层（persist/sqlite、mcp 往返）用内存库/本地 server 跑端到端冒烟。
 - 前端端到端冒烟用 **Playwright**：覆盖「连线类型校验」「SSE 高亮」等关键流。
-- **回归基线**：每阶段结束跑 `npm test`（Vitest 全包）+ `npm run check`（护栏）+ 一条端到端冒烟，全绿才算完成。
+- **回归基线**：每阶段结束跑 `pnpm test`（Vitest 全包）+ `pnpm check`（护栏）+ 一条端到端冒烟，全绿才算完成。
 
 ---
 
@@ -179,7 +179,7 @@ blueprint-runtime/            （pnpm/npm workspaces monorepo）
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
-| **F-guard** | monorepo 脚手架 + 护栏（ESLint 边界/体积/注释 + 契约自校验 + 测试镜像 + Vitest）（见 30-guardrails） | 空骨架 `npm run check`/`npm test` 全绿；故意违规夹具被逐项拦下 |
+| **F-guard** | monorepo 脚手架 + 护栏（ESLint 边界/体积/注释 + 契约自校验 + 测试镜像 + Vitest）（见 30-guardrails） | 空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下 |
 | **F0 · core** | `core/` 全部模块：types/graph/contracts/state/validate（00 §4/§5） | 同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例 |
 | **F1 · runtime L0+L3** | 内核 + 事件溯源持久化（event-log/sqlite-adapter/projections/snapshot） | 事件重放与快照重建一致性测通过 |
 | **F2 · runtime L4** | 引擎：node-machine/message-bus/edge-policy/scheduler | 喂事件序列断言状态机/总线/运行期校验 |
@@ -203,7 +203,7 @@ blueprint-runtime/            （pnpm/npm workspaces monorepo）
 - [ ] import 仅指向更低层 / `core/`？无跨层向上、无前后端直连？
 - [ ] 类型/连接判断走 `core/validate`，没另写一份？
 - [ ] 新增依赖已登记+理由？`core/` 没碰 `node:*`/浏览器 API？
-- [ ] 配套测试齐全且全绿？回归基线（`npm test` + `npm run check` + 冒烟）通过？
+- [ ] 配套测试齐全且全绿？回归基线（`pnpm test` + `pnpm check` + 冒烟）通过？
 - [ ] 属于当前阶段（先地基后功能），没越界写功能？
 
 > 本指导与架构文档（00/10/20/30）共同构成不可动摇基线。基线变更须先改文档、经评审，再改代码。

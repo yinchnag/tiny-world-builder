@@ -30,13 +30,13 @@
 ## 2. 三种执行形态
 
 ```text
-   npm run lint   ──►  ESLint flat config  ──►  G1 G2 G5      （AST 静态分析，精确）
-   npm test       ──►  Vitest              ──►  G4 G6(覆盖率) （断言 + 覆盖率门槛）
-   npm run check  ──►  tools/guard/*.ts    ──►  G4 G6(镜像)   （契约元校验 + 测试镜像存在性）
+   pnpm lint   ──►  ESLint flat config  ──►  G1 G2 G5      （AST 静态分析，精确）
+   pnpm test   ──►  Vitest              ──►  G4 G6(覆盖率) （断言 + 覆盖率门槛）
+   pnpm check  ──►  tools/guard/*.ts    ──►  G4 G6(镜像)   （契约元校验 + 测试镜像存在性）
                           └─ 聚合上面三者，任一失败即退出非 0（CI 红）
 ```
 
-- `npm run check` 是总入口：跑 `lint` + `test` + 自写镜像/契约检查，统一退出码。
+- `pnpm check` 是总入口：跑 `lint` + `test` + 自写镜像/契约检查，统一退出码。
 - **G4 双保险**：契约元校验既在 `core/contracts` 注册时实时跑（写错当场炸），又有 Vitest 用例离线兜底。
 
 ---
@@ -184,10 +184,20 @@ ESLint/Vitest 原生输出已可点击定位（file:line + rule id）。自写�
 
 护栏先于第一行业务代码存在。F-guard 是 GUIDE §10 的第一个阶段。
 
-**交付物**：monorepo 脚手架（workspaces + Vite + TS 配置）+ `eslint.config.ts` + `vitest.config.ts` + `tools/guard/*` + `npm run check` 脚本。
+**设定基线**（2026-06-29 定；开工前不可再随意改，变更走 execution/00 §3 停-问）：
+
+| 项 | 取定 |
+| --- | --- |
+| 包管理器 | **pnpm** workspaces（`pnpm-workspace.yaml` 列 `core/runtime/editor/tools`） |
+| 包结构 | 三个独立包 `@blueprint/core` · `@blueprint/runtime` · `@blueprint/editor` + `tools/`；`editor` 与 `runtime` **互不列为依赖**（前后端不直连 = package 级硬墙），二者均依赖 `@blueprint/core` |
+| Node | **24 LTS**；根 `package.json` 加 `engines.node>=24`，仓库加 `.nvmrc=24`（`node:sqlite` 在 24 更稳） |
+| 模块/构建 | ESM（`"type":"module"`）；后端 TS 用 **tsx** 直跑、**vitest** 测、**tsc --noEmit** 仅类型检查；前端用 Vite |
+| 脚本 | 根 `pnpm check` = `eslint .` + `vitest run` + `node tools/guard/check`；`pnpm test` = vitest；`pnpm -r` 贯穿各包 |
+
+**交付物**：pnpm monorepo 脚手架（`pnpm-workspace.yaml` + 各包 `package.json` + 共享 `tsconfig` + 前端 Vite 配置）+ `eslint.config.ts` + `vitest.config.ts` + `tools/guard/*` + `pnpm check` 脚本。
 
 **验收**：
-1. 空骨架仓库 `npm run check`（lint+test+镜像）全绿、无误报。
+1. 空骨架仓库 `pnpm check`（lint+test+镜像）全绿、无误报。
 2. 一组**故意违规夹具**逐项被对应护栏红灯拦下（无漏报）：向上 import、跨前后端 import、`core/` 引 `node:*`、600 行文件、137 行函数、坏契约、缺测试、裸导出无 JSDoc。
 3. `validateContract` 对坏契约在 `register()` 时即抛 `contract.invalid`。
 
@@ -207,7 +217,7 @@ ESLint/Vitest 原生输出已可点击定位（file:line + rule id）。自写�
 - G6 覆盖率门槛起步定多少（80%？分层差异化：`core`/纯逻辑更高，UI 组件略低？）。
 - G5 是否进一步要求"导出函数注释含流程说明段"，还是只查 `@param/@returns` 存在？
 - 依赖白名单登记放 `package.json` 注释、独立 `DEPENDENCIES.md`、还是 ESLint 自定义规则强检？
-- 是否加**可选** git pre-commit hook 跑 `npm run check`（默认不强加，尊重本地工作流）。
+- 是否加**可选** git pre-commit hook 跑 `pnpm check`（默认不强加，尊重本地工作流）。
 
 > 本文与 GUIDE 已对齐。下一步：进入 **F-guard** 实现（搭 monorepo + 护栏），再到 **F0** 写 `core/`。
 </content>

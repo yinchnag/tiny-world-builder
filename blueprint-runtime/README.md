@@ -14,7 +14,7 @@ Contex   = 「图运行时」+ 消息总线 + 状态机 + 策略层 + 审计日�
 - 共享 `core/`：**TypeScript** 纯模型包（节点契约 / 端口类型 / 边 / 校验），前后端各自 import，编辑期与运行期共用同一套类型判定。
 - 后端 `runtime/`：**TypeScript（Node）**，事件溯源 + 状态机 + 类型化消息总线 + MCP。
 - 前端 `editor/`：**React + Vite + [xyflow](https://reactflow.dev) + TypeScript + Zustand**。
-- 测试 **Vitest**；护栏 **ESLint**（架构边界 / 体积）+ 契约自校验；monorepo（workspaces）。
+- 测试 **Vitest**；护栏 **ESLint**（架构边界 / 体积）+ 契约自校验；monorepo（**pnpm** workspaces，设定基线见 `docs/architecture/30-guardrails.md` §7）。
 - 依赖白名单制（登记 + 理由），非绝对零依赖。
 
 ## 从这里开始（设计文档）

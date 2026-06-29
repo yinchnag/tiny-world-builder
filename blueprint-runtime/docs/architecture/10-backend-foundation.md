@@ -269,7 +269,7 @@ append('message.delivered'{edgeId}) → sse 推送
 | L5 Protocol | 中间件链组合测 + 起本地 server 跑 JSON-RPC 往返 |
 | 横切 | audit 视图查询测、脱敏测 |
 
-**框架**：Vitest（node 环境）。**回归基线**：`npm test`（后端全量）+ `npm run check`（护栏）+ 一条「工具调用→事件→投影→SSE」端到端冒烟。
+**框架**：Vitest（node 环境）。**回归基线**：`pnpm test`（后端全量）+ `pnpm check`（护栏）+ 一条「工具调用→事件→投影→SSE」端到端冒烟。
 
 ---
 

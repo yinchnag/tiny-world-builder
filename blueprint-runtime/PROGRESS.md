@@ -29,7 +29,7 @@
 
 ## 地基建造（按依赖顺序）
 
-- [ ] **F-guard** — monorepo 脚手架 + 护栏（ESLint + 契约自校验 + Vitest）。验收：空骨架 `npm run check`/`npm test` 全绿；故意违规夹具被逐项拦下。
+- [ ] **F-guard** — monorepo 脚手架 + 护栏（ESLint + 契约自校验 + Vitest）。验收：空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下。
 - [ ] **F0 · core/** — types/graph/contracts/state/validate。验收：同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例。
 - [ ] **F1 · runtime 内核+持久化** — kernel + 事件溯源（event-log/sqlite/projections/snapshot）。验收：重放与快照重建一致。
 - [ ] **F2 · runtime 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
@@ -57,5 +57,6 @@
 
 - 早期散落在 `CodeSurf/`、`Contex/` 下的 14 份重复蓝图文档已删除；本目录 `blueprint-runtime/` 是唯一权威。
 - 2026-06-29 边界检查：跨 MCP/SSE 线的**共享词表**归位 00 §5.6（事件类型）/§5.7（拒绝+契约码），常量落 `core/events.ts`；后端**私有接缝接口**+阶段内建造顺序+每模块完工定义补入 10 §10/§11；前端 `RuntimeAdapter` 接缝补入 20 §4；阈值改以 30 §G2 为唯一权威（GUIDE §3 降级为镜像）；vision/ 各篇加「形状以 00 §5 为准」横幅。
+- 2026-06-29 入口接线 + F-guard 设定基线：新增 `blueprint-runtime/CLAUDE.md`（agent 工作入口，先读 execution/00 + testing/00）；F-guard 四项设定定稿落 30 §7——**pnpm** workspaces · **Node 24 LTS** · 三包 `@blueprint/{core,runtime,editor}` + tools · **ESM**(tsx + vitest + tsc)。文档内 `npm run` 命令统一改 `pnpm`。
 - 愿景文档（`docs/vision/`）部分实现建议（如「static JS metadata」「零依赖」）早于技术栈决定，已被 `docs/architecture/` 取代——以架构文档为准。
 </content>
