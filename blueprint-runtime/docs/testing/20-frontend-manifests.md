@@ -22,3 +22,4 @@ sync/mirror.ts, sync/sse.ts            镜像与事件应用（mock adapter）
 ## 复用黄金夹具
 
 > 前端连接校验用例**直接复用** testing/00 §3 黄金夹具的 E1（正）/ X1–X3（负），与后端 `message-bus` 同一份夹具——这正是「编辑期与运行期同一函数」（00 §2.2）的验收对照。
+> editor 支可与 runtime 并行（GUIDE §10）；集成前所有 sync 测试对 **mock adapter + 冻结契约** 编码，真集成测试归 Fx 阶段。

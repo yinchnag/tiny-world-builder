@@ -171,24 +171,42 @@ blueprint-runtime/            （pnpm workspaces monorepo · 三包 @blueprint/{
 
 ---
 
-## 10. 开发阶段顺序（先地基后功能）
+## 10. 开发阶段顺序（先地基后功能 · DAG 非直线）
 
-按依赖顺序推进，**每阶段验收全绿再进下一阶段**。先建护栏（F-guard），再地基 F0–F6，之后才是功能阶段。
+地基不是一条直线，而是一张**依赖图（DAG）**：护栏先行，`core/` 居中，之后 **runtime 支与 editor 支并行**，最后汇到集成。**沿依赖推进，每阶段验收全绿才解锁其下游**；无依赖关系的两支可由不同人/agent 并行。
+
+```text
+F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─► F3   (runtime 支)
+                                     └─► F4 ─► F5 ─► F6   (editor 支，对 mock 编码)
+                                                  └────────┬───────┘
+                                                       ►【Fx 集成】
+```
+
+> **关键**：editor 支只依赖 **F0 + 契约冻结点**，**不**依赖 runtime（前后端不直连，00 §6）——故 F1–F3 与 F4–F6 可并行，不必前端干等后端。
+
+**【契约冻结点】**（F0 之后、两支分叉前必过；之后改动走停-问）——把跨 MCP 线、两支都要照着编码的契约一次性冻结：
+
+- 事件词表 + 共享码表（00 §5.6/§5.7）；
+- MCP 协议封套：JSON-RPC 请求/响应/错误形状、资源 URI 方案 `context://…`、SSE 事件流（10 L5）；
+- 前端 `RuntimeAdapter` 接口（20 §4）+ 共享黄金夹具（testing/00 §3）；
+- 一份**共享契约测试**两支都跑，证明前后端不漂。
+> 此处只冻**协议封套**；具体业务工具（`agent_*`/`task_*`…）属功能阶段（BP）。集成前 editor 支一律对 **mock adapter** 编码。
 
 ### 地基阶段
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | **F-guard** | monorepo 脚手架 + 护栏（ESLint 边界/体积/注释 + 契约自校验 + 测试镜像 + Vitest）（见 30-guardrails） | 空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下 |
-| **F0 · core** | `core/` 全部模块：types/graph/contracts/state/validate（00 §4/§5） | 同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例 |
+| **F0 · core** | `core/` 全部模块：types/graph/contracts/state/validate/events（00 §4/§5） | 同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例；**过契约冻结点** |
 | **F1 · runtime L0+L3** | 内核 + 事件溯源持久化（event-log/sqlite-adapter/projections/snapshot） | 事件重放与快照重建一致性测通过 |
 | **F2 · runtime L4** | 引擎：node-machine/message-bus/edge-policy/scheduler | 喂事件序列断言状态机/总线/运行期校验 |
-| **F3 · runtime L5+横切** | MCP 传输/中间件链/tools 注册表/resources/sse + audit/auth/logger | 本地 server JSON-RPC 往返 + 一条端到端冒烟 |
+| **F3 · runtime L5+横切** | MCP 传输/中间件链/tools 注册表/resources/sse + audit/auth/logger | 本地 server JSON-RPC 往返 + **后端内**端到端冒烟（工具→事件→投影→SSE） |
 | **F4 · editor State+Graph** | Vite/React 脚手架 + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射 | store/命令撤销单测；画布渲染节点/边 |
-| **F5 · editor 连接+Sync** | 连接校验（isValidConnection→core/validate）+ sync 适配器（MCP client/SSE/镜像） | 连线类型校验（含拒绝+原因）；mock adapter 同步流 |
-| **F6 · editor NodeUI+装配** | 节点组件注册表 + 契约驱动检视器 + app 装配 + 工作区加载/保存 | 契约驱动检视器渲染；最小端到端：建节点→连线→镜像→SSE 高亮 |
+| **F5 · editor 连接+Sync** | 连接校验（isValidConnection→core/validate）+ sync 适配器（对**冻结契约**+mock 编码） | 连线类型校验（含拒绝+原因）；mock adapter 同步流 |
+| **F6 · editor NodeUI+装配** | 节点组件注册表 + 契约驱动检视器 + app 装配 + 工作区加载/保存 | 契约驱动检视器渲染；**editor 支自身**端到端（对 mock）：建节点→连线→镜像/SSE 走通 |
+| **Fx · 集成** | 接通**真** runtime ↔ editor：mirror→后端、SSE→前端，跑通全栈 | 跨栈端到端冒烟：建节点→连线(类型校验)→镜像到后端→后端产事件→SSE→前端高亮，全绿 |
 
-> F-guard + F0–F6 完成即「地基就绪」：一个空白但**类型安全、可执行、可观测、可扩展**的图运行时 + 编辑器骨架。
+> F-guard → F0 →（F1–F3 ∥ F4–F6）→ Fx 完成即「地基就绪」：一个空白但**类型安全、可执行、可观测、可扩展**的图运行时 + 编辑器骨架。
 
 ### 功能阶段（地基之上，后续单独设计）
 

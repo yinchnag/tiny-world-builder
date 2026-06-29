@@ -8,6 +8,8 @@
 
 后端阶段内文件拓扑序与每阶段冒烟见 [`../architecture/10-backend-foundation.md`](../architecture/10-backend-foundation.md) §11。**按那张序，逐文件走 00 §2 的六步循环。**
 
+> runtime 支（F1–F3）与 editor 支**可并行**：本支只依赖 F0 + 契约冻结点（GUIDE §10），不依赖 editor。每完成 F1/F2/F3 一个阶段，按 00 §6.1 产出「阶段交接」。
+
 ---
 
 ## 2. 后端专属「必须停-问」

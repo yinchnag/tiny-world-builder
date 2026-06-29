@@ -27,18 +27,29 @@
 - [x] `docs/testing/{00,10}`（测试清单 + 黄金夹具：全局 + 后端）；`20` 占位待 F4
 - [x] 愿景文档收敛进 `docs/vision/`
 
-## 地基建造（按依赖顺序）
+## 地基建造（依赖图 DAG，非直线 —— 详见 GUIDE §10）
+
+```text
+F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─► F3  (runtime 支)
+                                     └─► F4 ─► F5 ─► F6  (editor 支，对 mock)
+                                                  └───────┬──────┘ ►【Fx 集成】
+```
+> editor 支只卡 F0 + 契约冻结点，**可与 runtime 支并行**（前后端不直连）。
 
 - [ ] **F-guard** — monorepo 脚手架 + 护栏（ESLint + 契约自校验 + Vitest）。验收：空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下。
-- [ ] **F0 · core/** — types/graph/contracts/state/validate。验收：同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例。
-- [ ] **F1 · runtime 内核+持久化** — kernel + 事件溯源（event-log/sqlite/projections/snapshot）。验收：重放与快照重建一致。
-- [ ] **F2 · runtime 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
-- [ ] **F3 · runtime 协议+横切** — MCP 传输/中间件链/tools/resources/sse + audit/auth/logger。验收：JSON-RPC 往返 + 端到端冒烟。
-- [ ] **F4 · editor 状态+画布** — Vite/React + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射。验收：store/命令撤销单测；画布渲染节点/边。
-- [ ] **F5 · editor 连接+同步** — isValidConnection→core/validate + sync 适配器(MCP/SSE/镜像)。验收：连线类型校验(含拒绝+原因)；mock adapter 同步流。
-- [ ] **F6 · editor 节点UI+装配** — 节点组件注册表 + 契约驱动检视器 + app 装配 + 工作区加载/保存。验收：最小端到端 建节点→连线→镜像→SSE 高亮。
+- [ ] **F0 · core/** — types/graph/contracts/state/validate/events。验收：同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例。
+- [ ] **【契约冻结点】** — 冻结跨 MCP 线契约：事件词表+码表(00 §5.6/5.7)、MCP 协议封套(JSON-RPC/资源 URI/SSE)、`RuntimeAdapter`(20 §4)、黄金夹具(testing/00)。验收：一份共享契约测试两支都绿。
+- **runtime 支**（可与 editor 支并行）：
+  - [ ] **F1 · 内核+持久化** — kernel + 事件溯源（event-log/sqlite/projections/snapshot）。验收：重放与快照重建一致。
+  - [ ] **F2 · 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
+  - [ ] **F3 · 协议+横切** — MCP 传输/中间件链/tools/resources/sse + audit/auth/logger。验收：JSON-RPC 往返 + 后端内端到端冒烟。
+- **editor 支**（可与 runtime 支并行，对 mock 编码）：
+  - [ ] **F4 · 状态+画布** — Vite/React + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射。验收：store/命令撤销单测；画布渲染节点/边。
+  - [ ] **F5 · 连接+同步** — isValidConnection→core/validate + sync 适配器(对冻结契约+mock)。验收：连线类型校验(含拒绝+原因)；mock adapter 同步流。
+  - [ ] **F6 · 节点UI+装配** — 节点组件注册表 + 契约驱动检视器 + app 装配 + 工作区加载/保存。验收：检视器渲染；editor 自身端到端(对 mock)走通。
+- [ ] **Fx · 集成** — 接通真 runtime↔editor。验收：跨栈端到端 建节点→连线→镜像→后端事件→SSE→前端高亮，全绿。
 
-> F-guard + F0–F6 完成 = 地基就绪：空白但类型安全、可执行、可观测、可扩展的图运行时 + 编辑器骨架。
+> F-guard → F0 →（F1–F3 ∥ F4–F6）→ Fx 完成 = 地基就绪：空白但类型安全、可执行、可观测、可扩展的图运行时 + 编辑器骨架。
 
 ## 功能阶段（地基之上，后续单独设计）
 
@@ -58,5 +69,6 @@
 - 早期散落在 `CodeSurf/`、`Contex/` 下的 14 份重复蓝图文档已删除；本目录 `blueprint-runtime/` 是唯一权威。
 - 2026-06-29 边界检查：跨 MCP/SSE 线的**共享词表**归位 00 §5.6（事件类型）/§5.7（拒绝+契约码），常量落 `core/events.ts`；后端**私有接缝接口**+阶段内建造顺序+每模块完工定义补入 10 §10/§11；前端 `RuntimeAdapter` 接缝补入 20 §4；阈值改以 30 §G2 为唯一权威（GUIDE §3 降级为镜像）；vision/ 各篇加「形状以 00 §5 为准」横幅。
 - 2026-06-29 入口接线 + F-guard 设定基线：新增 `blueprint-runtime/CLAUDE.md`（agent 工作入口，先读 execution/00 + testing/00）；F-guard 四项设定定稿落 30 §7——**pnpm** workspaces · **Node 24 LTS** · 三包 `@blueprint/{core,runtime,editor}` + tools · **ESM**(tsx + vitest + tsc)。文档内 `npm run` 命令统一改 `pnpm`。
+- 2026-06-29 分期改 DAG：阶段从线性改为依赖图——F0 后 runtime 支(F1–F3) ∥ editor 支(F4–F6) 可并行；新增**【契约冻结点】**(F0 后冻结跨 MCP 线契约，解锁 editor 支并行)与**【Fx 集成阶段】**(全栈端到端)；execution/00 增 **§6.1 阶段交接播报**(完成阶段主动告知下一步内容与方向)。详见 GUIDE §10。
 - 愿景文档（`docs/vision/`）部分实现建议（如「static JS metadata」「零依赖」）早于技术栈决定，已被 `docs/architecture/` 取代——以架构文档为准。
 </content>

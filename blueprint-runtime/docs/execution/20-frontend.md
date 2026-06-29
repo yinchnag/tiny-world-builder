@@ -13,6 +13,7 @@
 
 ## 2. 已知骨架（待 F4 展开）
 
+- **依赖与并行**：editor 支只卡 **F0 + 契约冻结点**（GUIDE §10），**可与 runtime（F1–F3）并行**；F5 对 **mock adapter + 冻结的 MCP 协议封套**编码，真集成在 Fx。
 - **建造序**：F4→F5→F6，文件拓扑序见 [`../architecture/20-frontend-foundation.md`](../architecture/20-frontend-foundation.md) §3/§7（届时落进本文 §3）。
 - **前端专属「必须停-问」**（初稿，F4 再定稿）：新增**节点类型** / 新 **lane** / 引入 **UI 组件库** / 改 **xyflow 受控性能策略**。
 - **前端纪律**：禁手写平移/缩放/连线（交给 xyflow）；`graph-store` 单一来源；结构变更必经 `commands`（撤销）；`data.state` 只读缓存，不双写（20 §6）。
