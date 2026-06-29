@@ -126,13 +126,14 @@ C7 runtime 合法：∈ {contex,editor,integration}
 | 导出函数有 JSDoc + `@param`/`@returns` | `eslint-plugin-jsdoc`（`require-jsdoc` + `require-param`/`require-returns`） |
 
 > 局限（诚实）：只能查"有没有"，查不了"好不好"。质量仍靠评审（GUIDE §11）。
+> **已定**：G5 只查存在性（文件头 + `@param`/`@returns`），**不**强检"流程说明段"——流程说明靠评审。
 
 ### G6 · 测试镜像 + 覆盖率（软）
 
 | 检查 | 工具 |
 | --- | --- |
 | 每个 `core|runtime|editor` 源文件有对应 `*.test.ts` | 自写 `tools/guard/mirror.ts`（遍历比对） |
-| 覆盖率门槛（起步 line ≥ 80%，分层可差异化） | Vitest `coverage.thresholds` |
+| 覆盖率门槛（**已定**：全局 line ≥ 80%；`core/` 与纯逻辑（validate/projections/state/machine）≥ 90%；`.tsx` UI 组件 ≥ 70%） | Vitest `coverage.thresholds` |
 
 > 豁免：纯类型/常量文件（无逻辑）可在 `tools/guard/config.ts` 白名单登记免镜像。
 
@@ -161,7 +162,7 @@ core/contracts/
 ## 5. 配置与豁免
 
 - **阈值集中**：ESLint 阈值在 `eslint.config.ts`，镜像/覆盖率阈值在 `tools/guard/config.ts` 与 `vitest.config.ts`。
-- **依赖白名单**：取代 G3。新增 npm 依赖须在 `package.json` + 一处 `DEPENDENCIES.md`（或 config 注释）登记理由；评审检查"是否登记"。白名单增长即技术债信号。
+- **依赖白名单**：取代 G3。**已定**：新增依赖在根 `DEPENDENCIES.md` 登记（一行 = 包名 + 版本范围 + 理由 + 日期）；评审检查"是否登记"。不上 ESLint 自定义强检（地基阶段过度）。白名单增长即技术债信号。
 - **豁免最小化**：默认无豁免。确需例外用 ESLint 行内 `// eslint-disable-next-line <rule> -- 理由` 且必须带理由，评审追踪其数量。
 
 ---
@@ -212,12 +213,14 @@ ESLint/Vitest 原生输出已可点击定位（file:line + rule id）。自写�
 
 ---
 
-## 9. 开放问题
+## 9. 决策记录（原开放问题，2026-06-29 定）
 
-- G6 覆盖率门槛起步定多少（80%？分层差异化：`core`/纯逻辑更高，UI 组件略低？）。
-- G5 是否进一步要求"导出函数注释含流程说明段"，还是只查 `@param/@returns` 存在？
-- 依赖白名单登记放 `package.json` 注释、独立 `DEPENDENCIES.md`、还是 ESLint 自定义规则强检？
-- 是否加**可选** git pre-commit hook 跑 `pnpm check`（默认不强加，尊重本地工作流）。
+F-guard 相关四问已拍板（详见对应小节）：
+
+- **覆盖率门槛**（§G6）：全局 line ≥ 80%；`core/`/纯逻辑 ≥ 90%；UI `.tsx` ≥ 70%。
+- **G5 注释**（§G5）：只查存在性（文件头 + `@param`/`@returns`），不强检流程说明段。
+- **依赖白名单**（§5）：登记在根 `DEPENDENCIES.md`，不上 ESLint 自定义强检。
+- **pre-commit hook**：**不**默认强加；CI / `pnpm check` 是唯一强制闸；开发者可自愿在本地加（仓库提供可选样例，不自动安装）。
 
 > 本文与 GUIDE 已对齐。下一步：进入 **F-guard** 实现（搭 monorepo + 护栏），再到 **F0** 写 `core/`。
 </content>

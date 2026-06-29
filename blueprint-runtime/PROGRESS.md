@@ -23,8 +23,8 @@
 - [x] `docs/architecture/20-frontend-foundation.md`（前端：React + xyflow · 连接校验 · 节点 UI 注册表）
 - [x] `docs/architecture/30-guardrails.md`（护栏：ESLint 边界/体积 · 契约自校验 · 测试镜像）
 - [x] `docs/DEVELOPMENT_GUIDE.md`（硬约束 · 注释规范 · 阶段顺序）
-- [x] `docs/execution/{00,10}`（执行协议：全局 + 后端）；`20` 占位待 F4
-- [x] `docs/testing/{00,10}`（测试清单 + 黄金夹具：全局 + 后端）；`20` 占位待 F4
+- [x] `docs/execution/{00,10,20}`（执行协议：全局 + 后端 + 前端，含 §6.1 阶段交接播报）
+- [x] `docs/testing/{00,10,20}`（测试清单 + 黄金夹具：全局 + 后端 + 前端）
 - [x] 愿景文档收敛进 `docs/vision/`
 
 ## 地基建造（依赖图 DAG，非直线 —— 详见 GUIDE §10）
@@ -38,7 +38,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 
 - [ ] **F-guard** — monorepo 脚手架 + 护栏（ESLint + 契约自校验 + Vitest）。验收：空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下。
 - [ ] **F0 · core/** — types/graph/contracts/state/validate/events。验收：同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例。
-- [ ] **【契约冻结点】** — 冻结跨 MCP 线契约：事件词表+码表(00 §5.6/5.7)、MCP 协议封套(JSON-RPC/资源 URI/SSE)、`RuntimeAdapter`(20 §4)、黄金夹具(testing/00)。验收：一份共享契约测试两支都绿。
+- [ ] **【契约冻结点】** — 冻结跨 MCP 线契约：事件词表+码表(00 §5.6/5.7)、**MCP 协议封套(00 §5.8)**、`RuntimeAdapter`(20 §4)、黄金夹具+protocol-samples(testing/00 §3/§3.1)。验收：两支对 protocol-samples 契约测试都绿。
 - **runtime 支**（可与 editor 支并行）：
   - [ ] **F1 · 内核+持久化** — kernel + 事件溯源（event-log/sqlite/projections/snapshot）。验收：重放与快照重建一致。
   - [ ] **F2 · 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
@@ -70,5 +70,6 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - 2026-06-29 边界检查：跨 MCP/SSE 线的**共享词表**归位 00 §5.6（事件类型）/§5.7（拒绝+契约码），常量落 `core/events.ts`；后端**私有接缝接口**+阶段内建造顺序+每模块完工定义补入 10 §10/§11；前端 `RuntimeAdapter` 接缝补入 20 §4；阈值改以 30 §G2 为唯一权威（GUIDE §3 降级为镜像）；vision/ 各篇加「形状以 00 §5 为准」横幅。
 - 2026-06-29 入口接线 + F-guard 设定基线：新增 `blueprint-runtime/CLAUDE.md`（agent 工作入口，先读 execution/00 + testing/00）；F-guard 四项设定定稿落 30 §7——**pnpm** workspaces · **Node 24 LTS** · 三包 `@blueprint/{core,runtime,editor}` + tools · **ESM**(tsx + vitest + tsc)。文档内 `npm run` 命令统一改 `pnpm`。
 - 2026-06-29 分期改 DAG：阶段从线性改为依赖图——F0 后 runtime 支(F1–F3) ∥ editor 支(F4–F6) 可并行；新增**【契约冻结点】**(F0 后冻结跨 MCP 线契约，解锁 editor 支并行)与**【Fx 集成阶段】**(全栈端到端)；execution/00 增 **§6.1 阶段交接播报**(完成阶段主动告知下一步内容与方向)。详见 GUIDE §10。
+- 2026-06-29 契约冻结点写实 + F-guard 决策：新增 **00 §5.8 MCP 协议封套**(JSON-RPC 信封/`context://`/SSE 帧/镜像方向) + **testing/00 §3.1 protocol-samples** 协议样本夹具与两支契约测试；30 §9 四个 F-guard 开放问题拍板(覆盖率分层门槛 / G5 只查存在 / 依赖登记 `DEPENDENCIES.md` / 不强加 pre-commit)。
 - 愿景文档（`docs/vision/`）部分实现建议（如「static JS metadata」「零依赖」）早于技术栈决定，已被 `docs/architecture/` 取代——以架构文档为准。
 </content>

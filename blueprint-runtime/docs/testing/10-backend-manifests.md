@@ -58,16 +58,18 @@ middleware.ts
   chain_order_auth_idem_ctx_handler   组合顺序断言
   idempotency_hit_returns_cache       幂等命中返缓存且不二次入日志
 
-transport.ts
+transport.ts                        封套见 00 §5.8
   jsonrpc_roundtrip                   合法请求往返
   jsonrpc_error_shape                 错误响应符合 JSON-RPC 2.0
   sse_resume_by_last_event_id         断线按 Last-Event-ID 重放
+  asserts_protocol_samples            接受 REQ_CALL / resources→RES_READ（protocol-samples）
 
 resources.ts
   reads_projection_view               context:// 读到投影视图（非直接表）
 
 sse.ts
   pushes_appended_event               event-log 追加 → 订阅端收到
+  emits_sample_sse_frame              产出 SSE_FRAME（protocol-samples, 00 §5.8）
 ```
 
 ---

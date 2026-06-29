@@ -25,8 +25,8 @@ docs/architecture/10-backend-foundation.md 后端图运行时底层
 docs/architecture/20-frontend-foundation.md 前端图编辑器底层（React + xyflow）
 docs/architecture/30-guardrails.md         代码护栏（ESLint + 契约自校验 + 测试镜像）
 docs/DEVELOPMENT_GUIDE.md                  开发指导 · 硬约束 · 注释规范 · 阶段顺序（F-guard → F0–F6）
-docs/execution/                            执行协议（AI 作业契约：循环 · 停问 · 完工闸门）00 全局 / 10 后端 / 20 前端(占位)
-docs/testing/                              测试清单 + 黄金夹具（验收内容唯一源）00 全局 / 10 后端 / 20 前端(占位)
+docs/execution/                            执行协议（AI 作业契约：循环 · 停问 · 完工闸门 · 阶段交接）00 全局 / 10 后端 / 20 前端
+docs/testing/                              测试清单 + 黄金夹具（验收内容唯一源）00 全局 / 10 后端 / 20 前端
 docs/vision/                               愿景层（高视野「要做成什么」）：runtime-design / node-inventory / node-evolution
 ```
 

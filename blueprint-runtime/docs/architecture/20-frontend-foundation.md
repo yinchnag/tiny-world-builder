@@ -168,6 +168,8 @@ interface RuntimeAdapter {
 // no-op 离线实现：mirror/save 返回 ok 不发网，subscribe 返回空取消函数 —— 未连后端时画布照常工作（§1）。
 ```
 
+> 线上封套（JSON-RPC 信封 / `context://` / SSE 帧）照 **00 §5.8** 编码；集成前对 `protocol-samples`（testing/00 §3.1）+ mock 断言。
+
 ### L-Workspace（装配持久化）
 
 | 文件 | 职责 | LOC |

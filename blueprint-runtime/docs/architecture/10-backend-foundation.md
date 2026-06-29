@@ -127,6 +127,8 @@ event_log( seq INTEGER PK AUTOINCREMENT, ts TEXT, actor_type TEXT, actor_id TEXT
 | `runtime/mcp/resources.ts` | MCP resources：把投影视图暴露为 `context://...` 只读资源 | `listResources()`, `readResource()` | ≤220 |
 | `runtime/mcp/sse.ts` | 事件环 + Last-Event-ID 重放，把 event-log 推给前端 | `createSseHub()` | ≤180 |
 
+> 传输/资源/SSE 的**线上封套形状**以 00 §5.8 为唯一权威（前后端同一份契约）；本层只管实现。
+
 **中间件链**（替代现状散落的 `_setCallCtx`/幂等/鉴权判断）：
 
 ```text

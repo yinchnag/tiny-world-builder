@@ -21,7 +21,7 @@
 愿景层（高视野，已存在）位于 `docs/vision/`：`runtime-design.md`、`node-inventory.md`、`node-evolution.md`。
 **愿景层回答「要做成什么」，本文档集回答「代码地基怎么搭」。**
 
-**执行与验收**（地基开工前必读）：`docs/execution/`＝AI 作业协议（怎么照做、何时停、什么算完工），`docs/testing/`＝测试清单 + 黄金夹具（用什么证明做对了）。二者同样按 **00 全局 / 10 后端 / 20 前端** 三视角；全局篇是共享真相，10/20 只写增量。前端篇现为占位，进入 F4 再填。
+**执行与验收**（地基开工前必读）：`docs/execution/`＝AI 作业协议（怎么照做、何时停、什么算完工），`docs/testing/`＝测试清单 + 黄金夹具（用什么证明做对了）。二者同样按 **00 全局 / 10 后端 / 20 前端** 三视角；全局篇是共享真相，10/20 只写增量。三视角均已写实。
 
 ---
 
@@ -336,6 +336,52 @@ message.rejected      运行期类型拒投   必填 edgeId（payload: {reason}�
 | `cardinality.exceeded` | `canConnect` | 目标 in 口 `multiple:false` 已被占用 |
 | `required.unmet` | `validateGraph` | 必填 in 口未连接 |
 | `contract.invalid` | `validateContract`（30 G4）| 契约元校验失败 |
+
+### 5.8 MCP 协议封套（前后端协议契约 · 跨线冻结）
+
+> 这是 editor 支（`sync/*`）与 runtime 支（`mcp/*`）之间的**唯一接口契约**，两支都照它编码、互不 import（§6）。封套在此冻结；**具体业务工具名/参数属功能阶段（BP）**，此处只定信封与通道。
+
+**通道**：HTTP。`POST /mcp` = JSON-RPC 2.0 调用；`GET /mcp/sse` = SSE 事件订阅。
+
+**JSON-RPC 调用（前端→后端）**：
+
+```jsonc
+// 请求
+{ "jsonrpc":"2.0", "id":<num|str>, "method":"tools/call",
+  "params":{ "name":"<tool>", "arguments":{ ... },
+             "_meta":{ "idempotencyKey":"<uuid，仅 mutating>", "correlationId":"<uuid>" } } }
+// 成功（注意：业务失败也走 result，不是 error）
+{ "jsonrpc":"2.0", "id":..., "result":{ "ok":true,  "value":{ ... } } }
+{ "jsonrpc":"2.0", "id":..., "result":{ "ok":false, "error":{ "code":"<§5.7 码>", "message":"..." } } }
+// 协议级错误（坏报文 / 鉴权 / 未知 method）才走 error
+{ "jsonrpc":"2.0", "id":..., "error":{ "code":-32600, "message":"...", "data":{ ... } } }
+```
+
+> **业务失败 vs 协议错误**：业务失败（校验拒绝、状态非法…）用 `result.ok:false` + §5.7 码（与 kernel `Result` 同构）；只有协议层问题（坏报文、鉴权失败、未知工具）才用 JSON-RPC `error`。
+
+**资源读取（投影只读视图）**：`method:"resources/read"`，`params.uri` 用方案
+
+```text
+context://<workspace>/graph             当前节点 + 边视图
+context://<workspace>/nodes/<nodeId>    单节点状态
+context://<workspace>/timeline          审计 / 时间线
+```
+
+返回对应投影视图（10 §6.2），从不直接读表。
+
+**SSE 帧（后端→前端，运行期事件）**：
+
+```text
+id: <seq>                  ← 即 RuntimeEvent.seq，用作 Last-Event-ID 断线重放
+event: <eventType>         ← 取自 §5.6 词表
+data: <RuntimeEvent JSON>  ← §5.5 结构（camelCase）
+```
+
+断线重连带 `Last-Event-ID: <seq>`，后端从该 seq 之后补推。
+
+**镜像方向**：前端本地图变更也经 `tools/call` 推给后端（携端口 + lane + payloadType）；后端经 SSE 回推。**双向都是「事件/调用」，无单独命令队列**（20 §4 注）。
+
+**契约测试**：协议样本夹具 `protocol-samples`（testing/00 §3.1）给出一组标准 请求/result/error/SSE 帧；runtime 支断言 transport **接受**样本、产出样本 SSE；editor 支断言 mcp-client **产出**样本、解析样本 result/error/SSE。两支对**同一份样本**都绿 = 前后端不漂。
 
 ---
 

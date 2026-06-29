@@ -64,6 +64,25 @@ seq4  message.rejected   {edge:X1, reason:'payload.incompatible'}
 
 > 夹具一旦改动属于动验收基线 → 走停-问（execution/00 §3）。
 
+### 3.1 协议样本夹具（protocol-samples · 前后端协议契约）
+
+落地位置：`core/test/fixtures/protocol-samples.ts`（与 golden-graph 同处，两支共用）。封套定义见 00 §5.8。给出**一份**标准样本，两支对它各自断言：
+
+```text
+REQ_CALL    tools/call 请求（name + arguments + _meta.idempotencyKey/correlationId）
+RES_OK      result.ok:true 成功
+RES_FAIL    result.ok:false + error.code（取 §5.7，如 payload.incompatible）
+ERR_PROTO   JSON-RPC error（-32600 等，协议层）
+SSE_FRAME   一帧 SSE：id=seq / event=message.delivered / data=RuntimeEvent
+RES_READ    resources/read context://ws/graph → 投影视图
+```
+
+**共享契约测试**（跨支，两侧各跑一份，断言对同一样本一致）：
+- runtime 侧（testing/10 transport/sse）：transport 接受 `REQ_CALL`、`resources/read` 返 `RES_READ`、sse 产出 `SSE_FRAME`；坏报文产 `ERR_PROTO`。
+- editor 侧（testing/20 mcp-client/sse）：mcp-client 产出 `REQ_CALL`、解析 `RES_OK/RES_FAIL/ERR_PROTO`、sse 消费 `SSE_FRAME` → store。
+
+> 两支对 `protocol-samples` 都绿 = **契约冻结点验收通过**（GUIDE §10）。
+
 ---
 
 ## 4. core/ 测试清单（共享，F0 验收）
