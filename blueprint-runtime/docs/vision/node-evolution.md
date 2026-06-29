@@ -1,13 +1,18 @@
 # Blueprint Node Evolution Plan
 
+> **Note:** Data shapes below (node contracts, typed links, runtime events) predate
+> the architecture baseline and are kept as *intent*, not schema. The authoritative
+> node/edge/event/code shapes live in [`../architecture/00-overview.md`](../architecture/00-overview.md)
+> §5 (incl. §5.6 event catalog / §5.7 shared codes). On any conflict, 00 §5 wins.
+
 This document describes how existing CodeSurf/Contex nodes and functions should
 evolve toward a Blueprint-style graph system.
 
 It complements:
 
-- `CodeSurf/BLUEPRINT_RUNTIME_DESIGN.md`
-- `CodeSurf/BLUEPRINT_PROGRESS.md`
-- `CodeSurf/BLUEPRINT_NODE_INVENTORY.md`
+- `runtime-design.md`（同目录愿景文档）
+- `../../PROGRESS.md`（项目进度与决策基线）
+- `node-inventory.md`（同目录现状盘点）
 
 ## Target Shape
 

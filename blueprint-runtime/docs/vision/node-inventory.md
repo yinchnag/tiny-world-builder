@@ -1,5 +1,9 @@
 # Blueprint Node Inventory
 
+> **Note:** This inventories the *pre-Blueprint* surface for migration reference.
+> Target node/edge/event shapes are defined in
+> [`../architecture/00-overview.md`](../architecture/00-overview.md) §5, not here.
+
 This document inventories the current CodeSurf and Contex node/function surface
 before Blueprint-style changes. It answers:
 

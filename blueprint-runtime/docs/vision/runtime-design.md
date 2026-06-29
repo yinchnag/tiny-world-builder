@@ -1,8 +1,9 @@
 # CodeSurf Blueprint Runtime Design
 
-> This file is the original design draft. The organized Blueprint Runtime track
-> now lives in `blueprint-runtime/`, `CodeSurf/blueprint-runtime/`, and
-> `Contex/blueprint-runtime/`.
+> **Note:** This is the high-altitude "what to build" vision. Concrete data shapes
+> sketched here are superseded by the architecture baseline in
+> [`../architecture/00-overview.md`](../architecture/00-overview.md) §5 (incl. §5.6
+> event catalog / §5.7 shared codes). On any conflict, 00 §5 wins.
 
 ## Purpose
 
