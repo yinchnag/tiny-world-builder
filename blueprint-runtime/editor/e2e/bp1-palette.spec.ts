@@ -25,4 +25,20 @@ test.describe('BP-1 节点面板', () => {
     await expect(inspector.locator('[data-port="message_in"]')).toBeVisible();
     await expect(inspector.locator('[data-port="report_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Task 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addTask = page.getByTestId('palette-add-task');
+    await expect(addTask).toBeVisible();
+    await addTask.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.locator('[data-port="task_out"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="task_update_in"]')).toBeVisible();
+  });
 });

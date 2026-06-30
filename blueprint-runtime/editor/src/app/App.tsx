@@ -11,12 +11,11 @@ import { registerNodeUi, nodeTypes } from '../nodes/registry';
 import { GenericNode } from '../nodes/GenericNode';
 import { useGraphStore } from '../state/graph-store';
 import { useSelectionStore } from '../state/selection-store';
-import { registerBuiltinContracts } from '@blueprint/core';
+import { registerBuiltinContracts, BUILTIN_CONTRACTS } from '@blueprint/core';
 
-// 让 core/contracts 知道全部内置契约（检视器/校验据此渲染与判定）。
+// 注册全部内置契约 + 把每个类型映射到通用节点组件（新增家族自动接入，无需改本文件）。
 registerBuiltinContracts();
-registerNodeUi('agent', { node: GenericNode });
-registerNodeUi('human_gate', { node: GenericNode });
+for (const c of BUILTIN_CONTRACTS) registerNodeUi(c.type, { node: GenericNode });
 
 const NODE_TYPES = nodeTypes();
 const EDGE_TYPES = { typed: TypedEdge };
