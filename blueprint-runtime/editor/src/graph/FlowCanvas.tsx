@@ -24,6 +24,8 @@ import { planConnection } from './connection/plan-connect';
 export function FlowCanvas({ nodeTypes, edgeTypes }: { nodeTypes?: NodeTypes; edgeTypes?: EdgeTypes } = {}) {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
+  const onNodesChange = useGraphStore((s) => s.onNodesChange);
+  const onEdgesChange = useGraphStore((s) => s.onEdgesChange);
   const addEdge = useGraphStore((s) => s.addEdge);
   const select = useSelectionStore((s) => s.select);
   const clear = useSelectionStore((s) => s.clear);
@@ -49,6 +51,8 @@ export function FlowCanvas({ nodeTypes, edgeTypes }: { nodeTypes?: NodeTypes; ed
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onConnect={onConnect}

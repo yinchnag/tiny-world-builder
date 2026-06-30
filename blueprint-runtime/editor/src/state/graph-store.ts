@@ -9,6 +9,7 @@
  */
 import { create } from 'zustand';
 import { temporal } from 'zundo';
+import { applyNodeChanges, applyEdgeChanges, type NodeChange, type EdgeChange } from '@xyflow/react';
 import type { FlowNode, FlowEdge } from '../lib/flow-types';
 
 /** 图文档状态 + 动作。 */
@@ -19,6 +20,9 @@ export interface GraphState {
   addEdge(edge: FlowEdge): void;
   setGraph(nodes: FlowNode[], edges: FlowEdge[]): void;
   applyNodeState(nodeId: string, state: string): void;
+  /** xyflow 变更回写（拖动/选中/删除）——不接则节点不可拖动。 */
+  onNodesChange(changes: NodeChange<FlowNode>[]): void;
+  onEdgesChange(changes: EdgeChange<FlowEdge>[]): void;
 }
 
 /** 图文档 store（zundo temporal 包裹，撤销历史经 useGraphStore.temporal）。 */
@@ -33,5 +37,9 @@ export const useGraphStore = create<GraphState>()(
       set((s) => ({
         nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, state } } : n)),
       })),
+    onNodesChange: (changes: NodeChange<FlowNode>[]): void =>
+      set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
+    onEdgesChange: (changes: EdgeChange<FlowEdge>[]): void =>
+      set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
   })),
 );

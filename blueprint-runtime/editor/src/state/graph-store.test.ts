@@ -24,4 +24,10 @@ describe('graph-store', () => {
     useGraphStore.getState().applyNodeState('A', 'working');
     expect(useGraphStore.getState().nodes[0].data.state).toBe('working');
   });
+
+  it('onNodesChange applies a position change (节点可拖动的前提)', () => {
+    useGraphStore.getState().addNode(node('A'));
+    useGraphStore.getState().onNodesChange([{ id: 'A', type: 'position', position: { x: 50, y: 60 } }]);
+    expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 50, y: 60 });
+  });
 });
