@@ -11,6 +11,7 @@ import { registerNodeUi, nodeTypes } from '../nodes/registry';
 import { GenericNode } from '../nodes/GenericNode';
 import { useGraphStore } from '../state/graph-store';
 import { useSelectionStore } from '../state/selection-store';
+import { useUiStore } from '../state/ui-store';
 import { registerBuiltinContracts, BUILTIN_CONTRACTS } from '@blueprint/core';
 
 // 注册全部内置契约 + 把每个类型映射到通用节点组件（新增家族自动接入，无需改本文件）。
@@ -23,9 +24,30 @@ const EDGE_TYPES = { typed: TypedEdge };
 export function App() {
   const selectedId = useSelectionStore((s) => [...s.selected][0] ?? null);
   const selectedType = useGraphStore((s) => s.nodes.find((n) => n.id === selectedId)?.type ?? null);
+  const connectReason = useUiStore((s) => s.connectReason);
   return (
     <Providers>
-      <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
+      <div style={{ position: 'relative', display: 'flex', width: '100vw', height: '100vh' }}>
+        {connectReason !== null && (
+          <div
+            data-testid="connect-reason"
+            style={{
+              position: 'absolute',
+              top: 8,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              background: '#fde2e2',
+              color: '#a11',
+              border: '1px solid #f3a0a0',
+              borderRadius: 6,
+              padding: '6px 12px',
+              fontSize: 13,
+            }}
+          >
+            连接被拒：{connectReason}
+          </div>
+        )}
         <NodePalette />
         <div style={{ flex: 1 }}>
           <FlowCanvas nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} />

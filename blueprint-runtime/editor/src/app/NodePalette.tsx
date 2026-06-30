@@ -26,7 +26,8 @@ export function NodePalette() {
             const node: FlowNode = {
               id: `${c.type}-${seq.current}`,
               type: c.type,
-              position: { x: 80 + seq.current * 24, y: 80 + seq.current * 24 },
+              // 横向铺开，留足间距，便于在画布上拖拽端口连线（BP-2）。
+              position: { x: 40 + (seq.current - 1) * 280, y: 150 },
               data: { state: c.state.initial, properties: {} },
             };
             addNode(node);
