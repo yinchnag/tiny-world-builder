@@ -15,6 +15,7 @@ import { TERMINAL_CONTRACT } from './terminal';
 import { BROWSER_CONTRACT } from './browser';
 import { GIT_CONTRACT } from './git';
 import { STATUS_CONTRACT } from './status';
+import { POLLY_CONTRACT } from './polly';
 
 export { AGENT_CONTRACT } from './agent';
 export { HUMAN_CONTRACT } from './human';
@@ -25,8 +26,9 @@ export { TERMINAL_CONTRACT } from './terminal';
 export { BROWSER_CONTRACT } from './browser';
 export { GIT_CONTRACT } from './git';
 export { STATUS_CONTRACT } from './status';
+export { POLLY_CONTRACT } from './polly';
 
-/** 内置契约：Agent/Terminal（execution）·Human（human）·Task（task）·Document/Memory（context）·Browser/Git/Status（observation）。 */
+/** 内置契约六家族：execution(Agent/Terminal)·human(Human)·task(Task)·context(Document/Memory)·observation(Browser/Git/Status)·integration(Polly)。 */
 export const BUILTIN_CONTRACTS: readonly NodeContract[] = [
   AGENT_CONTRACT,
   HUMAN_CONTRACT,
@@ -37,6 +39,7 @@ export const BUILTIN_CONTRACTS: readonly NodeContract[] = [
   BROWSER_CONTRACT,
   GIT_CONTRACT,
   STATUS_CONTRACT,
+  POLLY_CONTRACT,
 ];
 
 /**

@@ -132,4 +132,21 @@ test.describe('BP-1 节点面板', () => {
 
     await expect(page.getByTestId('inspector').locator('[data-port="blocked_task_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Polly 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addPolly = page.getByTestId('palette-add-polly');
+    await expect(addPolly).toBeVisible();
+    await addPolly.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.locator('[data-port="snapshot_in"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="item_task_out"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="human_attention_out"]')).toBeVisible();
+  });
 });

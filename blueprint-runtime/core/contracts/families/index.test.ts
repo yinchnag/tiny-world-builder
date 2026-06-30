@@ -12,6 +12,7 @@ import {
   TERMINAL_CONTRACT,
   BROWSER_CONTRACT,
   GIT_CONTRACT,
+  POLLY_CONTRACT,
 } from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
@@ -33,6 +34,14 @@ describe('builtin contracts', () => {
     expect(lookup('browser')).toBeDefined();
     expect(lookup('git')).toBeDefined();
     expect(lookup('status')).toBeDefined();
+    expect(lookup('polly')).toBeDefined();
+  });
+
+  it('wires Polly into Agent tasks and the Human gate (reusing Task / HumanAttention)', () => {
+    const task = canConnect(port(POLLY_CONTRACT.outputs, 'item_task_out'), port(AGENT_CONTRACT.inputs, 'task_in'));
+    const attn = canConnect(port(POLLY_CONTRACT.outputs, 'human_attention_out'), port(HUMAN_CONTRACT.inputs, 'question_in'));
+    expect(task).toEqual({ ok: true });
+    expect(attn).toEqual({ ok: true });
   });
 
   it('feeds observation findings into Agent (browser.finding_out / git.diff_out → context_in)', () => {
