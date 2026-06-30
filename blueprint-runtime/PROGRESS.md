@@ -6,8 +6,8 @@
 
 ## 当前状态（2026-06-29）
 
-**F0 + 契约冻结点 完成**（`core/` 全模块 + 共享夹具绿，59 测试）。**解锁 runtime 支(F1–F3) ∥ editor 支(F4–F6) 并行**。
-> 本机 **Node 24.18**（nvm，符合基线）。下一阶段并行：runtime 支 F1（内核+持久化，用 `node:sqlite`）；editor 支 F4（状态+画布，对 mock 编码）。
+**runtime 支 F1 完成**（L0 内核 + L3 事件溯源持久化，78 测试）。**下一步 runtime F2**（引擎）；editor 支(F4–F6) 仍可并行起步（未开）。
+> 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
 
 ## 决策记录（不可动摇基线）
 
@@ -41,7 +41,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - [x] **F0 · core/** ✅ — types(payload-types+Zod schema/events §5.6-5.7/compatibility) · graph(port/node/edge/graph) · state/machine · contracts/registry(C1–C7) · validate(canConnect 覆盖 §5.7 全部连接码/validatePayload §5.9/validateGraph required.unmet)。验收：同构单测全绿(50)；canConnect/validateGraph 正反例齐。决策：**运行期允许环**(B)。golden-graph/protocol-samples 夹具留契约冻结点落地。
 - [x] **【契约冻结点】** ✅ — 跨 MCP 线契约冻结：事件词表+码表(00 §5.6/5.7)、**MCP 协议封套**落地 `core/test/fixtures/protocol-samples.ts`(00 §5.8)、`RuntimeAdapter`(20 §4)、**golden-graph + protocol-samples** 夹具(testing/00 §3/§3.1)。验收：夹具自洽全绿；两支「接受/产出」断言留 F3/F5(transport·mcp-client)落地。
 - **runtime 支**（可与 editor 支并行）：
-  - [ ] **F1 · 内核+持久化** — kernel + 事件溯源（event-log/sqlite/projections/snapshot）。验收：重放与快照重建一致。
+  - [x] **F1 · 内核+持久化** ✅ — L0 kernel(ids/result/errors/clock/ctx) + L3 persist(sqlite-adapter/event-log append-scan-head/projections framework+nodes/snapshot)。验收：重放与快照重建一致(冒烟绿)；node:sqlite Node24 可用。
   - [ ] **F2 · 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
   - [ ] **F3 · 协议+横切** — MCP 传输/中间件链/tools/resources/sse + audit/auth/logger。验收：JSON-RPC 往返 + 后端内端到端冒烟。
 - **editor 支**（可与 runtime 支并行，对 mock 编码）：

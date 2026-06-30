@@ -49,3 +49,24 @@ export const REASON_CODES = [
 
 /** §5.7 码类型。 */
 export type ReasonCode = (typeof REASON_CODES)[number];
+
+/**
+ * 运行时事件（事件溯源主存的元素 · 00 §5.5）。
+ * 图坐标（nodeId/portId/edgeId）让任何事件都能回指到节点/端口/边。
+ * seq 由 event-log 追加时分配（全局自增）。
+ */
+export interface RuntimeEvent {
+  readonly seq: number;
+  readonly ts: string;
+  readonly eventType: EventType;
+  readonly actorType?: string;
+  readonly actorId?: string;
+  readonly nodeId?: string;
+  readonly portId?: string;
+  readonly edgeId?: string;
+  readonly workflowTemplateId?: string;
+  readonly workflowInstanceId?: string;
+  readonly payloadType?: string;
+  readonly payload?: unknown;
+  readonly correlationId?: string;
+}

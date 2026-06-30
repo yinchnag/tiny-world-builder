@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**F0 + 契约冻结点 完成**（`core/` 全模块 + 共享夹具绿，59 测试，2026-06-30）。**解锁 runtime 支(F1–F3) ∥ editor 支(F4–F6) 并行**。
+**runtime 支 F1 完成**（L0 内核 + L3 事件溯源持久化，78 测试，2026-06-30）。下一步 **runtime F2**（引擎）；editor 支(F4–F6) 可并行起步（未开）。
 - 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。
 - 并行支都 import `@blueprint/core` + 照冻结夹具（golden-graph / protocol-samples）编码；editor 支对 mock，真集成在 Fx。
