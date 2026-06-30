@@ -10,6 +10,7 @@ import {
   DOCUMENT_CONTRACT,
   MEMORY_CONTRACT,
   TERMINAL_CONTRACT,
+  BROWSER_CONTRACT,
 } from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
@@ -28,6 +29,12 @@ describe('builtin contracts', () => {
     expect(lookup('document')).toBeDefined();
     expect(lookup('memory')).toBeDefined();
     expect(lookup('terminal')).toBeDefined();
+    expect(lookup('browser')).toBeDefined();
+  });
+
+  it('feeds Browser findings into Agent (finding_out → context_in)', () => {
+    const find = canConnect(port(BROWSER_CONTRACT.outputs, 'finding_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
+    expect(find).toEqual({ ok: true });
   });
 
   it('keeps Terminal resource output isolated from message lane (stdout_out → message_in = lane.mismatch)', () => {

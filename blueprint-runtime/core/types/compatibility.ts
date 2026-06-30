@@ -24,6 +24,7 @@ const ASSIGNABLE: Readonly<Record<string, readonly string[]>> = {
   DocumentText: ['ContextBundle'],
   MemoryFact: ['ContextBundle'],
   MemoryProposal: ['ContextBundle'],
+  BrowserFinding: ['ContextBundle'],
 };
 
 /** 相容判定结果；不相容时带 §5.7 原因码。 */

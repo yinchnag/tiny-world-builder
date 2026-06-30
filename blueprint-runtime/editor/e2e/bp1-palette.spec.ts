@@ -90,4 +90,18 @@ test.describe('BP-1 节点面板', () => {
     await expect(inspector.locator('[data-port="stdout_out"]')).toBeVisible();
     await expect(inspector.locator('[data-port="exit_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Browser 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addBrowser = page.getByTestId('palette-add-browser');
+    await expect(addBrowser).toBeVisible();
+    await addBrowser.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    await expect(page.getByTestId('inspector').locator('[data-port="finding_out"]')).toBeVisible();
+  });
 });

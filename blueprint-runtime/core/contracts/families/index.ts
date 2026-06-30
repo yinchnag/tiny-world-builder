@@ -12,6 +12,7 @@ import { TASK_CONTRACT } from './task';
 import { DOCUMENT_CONTRACT } from './document';
 import { MEMORY_CONTRACT } from './memory';
 import { TERMINAL_CONTRACT } from './terminal';
+import { BROWSER_CONTRACT } from './browser';
 
 export { AGENT_CONTRACT } from './agent';
 export { HUMAN_CONTRACT } from './human';
@@ -19,8 +20,9 @@ export { TASK_CONTRACT } from './task';
 export { DOCUMENT_CONTRACT } from './document';
 export { MEMORY_CONTRACT } from './memory';
 export { TERMINAL_CONTRACT } from './terminal';
+export { BROWSER_CONTRACT } from './browser';
 
-/** 功能阶段 BP-1 的内置契约：Agent/Terminal（execution）+ Human（human）+ Task（task）+ Document/Memory（context）。 */
+/** 内置契约：Agent/Terminal（execution）·Human（human）·Task（task）·Document/Memory（context）·Browser（observation）。 */
 export const BUILTIN_CONTRACTS: readonly NodeContract[] = [
   AGENT_CONTRACT,
   HUMAN_CONTRACT,
@@ -28,6 +30,7 @@ export const BUILTIN_CONTRACTS: readonly NodeContract[] = [
   DOCUMENT_CONTRACT,
   MEMORY_CONTRACT,
   TERMINAL_CONTRACT,
+  BROWSER_CONTRACT,
 ];
 
 /**
