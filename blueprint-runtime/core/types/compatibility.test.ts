@@ -21,6 +21,10 @@ describe('checkCompatible', () => {
     expect(checkCompatible('DocumentText', 'ContextBundle')).toEqual({ ok: true });
   });
 
+  it('MemoryFact → ContextBundle is assignable (BP-1 Memory feeds Agent)', () => {
+    expect(checkCompatible('MemoryFact', 'ContextBundle')).toEqual({ ok: true });
+  });
+
   it('X1: same lane but not assignable → payload.incompatible', () => {
     expect(checkCompatible('HumanReply', 'HumanAttention')).toEqual({
       ok: false,

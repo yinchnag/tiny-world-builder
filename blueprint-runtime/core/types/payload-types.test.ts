@@ -26,6 +26,10 @@ describe('payload-types', () => {
     expect(laneOf('DocumentText')).toBe('context');
   });
 
+  it('registers MemoryProposal on the context lane (BP-1 Memory)', () => {
+    expect(laneOf('MemoryProposal')).toBe('context');
+  });
+
   it('registers HandoffRequest on the task lane with a field schema (BP-1)', () => {
     const t = lookupPayloadType('HandoffRequest');
     expect(t?.lane).toBe('task');

@@ -2,7 +2,14 @@
  * families 单测：registerBuiltinContracts + 跨家族「人在回路」闭合（BP-1 验收）。
  */
 import { describe, it, expect } from 'vitest';
-import { registerBuiltinContracts, AGENT_CONTRACT, HUMAN_CONTRACT, TASK_CONTRACT, DOCUMENT_CONTRACT } from './index';
+import {
+  registerBuiltinContracts,
+  AGENT_CONTRACT,
+  HUMAN_CONTRACT,
+  TASK_CONTRACT,
+  DOCUMENT_CONTRACT,
+  MEMORY_CONTRACT,
+} from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
 import type { Port } from '../../graph/port';
@@ -18,6 +25,14 @@ describe('builtin contracts', () => {
     expect(lookup('human_gate')).toBeDefined();
     expect(lookup('task')).toBeDefined();
     expect(lookup('document')).toBeDefined();
+    expect(lookup('memory')).toBeDefined();
+  });
+
+  it('feeds Memory context into Agent (fact_out / proposal_out → context_in)', () => {
+    const fact = canConnect(port(MEMORY_CONTRACT.outputs, 'fact_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
+    const prop = canConnect(port(MEMORY_CONTRACT.outputs, 'proposal_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
+    expect(fact).toEqual({ ok: true });
+    expect(prop).toEqual({ ok: true });
   });
 
   it('feeds Document context into Agent (text_out / selection_out → context_in)', () => {

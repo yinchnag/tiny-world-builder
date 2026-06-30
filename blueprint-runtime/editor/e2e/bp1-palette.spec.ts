@@ -57,4 +57,20 @@ test.describe('BP-1 节点面板', () => {
     await expect(inspector.locator('[data-port="text_out"]')).toBeVisible();
     await expect(inspector.locator('[data-port="selection_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Memory 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addMem = page.getByTestId('palette-add-memory');
+    await expect(addMem).toBeVisible();
+    await addMem.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.locator('[data-port="fact_out"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="proposal_out"]')).toBeVisible();
+  });
 });
