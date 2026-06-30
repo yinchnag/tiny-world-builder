@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**BP-1 六家族 + BP-2 连线校验 UX**（164 单测 + 6 E2E）：`core/contracts/families/` 六契约（Agent/Terminal·Human·Task·Document/Memory，六泳道全有类型）；editor 有节点面板、契约驱动检视器、**画布拖端口连线类型校验**（planConnection=core/validate，兼容建 typed 边/不兼容弹拒绝码横幅）。GenericNode 端口竖排可抓取。下一步 BP-2 收尾（连线镜像→运行期投递，接真 runtime）或 BP-3（端口UI完善）或补 Observation/Integration/Cache 家族。
+**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**BP-1/BP-2 + 全六家族（9 节点类型）**（175 单测 + 11 E2E）：`core/contracts/families/` 九契约——execution(Agent/Terminal)·human·task·context(Document/Memory)·observation(Browser/Git/Status)·integration(Polly)，六泳道全有类型。editor：节点面板(BUILTIN_CONTRACTS 驱动,新家族自动接入)·契约驱动检视器·**画布拖端口连线类型校验**(planConnection=core/validate,兼容建 typed 边/不兼容弹拒绝横幅)·节点可拖动(onNodesChange 回写)。下一步 BP-2 收尾(连线镜像→运行期投递,接真 runtime)、BP-3(端口UI)、或 Cache/Memo 家族。
 - `pnpm types` 现含 5 个 tsconfig（+ 顶层 `integration/`，跨前后端的合龙测试落此，避开 R3 边界）。
 - 功能阶段铁律：每功能 = 一份契约(core)+一组 handler(runtime)+一个 nodes 目录(editor)，**不改地基**；新增载荷类型/事件/码仍是契约面，须停-问。
 - **用户面铁律（用户定 2026-06-30）**：凡改动影响用户使用，**必须配 Playwright E2E**，验四问——可见/易见/可操作/有反馈。E2E 放 `editor/e2e/*.spec.ts`（`pnpm test:e2e`，真浏览器，vitest 不收 `.spec`）；webServer 用 `127.0.0.1`（避 Windows localhost IPv6 错配）。

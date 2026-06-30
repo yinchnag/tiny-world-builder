@@ -6,7 +6,7 @@
 
 ## 当前状态（2026-06-30）
 
-**🏗️ 地基完成 + BP-1 六家族 + BP-2 连线校验 UX**（**164 单测 + 6 Playwright E2E 全绿**）。BP-1 落 **Agent/Terminal(execution)·Human(human)·Task(task)·Document/Memory(context)** 六契约（六泳道全有类型）+ 节点面板 + 检视器;BP-2 实现**画布拖端口连线的类型校验**（兼容建 typed 边 / 不兼容弹拒绝码横幅,真浏览器 E2E 验收）。**下一步**：BP-2 收尾(连线镜像→运行期投递,接真 runtime) 或 BP-3(端口UI/检视器完善) 或补 Observation/Integration 家族。
+**🏗️ 地基完成 + BP-1/BP-2 + 全六家族节点**（**175 单测 + 11 Playwright E2E 全绿**）。**9 个节点类型 / 六家族全落齐**：execution(Agent/Terminal)·human(Human)·task(Task)·context(Document/Memory)·observation(Browser/Git/Status)·integration(Polly)；六泳道全有载荷类型。编辑器：节点面板(点击建节点,自动接入新家族)·契约驱动检视器·**画布拖端口连线类型校验**(兼容建 typed 边/不兼容弹拒绝码横幅)·节点可拖动。Polly 复用 Task/HumanAttention 接 Agent/Human。**下一步**：BP-2 收尾(连线镜像→运行期投递,接真 runtime)、BP-3(端口UI/检视器完善)、或 Cache/Memo 家族。
 > 规则(用户定 2026-06-30)：**凡改动影响用户使用,必须配 Playwright E2E**,验四问——可见/易见/可操作/有反馈。E2E 在 `editor/e2e/*.spec.ts`(真浏览器,vitest 不收);webServer 用 `127.0.0.1`(避 Windows localhost IPv6 错配)。
 > 工具链全就位：`pnpm check`(lint+test+镜像) + `pnpm types`(5 个 tsconfig：core/runtime/editor/tools/integration) 全绿。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。前端 jsdom 组件测试（`// @vitest-environment jsdom`）就绪。
@@ -59,7 +59,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 对应愿景路线图 BP-1..BP-7（见 `docs/vision/`）：逐个节点家族（Agent/Human/Task/Context/Observation/Integration）→ 工作流资产 → 可视化调试 → Polly 集成。
 **每个功能 = 一份契约(core) + 一组 handler(runtime) + 一个 nodes 目录(editor)**，不改地基。
 
-- [~] BP-1 节点契约落地（各家族）— ✅ **Agent**(execution:message/task/context/human_reply 入,message/report/handoff/human_attention/task_update 出) + **Human Gate**(human:question 入,reply/approval 出);新增 `HandoffRequest`(task 泳道)载荷类型;`registerBuiltinContracts()` 统一注册入口。验收:C1–C7 元校验 ✓、跨家族「人在回路」闭合(attention→question→reply→human_reply)✓、引擎用 Agent 契约推进状态机 ✓。✅ 续落 **Task**(task,零新类型) + **Document/Memory**(context,新增 DocumentText/MemoryProposal,ASSIGNABLE→ContextBundle 喂 Agent) + **Terminal**(execution,新增 CommandInput/ExitStatus→control、Stdout/StderrChunk→resource,control/resource 两泳道首批类型)。**六家族六泳道全有类型。** ⏳ 余 Observation(browser/git/status)/Integration(Polly,BP-7)/Cache 家族,留后续 BP。**editor 用户面**：NodePalette(BUILTIN_CONTRACTS 驱动,新增家族自动出按钮)+ FlowCanvas 选中接线,每家族一条 Playwright E2E(`bp1-palette.spec`,5 条)真浏览器验收 ✓。
+- [~] BP-1 节点契约落地（各家族）— ✅ **Agent**(execution:message/task/context/human_reply 入,message/report/handoff/human_attention/task_update 出) + **Human Gate**(human:question 入,reply/approval 出);新增 `HandoffRequest`(task 泳道)载荷类型;`registerBuiltinContracts()` 统一注册入口。验收:C1–C7 元校验 ✓、跨家族「人在回路」闭合(attention→question→reply→human_reply)✓、引擎用 Agent 契约推进状态机 ✓。✅ 续落 **Task**(task,零新类型) + **Document/Memory**(context,新增 DocumentText/MemoryProposal,ASSIGNABLE→ContextBundle 喂 Agent) + **Terminal**(execution,新增 CommandInput/ExitStatus→control、Stdout/StderrChunk→resource,control/resource 两泳道首批类型)。**六家族六泳道全有类型。** ✅ 续补 **Observation**(browser/git→context 喂 Agent、status→task) + **Integration**(polly:snapshot_in→resource,item_task_out/human_attention_out 复用 Task/HumanAttention 接 Agent/Human)。**9 节点类型全落齐。** ⏳ 余 Cache/Memo 家族(vision §7),留后续。**editor 用户面**：NodePalette(BUILTIN_CONTRACTS 驱动,新增家族自动出按钮)+ FlowCanvas 选中接线,每家族一条 Playwright E2E(`bp1-palette.spec`,5 条)真浏览器验收 ✓。
 - [~] BP-2 类型化连线全流程 — ✅ **连线校验 UX**：画布拖端口连线 → `planConnection`(=core/validate) → 兼容则建 typed 边(lane 着色+payloadType 标签)、不兼容弹拒绝码横幅；GenericNode 端口竖排成可抓取+带标签 Handle；E2E `bp2-connect` 真浏览器验收(不兼容=lane.mismatch 横幅/兼容=建边)。⏳ 余「镜像→运行期投递」(需接真 runtime,扩展 Fx)。
 - [ ] BP-3 端口 UI / 检视器完善
 - [ ] BP-4 运行时事件映射 + 调试高亮
