@@ -6,7 +6,7 @@
 
 ## 当前状态（2026-06-29）
 
-**runtime 支 F2 完成**（L4 引擎，88 测试）。**下一步 runtime F3**（MCP 协议 + 横切）；editor 支(F4–F6) 仍可并行起步（未开）。
+**runtime 支 F1–F3 全部完成**（后端图运行时就绪，104 测试）。**下一步 editor 支 F4–F6**（需先登记前端依赖）→ 再 Fx 集成。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
 
 ## 决策记录（不可动摇基线）
@@ -43,7 +43,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - **runtime 支**（可与 editor 支并行）：
   - [x] **F1 · 内核+持久化** ✅ — L0 kernel(ids/result/errors/clock/ctx) + L3 persist(sqlite-adapter/event-log append-scan-head/projections framework+nodes/snapshot)。验收：重放与快照重建一致(冒烟绿)；node:sqlite Node24 可用。
   - [x] **F2 · 引擎** ✅ — node-machine(状态机推进+产事件) / message-bus(运行期类型防线,调 core/validate.canConnect+validatePayload,4 个拒绝码) / edge-policy(directed 反向拒+钩子) / scheduler(FIFO)。验收：F2 冒烟「A 产出→经边→B」message.delivered+状态推进 ✓。
-  - [ ] **F3 · 协议+横切** — MCP 传输/中间件链/tools/resources/sse + audit/auth/logger。验收：JSON-RPC 往返 + 后端内端到端冒烟。
+  - [x] **F3 · 协议+横切** ✅ — L5: transport(HTTP+JSON-RPC dispatch+SSE,flushHeaders) / middleware(compose 链) / tools/registry / resources(context:// 读投影) / sse(hub+重放) + 横切 auth/logger/audit。验收：F3 冒烟 本地 server JSON-RPC 往返 + SSE 推送 ✓；transport 接受 protocol-samples REQ_CALL ✓。
 - **editor 支**（可与 runtime 支并行，对 mock 编码）：
   - [ ] **F4 · 状态+画布** — Vite/React + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射。验收：store/命令撤销单测；画布渲染节点/边。
   - [ ] **F5 · 连接+同步** — isValidConnection→core/validate + sync 适配器(对冻结契约+mock)。验收：连线类型校验(含拒绝+原因)；mock adapter 同步流。
