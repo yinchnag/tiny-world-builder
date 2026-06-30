@@ -6,8 +6,8 @@
 
 ## 当前状态（2026-06-29）
 
-**runtime 支完成 + editor F4 状态/映射层完成**（graph-store/commands/adapters，111 测试）。**下一步 F4 画布组件**（FlowCanvas + 渲染测试，jsdom）→ F5/F6 → Fx。
-> 前端工具链就位：`@blueprint/core` 桶（exports）+ editor tsconfig(jsx/DOM) + per-package `tsc`；前端依赖已装（react/vite/xyflow/zustand/zundo）。
+**runtime 支完成 + editor F4 完成**（状态+映射+画布+脚手架，114 测试）。**下一步 editor F5**（连接+同步）→ F6 → Fx。
+> 前端工具链就位：`@blueprint/core` 桶 + editor tsconfig(jsx/DOM) + per-package `tsc` + jsdom 组件测试（FlowCanvas 渲染 xyflow 画布+节点 ✓）。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
 
 ## 决策记录（不可动摇基线）
@@ -46,7 +46,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
   - [x] **F2 · 引擎** ✅ — node-machine(状态机推进+产事件) / message-bus(运行期类型防线,调 core/validate.canConnect+validatePayload,4 个拒绝码) / edge-policy(directed 反向拒+钩子) / scheduler(FIFO)。验收：F2 冒烟「A 产出→经边→B」message.delivered+状态推进 ✓。
   - [x] **F3 · 协议+横切** ✅ — L5: transport(HTTP+JSON-RPC dispatch+SSE,flushHeaders) / middleware(compose 链) / tools/registry / resources(context:// 读投影) / sse(hub+重放) + 横切 auth/logger/audit。验收：F3 冒烟 本地 server JSON-RPC 往返 + SSE 推送 ✓；transport 接受 protocol-samples REQ_CALL ✓。
 - **editor 支**（可与 runtime 支并行，对 mock 编码）：
-  - [ ] **F4 · 状态+画布** — Vite/React + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射。验收：store/命令撤销单测；画布渲染节点/边。
+  - [x] **F4 · 状态+画布** ✅ — Vite/React 脚手架 + L-State(graph-store zustand/commands zundo 撤销/selection/ui) + L-Graph(adapters core↔xyflow / FlowCanvas) + L-App(App/providers/main)。验收：store/命令撤销单测 ✓；FlowCanvas jsdom 渲染画布+节点 ✓。
   - [ ] **F5 · 连接+同步** — isValidConnection→core/validate + sync 适配器(对冻结契约+mock)。验收：连线类型校验(含拒绝+原因)；mock adapter 同步流。
   - [ ] **F6 · 节点UI+装配** — 节点组件注册表 + 契约驱动检视器 + app 装配 + 工作区加载/保存。验收：检视器渲染；editor 自身端到端(对 mock)走通。
 - [ ] **Fx · 集成** — 接通真 runtime↔editor。验收：跨栈端到端 建节点→连线→镜像→后端事件→SSE→前端高亮，全绿。

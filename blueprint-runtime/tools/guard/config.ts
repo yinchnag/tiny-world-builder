@@ -36,4 +36,7 @@ export const COVERAGE = {
 export const MIRROR_EXEMPT: readonly string[] = [
   'core/index.ts', // 纯 re-export 桶文件，无逻辑
   'editor/src/lib/flow-types.ts', // 纯类型文件，无逻辑
+  'editor/src/app/main.tsx', // Vite 入口引导
+  'editor/src/app/App.tsx', // 应用外壳装配（渲染由 FlowCanvas 测覆盖）
+  'editor/src/app/providers.tsx', // Provider 包裹
 ];

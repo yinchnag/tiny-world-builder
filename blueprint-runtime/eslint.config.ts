@@ -64,6 +64,7 @@ export default tseslint.config(
       'docs/**',
       'eslint.config.ts',
       'vitest.config.ts',
+      '**/vite.config.ts',
     ],
   },
   ...tseslint.configs.recommended,
@@ -148,6 +149,15 @@ export default tseslint.config(
       'jsdoc/require-param': 'off',
       'jsdoc/require-returns': 'off',
       'max-lines-per-function': 'off',
+    },
+  },
+  // React 组件（.tsx）：JSX 自说明，免 JSDoc 的 param/returns 要求（体量约束仍在）
+  {
+    files: ['**/*.tsx'],
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
+      'jsdoc/require-param': 'off',
+      'jsdoc/require-returns': 'off',
     },
   },
 );
