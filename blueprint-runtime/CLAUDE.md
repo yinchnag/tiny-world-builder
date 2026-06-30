@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**runtime 支(F1–F3) + editor F4 全部完成**（后端图运行时 + 前端状态/画布，114 测试，2026-06-30）。下一步 **editor F5**（连接校验+sync 适配器，对 mock）→ F6 → Fx 集成。
+**runtime 支(F1–F3) + editor F4/F5 完成**（123 测试，2026-06-30）。下一步 **editor F6**（节点UI注册表+契约驱动检视器+装配）→ Fx 集成。
 - 前端依赖已装（react/vite/xyflow/zustand/zundo + rtl/jsdom）；`.tsx` 组件测试用 `// @vitest-environment jsdom` 文件头。
 - 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。
