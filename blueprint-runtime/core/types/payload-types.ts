@@ -55,6 +55,7 @@ const TYPES: readonly PayloadType[] = [
   }),
   def({ name: 'ContextBundle', lane: 'context', description: '上下文包', schema: z.object({ items: z.array(z.string()) }) }),
   def({ name: 'DocumentSelection', lane: 'context', description: '文档选区', schema: z.object({ text: z.string() }) }),
+  def({ name: 'DocumentText', lane: 'context', description: '文档全文', schema: z.object({ text: z.string() }) }),
   def({ name: 'MemoryFact', lane: 'context', description: '记忆事实' }),
   def({ name: 'HumanAttention', lane: 'human', description: '请求人类关注', schema: z.object({ question: z.string() }) }),
   def({ name: 'HumanReply', lane: 'human', description: '人类回复', schema: z.object({ text: z.string() }) }),

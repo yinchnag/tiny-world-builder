@@ -21,6 +21,7 @@ import type { ReasonCode } from '../events';
 const ASSIGNABLE: Readonly<Record<string, readonly string[]>> = {
   AgentReport: ['AgentMessage'],
   DocumentSelection: ['ContextBundle'],
+  DocumentText: ['ContextBundle'],
 };
 
 /** 相容判定结果；不相容时带 §5.7 原因码。 */

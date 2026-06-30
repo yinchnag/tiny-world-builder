@@ -41,4 +41,20 @@ test.describe('BP-1 节点面板', () => {
     await expect(inspector.locator('[data-port="task_out"]')).toBeVisible();
     await expect(inspector.locator('[data-port="task_update_in"]')).toBeVisible();
   });
+
+  test('从面板新建 Document 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addDoc = page.getByTestId('palette-add-document');
+    await expect(addDoc).toBeVisible();
+    await addDoc.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.locator('[data-port="text_out"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="selection_out"]')).toBeVisible();
+  });
 });

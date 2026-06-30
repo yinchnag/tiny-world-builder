@@ -17,6 +17,10 @@ describe('checkCompatible', () => {
     expect(checkCompatible('AgentMessage', 'AgentMessage')).toEqual({ ok: true });
   });
 
+  it('DocumentText → ContextBundle is assignable (BP-1 Document feeds Agent)', () => {
+    expect(checkCompatible('DocumentText', 'ContextBundle')).toEqual({ ok: true });
+  });
+
   it('X1: same lane but not assignable → payload.incompatible', () => {
     expect(checkCompatible('HumanReply', 'HumanAttention')).toEqual({
       ok: false,
