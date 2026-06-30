@@ -21,7 +21,8 @@
 
 ## 现状（重要）
 
-**runtime 支(F1–F3) + editor F4/F5/F6 完成**（130 测试，2026-06-30）。下一步 **Fx 集成**（真 runtime ⇔ editor 端到端 over MCP，顶层 `integration/`）——地基最后一块。
+**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。下一步进入**功能阶段 BP-1**（节点家族契约落地，地基之上，每功能 = 一份契约(core)+一组 handler(runtime)+一个 nodes 目录(editor)，不改地基）。
+- `pnpm types` 现含 5 个 tsconfig（+ 顶层 `integration/`，跨前后端的合龙测试落此，避开 R3 边界）。
 - 前端依赖已装（react/vite/xyflow/zustand/zundo + rtl/jsdom）；`.tsx` 组件测试用 `// @vitest-environment jsdom` 文件头。
 - 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。

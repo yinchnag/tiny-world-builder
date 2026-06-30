@@ -4,11 +4,11 @@
 > 每个阶段验收全绿再进下一阶段（验收标准见 `docs/DEVELOPMENT_GUIDE.md` §10）。
 > 工作方式：开工先读本文 + `docs/architecture/00-overview.md` + `docs/execution/00-protocol.md` + `docs/testing/00-fixtures-and-manifests.md`，按执行协议六步循环干活，收工更新本文。
 
-## 当前状态（2026-06-29）
+## 当前状态（2026-06-30）
 
-**runtime 支完成 + editor F4/F5/F6 完成**（130 测试）。**下一步 Fx**（真 runtime ⇔ editor 端到端，over MCP）——最后一块地基。
-> 前端工具链就位：`@blueprint/core` 桶 + editor tsconfig(jsx/DOM) + per-package `tsc` + jsdom 组件测试（FlowCanvas 渲染 xyflow 画布+节点 ✓）。
-> 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
+**🏗️ 地基全部完成**（F-guard → F0 →（F1/F2/F3 ∥ F4/F5/F6）→ Fx，**131 测试全绿**）。一套空白但**类型安全·可执行·可观测·可扩展**的图运行时 + 编辑器骨架就绪。**下一步进入功能阶段 BP-1**（节点家族契约落地，地基之上，不改地基）。
+> 工具链全就位：`pnpm check`(lint+test+镜像) + `pnpm types`(5 个 tsconfig：core/runtime/editor/tools/integration) 全绿。
+> 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。前端 jsdom 组件测试（`// @vitest-environment jsdom`）就绪。
 
 ## 决策记录（不可动摇基线）
 
@@ -49,7 +49,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
   - [x] **F4 · 状态+画布** ✅ — Vite/React 脚手架 + L-State(graph-store zustand/commands zundo 撤销/selection/ui) + L-Graph(adapters core↔xyflow / FlowCanvas) + L-App(App/providers/main)。验收：store/命令撤销单测 ✓；FlowCanvas jsdom 渲染画布+节点 ✓。
   - [x] **F5 · 连接+同步** ✅ — connection/validate-connection(checkConnection→core/validate.canConnect,与运行期同一函数) · edges/lane-color+TypedEdge · sync(runtime-adapter no-op/mock · mcp-client REQ_CALL · sse 事件→store · mirror 本地→后端)。验收：连线类型校验含拒绝码 ✓；mock adapter 同步流 ✓。
   - [x] **F6 · 节点UI+装配** ✅ — nodes/registry(type→组件) + GenericNode(契约摆 Handle) + inspector/InspectorPanel(契约驱动) + workspace(use-workspace/autosave) + app/App 装配(注入 nodeTypes/edgeTypes)。验收：契约驱动检视器渲染 ✓；editor 自身端到端 f6-smoke(建节点→连线校验→镜像→SSE，对 mock)✓。
-- [ ] **Fx · 集成** — 接通真 runtime↔editor。验收：跨栈端到端 建节点→连线→镜像→后端事件→SSE→前端高亮，全绿。
+- [x] **Fx · 集成** ✅ — 顶层 `integration/fx-smoke`：真 runtime transport ⇔ 真 editor mcp-client（HTTP JSON-RPC 往返）+ runtime SSE 帧 → editor applyEvent → graph-store。位置在顶层 `integration/`（非 editor/runtime 元素，R3 与 boundaries 不覆盖，集成层允许同握两侧）。验收：跨栈端到端线上一致 ✓（131 测试）。**🏗️ 地基就绪。**
 
 > F-guard → F0 →（F1–F3 ∥ F4–F6）→ Fx 完成 = 地基就绪：空白但类型安全、可执行、可观测、可扩展的图运行时 + 编辑器骨架。
 

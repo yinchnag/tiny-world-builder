@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
-    "types": "tsc -p core/tsconfig.json && tsc -p runtime/tsconfig.json && tsc -p editor/tsconfig.json && tsc -p tools/tsconfig.json",
+    "types": "tsc -p core/tsconfig.json && tsc -p runtime/tsconfig.json && tsc -p editor/tsconfig.json && tsc -p tools/tsconfig.json && tsc -p integration/tsconfig.json",
     "check": "tsx tools/guard/check.ts"
   },
   "devDependencies": {
