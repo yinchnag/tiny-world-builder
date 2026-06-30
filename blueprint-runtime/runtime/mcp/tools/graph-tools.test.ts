@@ -6,6 +6,7 @@ import { openDb, migrate } from '../../persist/sqlite-adapter';
 import { createSseHub } from '../sse';
 import { createToolRegistry } from './registry';
 import { registerGraphTools } from './graph-tools';
+import { createExecutorRegistry } from '../../engine/exec/executor';
 import { fixedClock } from '../../kernel/clock';
 import { registerBuiltinContracts, type RuntimeEvent } from '../../../core/index';
 import type { ToolDef } from './registry';
@@ -26,7 +27,7 @@ describe('graph tools', () => {
     const events: RuntimeEvent[] = [];
     hub.subscribe((e) => events.push(e));
     const reg = createToolRegistry();
-    registerGraphTools(reg, { db, hub, clock: fixedClock('2026-06-30T00:00:00.000Z') });
+    registerGraphTools(reg, { db, hub, clock: fixedClock('2026-06-30T00:00:00.000Z'), executors: createExecutorRegistry() });
 
     call(reg.lookup('create_node'), { id: 'D', type: 'document' });
     call(reg.lookup('create_node'), { id: 'A', type: 'agent' });
@@ -47,7 +48,26 @@ describe('graph tools', () => {
     const db = openDb();
     migrate(db);
     const reg = createToolRegistry();
-    registerGraphTools(reg, { db, hub: createSseHub(), clock: fixedClock('2026-06-30T00:00:00.000Z') });
+    registerGraphTools(reg, { db, hub: createSseHub(), clock: fixedClock('2026-06-30T00:00:00.000Z'), executors: createExecutorRegistry() });
     expect(call(reg.lookup('deliver'), { edgeId: 'nope', payload: {} }).ok).toBe(false);
+  });
+
+  it('run_node triggers the registered executor (async → exec.* events)', async () => {
+    const db = openDb();
+    migrate(db);
+    const hub = createSseHub();
+    const seen: string[] = [];
+    hub.subscribe((e) => seen.push(e.eventType));
+    const executors = createExecutorRegistry();
+    executors.register('agent', async () => ({ outputs: [], nextState: 'working' }));
+    const reg = createToolRegistry();
+    registerGraphTools(reg, { db, hub, clock: fixedClock('2026-06-30T00:00:00.000Z'), executors });
+
+    call(reg.lookup('create_node'), { id: 'A', type: 'agent' });
+    expect(call(reg.lookup('run_node'), { nodeId: 'A' }).ok).toBe(true);
+
+    await new Promise((r) => setTimeout(r, 20));
+    expect(seen).toContain('exec.started');
+    expect(seen).toContain('exec.completed');
   });
 });

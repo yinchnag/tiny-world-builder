@@ -45,6 +45,15 @@ export function route(edge: Edge, sourcePort: Port, targetPort: Port, payload: u
   if (!pay.ok) return reject(edge, pay.reason, clock);
   return {
     delivered: true,
-    event: { ts: clock.nowIso(), eventType: 'message.delivered', edgeId: edge.id, payloadType: edge.payloadType },
+    // D1：带上 target 节点/端口 + payload（用 RuntimeEvent 现有字段），供执行器输入物化。
+    event: {
+      ts: clock.nowIso(),
+      eventType: 'message.delivered',
+      edgeId: edge.id,
+      nodeId: edge.target.node,
+      portId: edge.target.port,
+      payloadType: edge.payloadType,
+      payload,
+    },
   };
 }

@@ -16,6 +16,12 @@ describe('events vocabulary', () => {
     expect(isKnownEventType('cache.miss')).toBe(true);
   });
 
+  it('recognizes EX executor events (exec.started/completed/failed)', () => {
+    expect(isKnownEventType('exec.started')).toBe(true);
+    expect(isKnownEventType('exec.completed')).toBe(true);
+    expect(isKnownEventType('exec.failed')).toBe(true);
+  });
+
   it('rejects unregistered event names', () => {
     expect(isKnownEventType('agent.report')).toBe(false); // 未登记的功能事件
     expect(isKnownEventType('bogus')).toBe(false);

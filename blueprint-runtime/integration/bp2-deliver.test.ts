@@ -16,6 +16,7 @@ import { openDb, migrate } from '../runtime/persist/sqlite-adapter';
 import { createSseHub } from '../runtime/mcp/sse';
 import { createToolRegistry } from '../runtime/mcp/tools/registry';
 import { registerGraphTools } from '../runtime/mcp/tools/graph-tools';
+import { createExecutorRegistry } from '../runtime/engine/exec/executor';
 import { createTransport } from '../runtime/mcp/transport';
 import { fixedClock } from '../runtime/kernel/clock';
 import { createHttpAdapter } from '../editor/src/sync/http-adapter';
@@ -39,7 +40,7 @@ describe('BP-2 deliver (editor adapter ⇄ real runtime over MCP)', () => {
     migrate(db);
     const hub = createSseHub();
     const registry = createToolRegistry();
-    registerGraphTools(registry, { db, hub, clock: fixedClock('2026-06-30T00:00:00.000Z') });
+    registerGraphTools(registry, { db, hub, clock: fixedClock('2026-06-30T00:00:00.000Z'), executors: createExecutorRegistry() });
     const server = createTransport({ registry, middlewares: [], hub });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

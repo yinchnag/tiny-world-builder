@@ -10,24 +10,27 @@
  */
 import { createEdge, lookup, type Edge, type Lane, type Port } from '../../../core/index';
 import { route } from '../../engine/message-bus';
-import { append } from '../../persist/event-log';
+import { append, type EventInput } from '../../persist/event-log';
+import { runNode, type NodeMeta } from '../../engine/exec/run';
+import type { ExecutorRegistry } from '../../engine/exec/executor';
 import type { Db } from '../../persist/sqlite-adapter';
 import type { Clock } from '../../kernel/clock';
 import type { SseHub } from '../sse';
 import type { ToolRegistry } from './registry';
 import type { ToolOutcome } from '../middleware';
 
-/** 图工具依赖：事件主存 + 事件流 + 时钟。 */
+/** 图工具依赖：事件主存 + 事件流 + 时钟 + 执行器注册表。 */
 export interface GraphToolsDeps {
   readonly db: Db;
   readonly hub: SseHub;
   readonly clock: Clock;
+  readonly executors: ExecutorRegistry;
 }
 
-function resolvePort(types: Map<string, string>, nodeId: string, portId: string): Port | undefined {
-  const type = types.get(nodeId);
-  if (type === undefined) return undefined;
-  const contract = lookup(type);
+function resolvePort(nodes: Map<string, NodeMeta>, nodeId: string, portId: string): Port | undefined {
+  const meta = nodes.get(nodeId);
+  if (meta === undefined) return undefined;
+  const contract = lookup(meta.type);
   if (contract === undefined) return undefined;
   return [...contract.inputs, ...contract.outputs].find((p) => p.id === portId);
 }
@@ -40,7 +43,7 @@ function resolvePort(types: Map<string, string>, nodeId: string, portId: string)
  * @returns void
  */
 export function registerGraphTools(registry: ToolRegistry, deps: GraphToolsDeps): void {
-  const nodeTypes = new Map<string, string>();
+  const nodes = new Map<string, NodeMeta>();
   const edges = new Map<string, Edge>();
 
   registry.register({
@@ -48,8 +51,8 @@ export function registerGraphTools(registry: ToolRegistry, deps: GraphToolsDeps)
     mutates: true,
     adminOnly: false,
     handler: (req): ToolOutcome => {
-      const a = req.arguments as { id: string; type: string };
-      nodeTypes.set(a.id, a.type);
+      const a = req.arguments as { id: string; type: string; properties?: Record<string, unknown> };
+      nodes.set(a.id, { type: a.type, properties: a.properties ?? {} });
       return { ok: true, value: { created: a.id } };
     },
   });
@@ -80,8 +83,8 @@ export function registerGraphTools(registry: ToolRegistry, deps: GraphToolsDeps)
       const a = req.arguments as { edgeId: string; payload: unknown };
       const edge = edges.get(a.edgeId);
       if (edge === undefined) return { ok: false, error: { code: 'deliver.edge_missing', message: `未知边 ${a.edgeId}` } };
-      const src = resolvePort(nodeTypes, edge.source.node, edge.source.port);
-      const tgt = resolvePort(nodeTypes, edge.target.node, edge.target.port);
+      const src = resolvePort(nodes, edge.source.node, edge.source.port);
+      const tgt = resolvePort(nodes, edge.target.node, edge.target.port);
       if (src === undefined || tgt === undefined) {
         return { ok: false, error: { code: 'deliver.port_missing', message: '端口未解析（先 create_node）' } };
       }
@@ -90,6 +93,21 @@ export function registerGraphTools(registry: ToolRegistry, deps: GraphToolsDeps)
       deps.hub.push(ev);
       if (result.delivered) return { ok: true, value: { seq: ev.seq, eventType: ev.eventType } };
       return { ok: false, error: { code: 'message.rejected', message: `投递被拒 (seq=${ev.seq})` } };
+    },
+  });
+
+  registry.register({
+    name: 'run_node',
+    mutates: true,
+    adminOnly: false,
+    handler: (req): ToolOutcome => {
+      const a = req.arguments as { nodeId: string };
+      const emit = (ev: EventInput): void => {
+        deps.hub.push(append(deps.db, ev));
+      };
+      // 触发即返回；执行 async 进行，结果经 SSE 事件回流（D2 手动激活）。
+      void runNode({ db: deps.db, clock: deps.clock, executors: deps.executors, nodes, edges, emit }, a.nodeId);
+      return { ok: true, value: { started: true } };
     },
   });
 }

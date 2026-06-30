@@ -24,6 +24,9 @@ export const FOUNDATION_EVENT_TYPES = [
 export const FEATURE_EVENT_TYPES = [
   'cache.hit', // BP Cache：精确记忆化命中（可审计，vision §7）
   'cache.miss', // BP Cache：未命中（计算并存）
+  'exec.started', // EX 执行器：节点开始执行
+  'exec.completed', // EX 执行器：节点执行完成
+  'exec.failed', // EX 执行器：节点执行失败（payload.message 带原因）
 ] as const;
 
 /** 事件类型名（`<domain>.<verb>`，全小写点分）。 */
