@@ -7,7 +7,7 @@
 ## 当前状态（2026-06-29）
 
 **F-guard 完成**（pnpm monorepo 脚手架 + 护栏 G1/G2/G5/G4/G6 全绿）。下一步：**F0**（core/）+ 过契约冻结点。
-> ⚠️ 本机 Node 22；基线是 Node 24。F-guard 不需要 24，但 **F1（`node:sqlite`）前须升级到 Node 24**。
+> 本机已升级 **Node 24.18**（nvm，符合基线）；F-guard 已在 Node 24 上复跑全绿。
 
 ## 决策记录（不可动摇基线）
 

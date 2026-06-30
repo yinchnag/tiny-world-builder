@@ -22,6 +22,6 @@
 ## 现状（重要）
 
 **F-guard 完成**（pnpm monorepo + 护栏全绿，2026-06-30）。下一步 **F0（core/）**，须先过**契约冻结点**（GUIDE §10）。
-- 本机 Node 22；基线 Node 24。**F1（`node:sqlite`）前升级到 Node 24**。
+- 本机 **Node 24.18**（nvm，符合基线）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。
 - 推进规则不变：按 execution/00 六步循环 + 停-问；进 F0 写 core/ 前先与人确认契约冻结点内容。
