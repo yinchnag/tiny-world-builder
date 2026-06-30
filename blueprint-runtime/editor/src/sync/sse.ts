@@ -9,7 +9,8 @@ import type { RuntimeAdapter, Unsubscribe } from './runtime-adapter';
 import type { RuntimeEvent } from '@blueprint/core';
 
 /**
- * 把一条后端事件应用到 store（node.transitioned → 节点状态只读缓存）。
+ * 把一条后端事件应用到 store（只读缓存更新）：
+ *   node.transitioned → 节点状态；message.delivered → 边动画（投递反馈）。
  *
  * @param ev 运行时事件
  * @returns void
@@ -18,6 +19,10 @@ export function applyEvent(ev: RuntimeEvent): void {
   if (ev.eventType === 'node.transitioned' && ev.nodeId !== undefined) {
     const to = (ev.payload as { to?: string } | undefined)?.to;
     if (to !== undefined) useGraphStore.getState().applyNodeState(ev.nodeId, to);
+    return;
+  }
+  if (ev.eventType === 'message.delivered' && ev.edgeId !== undefined) {
+    useGraphStore.getState().markEdgeDelivered(ev.edgeId);
   }
 }
 

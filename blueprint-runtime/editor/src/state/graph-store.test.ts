@@ -30,4 +30,13 @@ describe('graph-store', () => {
     useGraphStore.getState().onNodesChange([{ id: 'A', type: 'position', position: { x: 50, y: 60 } }]);
     expect(useGraphStore.getState().nodes[0].position).toEqual({ x: 50, y: 60 });
   });
+
+  it('markEdgeDelivered animates the matching edge (投递反馈)', () => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [{ id: 'E1', source: 'A', target: 'B', data: { lane: 'message', payloadType: 'AgentMessage' } }],
+    });
+    useGraphStore.getState().markEdgeDelivered('E1');
+    expect(useGraphStore.getState().edges[0].animated).toBe(true);
+  });
 });

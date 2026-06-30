@@ -20,6 +20,8 @@ export interface GraphState {
   addEdge(edge: FlowEdge): void;
   setGraph(nodes: FlowNode[], edges: FlowEdge[]): void;
   applyNodeState(nodeId: string, state: string): void;
+  /** 标记一条边「已投递」（animated 动画）——SSE message.delivered 驱动的反馈。 */
+  markEdgeDelivered(edgeId: string): void;
   /** xyflow 变更回写（拖动/选中/删除）——不接则节点不可拖动。 */
   onNodesChange(changes: NodeChange<FlowNode>[]): void;
   onEdgesChange(changes: EdgeChange<FlowEdge>[]): void;
@@ -37,6 +39,8 @@ export const useGraphStore = create<GraphState>()(
       set((s) => ({
         nodes: s.nodes.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, state } } : n)),
       })),
+    markEdgeDelivered: (edgeId: string): void =>
+      set((s) => ({ edges: s.edges.map((e) => (e.id === edgeId ? { ...e, animated: true } : e)) })),
     onNodesChange: (changes: NodeChange<FlowNode>[]): void =>
       set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
     onEdgesChange: (changes: EdgeChange<FlowEdge>[]): void =>

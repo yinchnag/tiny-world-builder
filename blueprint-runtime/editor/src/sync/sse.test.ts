@@ -21,4 +21,16 @@ describe('sse sync flow', () => {
     expect(useGraphStore.getState().nodes[0].data.state).toBe('working');
     unsub();
   });
+
+  it('animates an edge on message.delivered (投递反馈)', () => {
+    useGraphStore.setState({
+      nodes: [],
+      edges: [{ id: 'E1', source: 'A', target: 'B', data: { lane: 'message', payloadType: 'AgentMessage' } }],
+    });
+    const adapter = createMockAdapter();
+    const unsub = connectSse(adapter);
+    adapter.emit({ seq: 2, ts: 't', eventType: 'message.delivered', edgeId: 'E1', payloadType: 'AgentMessage' });
+    expect(useGraphStore.getState().edges[0].animated).toBe(true);
+    unsub();
+  });
 });
