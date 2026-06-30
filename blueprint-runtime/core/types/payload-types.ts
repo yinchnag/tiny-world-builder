@@ -60,6 +60,7 @@ const TYPES: readonly PayloadType[] = [
   def({ name: 'MemoryProposal', lane: 'context', description: '记忆提案', schema: z.object({ proposal: z.string() }) }),
   def({ name: 'BrowserFinding', lane: 'context', description: '浏览器发现', schema: z.object({ finding: z.string() }) }),
   def({ name: 'GitDiff', lane: 'context', description: 'Git 差异', schema: z.object({ diff: z.string() }) }),
+  def({ name: 'BlockedTask', lane: 'task', description: '受阻任务', schema: z.object({ taskId: z.string(), blocker: z.string() }) }),
   def({ name: 'HumanAttention', lane: 'human', description: '请求人类关注', schema: z.object({ question: z.string() }) }),
   def({ name: 'HumanReply', lane: 'human', description: '人类回复', schema: z.object({ text: z.string() }) }),
   def({ name: 'Approval', lane: 'human', description: '审批', schema: z.object({ approved: z.boolean() }) }),

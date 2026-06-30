@@ -32,6 +32,7 @@ describe('builtin contracts', () => {
     expect(lookup('terminal')).toBeDefined();
     expect(lookup('browser')).toBeDefined();
     expect(lookup('git')).toBeDefined();
+    expect(lookup('status')).toBeDefined();
   });
 
   it('feeds observation findings into Agent (browser.finding_out / git.diff_out → context_in)', () => {

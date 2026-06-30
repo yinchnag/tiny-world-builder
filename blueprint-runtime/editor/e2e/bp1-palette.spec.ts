@@ -118,4 +118,18 @@ test.describe('BP-1 节点面板', () => {
 
     await expect(page.getByTestId('inspector').locator('[data-port="diff_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Status 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addStatus = page.getByTestId('palette-add-status');
+    await expect(addStatus).toBeVisible();
+    await addStatus.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    await expect(page.getByTestId('inspector').locator('[data-port="blocked_task_out"]')).toBeVisible();
+  });
 });
