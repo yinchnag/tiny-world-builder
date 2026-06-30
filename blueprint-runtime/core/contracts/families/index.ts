@@ -11,20 +11,23 @@ import { HUMAN_CONTRACT } from './human';
 import { TASK_CONTRACT } from './task';
 import { DOCUMENT_CONTRACT } from './document';
 import { MEMORY_CONTRACT } from './memory';
+import { TERMINAL_CONTRACT } from './terminal';
 
 export { AGENT_CONTRACT } from './agent';
 export { HUMAN_CONTRACT } from './human';
 export { TASK_CONTRACT } from './task';
 export { DOCUMENT_CONTRACT } from './document';
 export { MEMORY_CONTRACT } from './memory';
+export { TERMINAL_CONTRACT } from './terminal';
 
-/** 功能阶段 BP-1 的内置契约：Agent（execution）+ Human Gate（human）+ Task（task）+ Document/Memory（context）。 */
+/** 功能阶段 BP-1 的内置契约：Agent/Terminal（execution）+ Human（human）+ Task（task）+ Document/Memory（context）。 */
 export const BUILTIN_CONTRACTS: readonly NodeContract[] = [
   AGENT_CONTRACT,
   HUMAN_CONTRACT,
   TASK_CONTRACT,
   DOCUMENT_CONTRACT,
   MEMORY_CONTRACT,
+  TERMINAL_CONTRACT,
 ];
 
 /**

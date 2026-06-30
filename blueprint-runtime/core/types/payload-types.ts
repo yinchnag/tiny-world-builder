@@ -61,6 +61,10 @@ const TYPES: readonly PayloadType[] = [
   def({ name: 'HumanAttention', lane: 'human', description: '请求人类关注', schema: z.object({ question: z.string() }) }),
   def({ name: 'HumanReply', lane: 'human', description: '人类回复', schema: z.object({ text: z.string() }) }),
   def({ name: 'Approval', lane: 'human', description: '审批', schema: z.object({ approved: z.boolean() }) }),
+  def({ name: 'CommandInput', lane: 'control', description: '终端命令输入', schema: z.object({ command: z.string() }) }),
+  def({ name: 'ExitStatus', lane: 'control', description: '进程退出码', schema: z.object({ code: z.number() }) }),
+  def({ name: 'StdoutChunk', lane: 'resource', description: '标准输出块', schema: z.object({ text: z.string() }) }),
+  def({ name: 'StderrChunk', lane: 'resource', description: '标准错误块', schema: z.object({ text: z.string() }) }),
 ];
 
 const REGISTRY: ReadonlyMap<string, PayloadType> = new Map(TYPES.map((t) => [t.name, t]));

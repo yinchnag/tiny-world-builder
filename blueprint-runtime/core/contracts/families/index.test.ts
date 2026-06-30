@@ -9,6 +9,7 @@ import {
   TASK_CONTRACT,
   DOCUMENT_CONTRACT,
   MEMORY_CONTRACT,
+  TERMINAL_CONTRACT,
 } from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
@@ -26,6 +27,12 @@ describe('builtin contracts', () => {
     expect(lookup('task')).toBeDefined();
     expect(lookup('document')).toBeDefined();
     expect(lookup('memory')).toBeDefined();
+    expect(lookup('terminal')).toBeDefined();
+  });
+
+  it('keeps Terminal resource output isolated from message lane (stdout_out → message_in = lane.mismatch)', () => {
+    const bad = canConnect(port(TERMINAL_CONTRACT.outputs, 'stdout_out'), port(AGENT_CONTRACT.inputs, 'message_in'));
+    expect(bad).toEqual({ ok: false, reason: 'lane.mismatch' });
   });
 
   it('feeds Memory context into Agent (fact_out / proposal_out → context_in)', () => {

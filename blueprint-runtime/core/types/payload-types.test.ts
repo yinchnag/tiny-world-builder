@@ -30,6 +30,13 @@ describe('payload-types', () => {
     expect(laneOf('MemoryProposal')).toBe('context');
   });
 
+  it('registers Terminal types on the control/resource lanes (BP-1 Terminal)', () => {
+    expect(laneOf('CommandInput')).toBe('control');
+    expect(laneOf('ExitStatus')).toBe('control');
+    expect(laneOf('StdoutChunk')).toBe('resource');
+    expect(laneOf('StderrChunk')).toBe('resource');
+  });
+
   it('registers HandoffRequest on the task lane with a field schema (BP-1)', () => {
     const t = lookupPayloadType('HandoffRequest');
     expect(t?.lane).toBe('task');
