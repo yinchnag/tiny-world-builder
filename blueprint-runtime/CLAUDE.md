@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**功能阶段 BP-1 进行中**（143 测试）：已落 **Agent + Human Gate** 节点契约（`core/contracts/families/`，`registerBuiltinContracts()` 注册）+ 新增 `HandoffRequest` 载荷类型。下一步 BP-1 续作（Terminal/Context/Task 家族）或 BP-2（类型化连线）。
+**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**功能阶段 BP-1 六家族落齐**（161 单测 + 5 E2E）：`core/contracts/families/` 已落 Agent/Terminal(execution)·Human Gate(human)·Task(task)·Document/Memory(context)，`registerBuiltinContracts()` 注册；六泳道全有载荷类型。editor 有节点面板(点击建节点,BUILTIN_CONTRACTS 驱动)+ 选中→检视器,每家族一条 Playwright E2E。下一步 **BP-2**（类型化连线）或补 Observation/Integration/Cache 家族。
 - `pnpm types` 现含 5 个 tsconfig（+ 顶层 `integration/`，跨前后端的合龙测试落此，避开 R3 边界）。
 - 功能阶段铁律：每功能 = 一份契约(core)+一组 handler(runtime)+一个 nodes 目录(editor)，**不改地基**；新增载荷类型/事件/码仍是契约面，须停-问。
 - **用户面铁律（用户定 2026-06-30）**：凡改动影响用户使用，**必须配 Playwright E2E**，验四问——可见/易见/可操作/有反馈。E2E 放 `editor/e2e/*.spec.ts`（`pnpm test:e2e`，真浏览器，vitest 不收 `.spec`）；webServer 用 `127.0.0.1`（避 Windows localhost IPv6 错配）。
