@@ -40,4 +40,5 @@ export const MIRROR_EXEMPT: readonly string[] = [
   'editor/src/app/App.tsx', // 应用外壳装配（渲染由 FlowCanvas 测覆盖）
   'editor/src/app/providers.tsx', // Provider 包裹
   'editor/src/graph/edges/TypedEdge.tsx', // presentational 边组件（着色逻辑在 lane-color，已测）
+  'editor/src/nodes/GenericNode.tsx', // presentational 默认节点组件（registry/inspector 已测）
 ];
