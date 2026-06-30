@@ -24,6 +24,7 @@
 **🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**功能阶段 BP-1 进行中**（143 测试）：已落 **Agent + Human Gate** 节点契约（`core/contracts/families/`，`registerBuiltinContracts()` 注册）+ 新增 `HandoffRequest` 载荷类型。下一步 BP-1 续作（Terminal/Context/Task 家族）或 BP-2（类型化连线）。
 - `pnpm types` 现含 5 个 tsconfig（+ 顶层 `integration/`，跨前后端的合龙测试落此，避开 R3 边界）。
 - 功能阶段铁律：每功能 = 一份契约(core)+一组 handler(runtime)+一个 nodes 目录(editor)，**不改地基**；新增载荷类型/事件/码仍是契约面，须停-问。
+- **用户面铁律（用户定 2026-06-30）**：凡改动影响用户使用，**必须配 Playwright E2E**，验四问——可见/易见/可操作/有反馈。E2E 放 `editor/e2e/*.spec.ts`（`pnpm test:e2e`，真浏览器，vitest 不收 `.spec`）；webServer 用 `127.0.0.1`（避 Windows localhost IPv6 错配）。
 - 前端依赖已装（react/vite/xyflow/zustand/zundo + rtl/jsdom）；`.tsx` 组件测试用 `// @vitest-environment jsdom` 文件头。
 - 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。

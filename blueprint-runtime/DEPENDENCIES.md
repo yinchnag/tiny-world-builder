@@ -24,6 +24,7 @@
 | `@types/react` / `@types/react-dom` | ^18.3 | React 类型 | 2026-06-30 |
 | `@testing-library/react` | ^16.1 | 组件单测（RTL） | 2026-06-30 |
 | `jsdom` | ^25.0 | 组件单测 DOM 环境（vitest） | 2026-06-30 |
+| `@playwright/test` | ^1.61 | 前端真浏览器 E2E（GUIDE §8 / 20 §）：用户可见/可操作/有反馈的关键流（连线校验、节点创建、SSE 高亮） | 2026-06-30 |
 
 ## dependencies（进产物）
 

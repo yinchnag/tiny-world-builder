@@ -3,6 +3,7 @@
  * 装配点：注册节点 UI、把 nodeTypes/edgeTypes 注入 FlowCanvas（registry 在更高 rank）。
  */
 import { Providers } from './providers';
+import { NodePalette } from './NodePalette';
 import { FlowCanvas } from '../graph/FlowCanvas';
 import { TypedEdge } from '../graph/edges/TypedEdge';
 import { InspectorPanel } from '../inspector/InspectorPanel';
@@ -26,6 +27,7 @@ export function App() {
   return (
     <Providers>
       <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
+        <NodePalette />
         <div style={{ flex: 1 }}>
           <FlowCanvas nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} />
         </div>

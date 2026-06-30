@@ -6,7 +6,8 @@
 
 ## 当前状态（2026-06-30）
 
-**🏗️ 地基全部完成 + 功能阶段 BP-1 开张**（**143 测试全绿**）。地基(F-guard→F0→F1/F2/F3∥F4/F5/F6→Fx)之上,BP-1 已落 **Agent(execution) + Human Gate(human)** 两份节点契约(不改地基)。**下一步 BP-1 续作**(Terminal/Context/Task 家族)或 **BP-2**(类型化连线全流程)。
+**🏗️ 地基全部完成 + 功能阶段 BP-1 进行中**（**144 单测 + 1 Playwright E2E 全绿**）。地基(F-guard→F0→F1/F2/F3∥F4/F5/F6→Fx)之上,BP-1 已落 **Agent(execution) + Human Gate(human)** 两份契约 + **节点面板**(用户可建节点)+ 选中→检视器反馈;**Playwright 真浏览器 E2E** 已就位(`pnpm test:e2e`)。**下一步 BP-1 续作**(Terminal/Context/Task 家族,各配 E2E)或 **BP-2**(类型化连线)。
+> 规则(用户定 2026-06-30)：**凡改动影响用户使用,必须配 Playwright E2E**,验四问——可见/易见/可操作/有反馈。E2E 在 `editor/e2e/*.spec.ts`(真浏览器,vitest 不收);webServer 用 `127.0.0.1`(避 Windows localhost IPv6 错配)。
 > 工具链全就位：`pnpm check`(lint+test+镜像) + `pnpm types`(5 个 tsconfig：core/runtime/editor/tools/integration) 全绿。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。前端 jsdom 组件测试（`// @vitest-environment jsdom`）就绪。
 
@@ -58,7 +59,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 对应愿景路线图 BP-1..BP-7（见 `docs/vision/`）：逐个节点家族（Agent/Human/Task/Context/Observation/Integration）→ 工作流资产 → 可视化调试 → Polly 集成。
 **每个功能 = 一份契约(core) + 一组 handler(runtime) + 一个 nodes 目录(editor)**，不改地基。
 
-- [~] BP-1 节点契约落地（各家族）— ✅ **Agent**(execution:message/task/context/human_reply 入,message/report/handoff/human_attention/task_update 出) + **Human Gate**(human:question 入,reply/approval 出);新增 `HandoffRequest`(task 泳道)载荷类型;`registerBuiltinContracts()` 统一注册入口。验收:C1–C7 元校验 ✓、跨家族「人在回路」闭合(attention→question→reply→human_reply)✓、引擎用 Agent 契约推进状态机 ✓。⏳ 余 Terminal/Document/Memory/Task 等家族。
+- [~] BP-1 节点契约落地（各家族）— ✅ **Agent**(execution:message/task/context/human_reply 入,message/report/handoff/human_attention/task_update 出) + **Human Gate**(human:question 入,reply/approval 出);新增 `HandoffRequest`(task 泳道)载荷类型;`registerBuiltinContracts()` 统一注册入口。验收:C1–C7 元校验 ✓、跨家族「人在回路」闭合(attention→question→reply→human_reply)✓、引擎用 Agent 契约推进状态机 ✓。⏳ 余 Terminal/Document/Memory/Task 等家族。**editor 用户面**：NodePalette(BUILTIN_CONTRACTS 驱动,点击建节点)+ FlowCanvas 选中接线(点节点→selection→检视器),Playwright E2E `bp1-palette.spec` 真浏览器验收 ✓。
 - [ ] BP-2 类型化连线全流程
 - [ ] BP-3 端口 UI / 检视器完善
 - [ ] BP-4 运行时事件映射 + 调试高亮

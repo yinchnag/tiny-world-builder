@@ -7,13 +7,24 @@
  */
 import { ReactFlow, Background, Controls, MiniMap, type NodeTypes, type EdgeTypes } from '@xyflow/react';
 import { useGraphStore } from '../state/graph-store';
+import { useSelectionStore } from '../state/selection-store';
 
 export function FlowCanvas({ nodeTypes, edgeTypes }: { nodeTypes?: NodeTypes; edgeTypes?: EdgeTypes } = {}) {
   const nodes = useGraphStore((s) => s.nodes);
   const edges = useGraphStore((s) => s.edges);
+  const select = useSelectionStore((s) => s.select);
+  const clear = useSelectionStore((s) => s.clear);
   return (
     <div style={{ width: '100%', height: '100%' }} data-testid="flow-canvas">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeClick={(_, n) => select(n.id)}
+        onPaneClick={() => clear()}
+        fitView
+      >
         <Background />
         <MiniMap />
         <Controls />

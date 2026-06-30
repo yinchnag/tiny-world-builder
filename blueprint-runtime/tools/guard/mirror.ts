@@ -40,7 +40,12 @@ function walk(dir: string): string[] {
 
 /** 某源文件是否非「需镜像」的源（测试/声明文件本身不需要镜像）。 */
 function isSource(rel: string): boolean {
-  return !/\.test\.tsx?$/.test(rel) && !/\.config\.tsx?$/.test(rel) && !rel.endsWith('.d.ts');
+  return (
+    !/\.test\.tsx?$/.test(rel) &&
+    !/\.spec\.tsx?$/.test(rel) && // Playwright E2E 规格（真浏览器，不走镜像）
+    !/\.config\.tsx?$/.test(rel) &&
+    !rel.endsWith('.d.ts')
+  );
 }
 
 /**

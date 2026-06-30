@@ -65,6 +65,7 @@ export default tseslint.config(
       'eslint.config.ts',
       'vitest.config.ts',
       '**/vite.config.ts',
+      'playwright.config.ts',
     ],
   },
   ...tseslint.configs.recommended,
@@ -143,7 +144,7 @@ export default tseslint.config(
   },
   // 测试与脚本：关掉「函数体量 + 导出/参数/返回 JSDoc」（describe/it 回调、内部脚本不适用）
   {
-    files: ['**/*.test.ts', '**/*.test.tsx', 'tools/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', 'tools/**/*.ts'],
     rules: {
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
