@@ -67,6 +67,30 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - [ ] BP-6 可视化调试 / 回放
 - [ ] BP-7 Polly 集成节点
 
+## 执行器轨道 EX（进程内 LLM 执行 + 多供应商）
+
+> 补"节点只声明不执行"的缺口：地基/BP 建的是**类型化编排底座**，节点契约声明了端口/状态/`RuntimeOwner`(谁跑)，但**没有任何执行器实现"跑"**——payload 投递到 in 口后无人消费。本轨道补**执行器层**让节点真正干活，Agent 节点**进程内调模型**(远程 API 或本地 CLI)。
+> 与 BP 轨道**并行**；挂既有接缝(`RuntimeOwner` / `tools/registry` / 开放 `properties` / 事件溯源)，**不动地基、不改冻结契约**。对外 MCP 服务另线(暂缓)。
+> 铁律：**纵切优先**(先确定性 Terminal，再 LLM)；core 基本不动(新功能事件走 `FEATURE_EVENT_TYPES` 登记)；**密钥不进图**(env+工作区配置)。
+
+**开工前停-问（EX-0 前拍板）：**
+- **D1 输入物化**：`message.delivered` 是否带 payload？还是单独 inbox 投影 / deliver 落 payload？(影响事件或投影形状)
+- **D2 激活模型**：先**手动 `run_node`**(确定性)起步，还是 inputs-ready 自动激活？
+- **D3 新功能事件**：`agent.started`/`agent.completed`/`tool.called` 等(经 `FEATURE_EVENT_TYPES` 登记)。
+- **D4 新 MCP 工具**：`run_node` / `set_node_properties`(功能阶段工具，registry 已许)。
+- **D5 依赖**：优先 **fetch 无 SDK** 调 OpenAI 兼容/Anthropic；`child_process` 跑 Terminal/local-cli；登记 `DEPENDENCIES.md`。
+- **D6 配置/密钥**：env + 工作区配置；每节点 `properties` 覆盖 `{provider, model, systemPrompt, role}`。
+
+**依赖图：** EX-0 →（EX-1 ∥ EX-2）→ EX-3 →（EX-4 ∥ EX-5）→ EX-6。
+
+- [ ] **EX-0 执行器接缝 + 激活 + 输入物化（地基）** — `runtime/exec/`：`NodeExecutor` 接缝 `(node, 已物化输入, ctx) => { 产出 payloads, 事件, 触发 }`；执行器注册表(type→executor)；激活(手动 `run_node` 起步)；输入物化(从事件日志/inbox 投影取节点各 in 口已到 payload)。验收：no-op/echo 执行器经 `run_node` 跑通 + 输入物化读到投递内容(单测+集成)。【需先定 D1/D2/D4】
+- [ ] **EX-1 Terminal 执行器（确定性纵切）** — `runtime/exec/terminal`：跑 `properties.command`(child_process) → stdout/stderr/exit 产 StdoutChunk/StderrChunk/ExitStatus + 状态 idle→running→exited。验收：`echo hi` → stdout_out 带 hi、exit 0、状态 exited(单测/集成，无需 key)。**证明执行器模式端到端。** 沙箱硬化留后续。
+- [ ] **EX-2 ModelProvider 抽象 + OpenAI-compatible 供应商** — `runtime/exec/providers`：`ModelProvider.complete(messages, opts)`(先非流)；OpenAI-compatible 适配器(可配 baseURL/key/model，**一把覆盖 OpenAI/DeepSeek/Qwen**)；配置层(env+工作区，properties 覆盖)。验收：适配器对 **mock HTTP** 产正确请求 + 解析响应；配置解析 provider/model。真 API 手动 opt-in。
+- [ ] **EX-3 Agent 执行器（核心目标）** — `runtime/exec/agent`：物化 message/task/context 输入 → 构 prompt → 调 ModelProvider → 解析 → 产 AgentReport/AgentMessage + 状态推进(working→reporting→done)。`properties={provider,model,systemPrompt,role}`。验收：Agent 节点给定 context，经 `run_node` + **mock provider** 产 AgentReport(确定性 CI 可测)；接真 OpenAI-compatible(env key)则真推理。**= 「运行一个通过工作流搭建的 Agent」。**
+- [ ] **EX-4 更多供应商（Anthropic + 国内补全 + 本地 CLI）** — Anthropic 适配器(messages API)；MiniMax(若非 OpenAI 兼容则小变体)；**local-cli 适配器**(spawn claude/codex/copilot 喂 prompt 收输出)；provider 注册表 + 按节点配置选型。验收：每适配器对 mock 测(请求形状+解析)；local-cli 对假二进制(echo)测。
+- [ ] **EX-5 editor 接线（用户面，Playwright）** — 检视器可编辑节点属性(agent:provider/model/systemPrompt；terminal:command) + 「运行」按钮触发 `run_node`。用户：建 Agent → 设模型 → 点运行 → 状态推进 + 产出(SSE→store)。验收：属性编辑 + 运行按钮 E2E；真运行回路 integration 级(双服务联跑或 mock)。
+- [ ] **EX-6 流式 + 健壮性（增量/后续）** — 流式 token(SSE 增量)、重试/限流、超时、错误事件、本地 CLI 沙箱。增量推进。
+
 ## 备注
 
 - 早期散落在 `CodeSurf/`、`Contex/` 下的 14 份重复蓝图文档已删除；本目录 `blueprint-runtime/` 是唯一权威。
@@ -76,4 +100,5 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - 2026-06-29 契约冻结点写实 + F-guard 决策：新增 **00 §5.8 MCP 协议封套**(JSON-RPC 信封/`context://`/SSE 帧/镜像方向) + **testing/00 §3.1 protocol-samples** 协议样本夹具与两支契约测试；30 §9 四个 F-guard 开放问题拍板(覆盖率分层门槛 / G5 只查存在 / 依赖登记 `DEPENDENCIES.md` / 不强加 pre-commit)。
 - 2026-06-30 决策：载荷 schema 用 **Zod**（00 §5.9）——字段级结构校验，两道边界（模型侧 strict tool use 生成 + 应用侧 `parse` 挡）；与 `core/validate`（图结构）互补；新增 §5.7 码 `payload.schema_invalid`；Zod 平台中立可入 `core/`，F0 落地 + 登记 `DEPENDENCIES.md`。
 - 愿景文档（`docs/vision/`）部分实现建议（如「static JS metadata」「零依赖」）早于技术栈决定，已被 `docs/architecture/` 取代——以架构文档为准。
+- 2026-06-30 新增**执行器轨道 EX**：发现 BP/地基只建了「类型化编排底座」，节点契约声明了 `RuntimeOwner` 却**无执行器实现「跑」**——照 BP 走完也跑不起一个真 Agent。新开 EX 轨道补**进程内 LLM 执行器 + 多供应商**(OpenAI 兼容一把覆盖 DeepSeek/Qwen、Anthropic、本地 CLI claude/codex/copilot)。评估：**不是重写**——挂既有接缝(`RuntimeOwner`/`tools/registry`/开放 `properties`/事件溯源)，core≈不动、editor 小改、全在 runtime 加法；国内供应商多 OpenAI 兼容故便宜。纵切优先(EX-1 Terminal 确定性 → EX-3 Agent 核心)。EX-0 前需拍 D1–D6(输入物化/激活/事件/工具/依赖/密钥)。**对外 MCP 服务**(本就建了 transport 一大半，需补 initialize/tools.list/content 形状/stdio，走「双面」不动 §5.8)**另线暂缓**。
 </content>
