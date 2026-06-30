@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**BP-1/BP-2 + 全六家族（9 节点类型）**（175 单测 + 11 E2E）：`core/contracts/families/` 九契约——execution(Agent/Terminal)·human·task·context(Document/Memory)·observation(Browser/Git/Status)·integration(Polly)，六泳道全有类型。editor：节点面板(BUILTIN_CONTRACTS 驱动,新家族自动接入)·契约驱动检视器·**画布拖端口连线类型校验**(planConnection=core/validate,兼容建 typed 边/不兼容弹拒绝横幅)·节点可拖动(onNodesChange 回写)。BP-2 已收尾：runtime 图工具(create_node/create_edge/deliver) + editor http-adapter(真后端 mirror+SSE) + 边动画反馈，`integration/bp2-deliver` 全链路验收。下一步 BP-3(端口UI/检视器完善)、BP-4(运行时事件映射+调试高亮)、或 Cache/Memo 家族。
+**🏗️ 地基全部完成**（F-guard→F0→F1/F2/F3 ∥ F4/F5/F6→Fx，**131 测试**，2026-06-30）。空白但类型安全·可执行·可观测·可扩展的图运行时 + 编辑器骨架就绪。**BP-1/BP-2 + 全六家族（9 节点类型）**（175 单测 + 11 E2E）：`core/contracts/families/` 九契约——execution(Agent/Terminal)·human·task·context(Document/Memory)·observation(Browser/Git/Status)·integration(Polly)，六泳道全有类型。editor：节点面板(BUILTIN_CONTRACTS 驱动,新家族自动接入)·契约驱动检视器·**画布拖端口连线类型校验**(planConnection=core/validate,兼容建 typed 边/不兼容弹拒绝横幅)·节点可拖动(onNodesChange 回写)。BP-2 已收尾：runtime 图工具(create_node/create_edge/deliver) + editor http-adapter(真后端 mirror+SSE) + 边动画反馈，`integration/bp2-deliver` 全链路验收。BP-3 已完成：InspectorPanel 升级为选中实例活面板(实时状态+动作按钮推进+lane 着色端口)。下一步 BP-4(运行时事件映射+调试高亮,可含 editor+runtime 浏览器联跑)、BP-5(工作流模板)、或 Cache/Memo 家族。
 - `pnpm types` 现含 5 个 tsconfig（+ 顶层 `integration/`，跨前后端的合龙测试落此，避开 R3 边界）。
 - 功能阶段铁律：每功能 = 一份契约(core)+一组 handler(runtime)+一个 nodes 目录(editor)，**不改地基**；新增载荷类型/事件/码仍是契约面，须停-问。
 - **用户面铁律（用户定 2026-06-30）**：凡改动影响用户使用，**必须配 Playwright E2E**，验四问——可见/易见/可操作/有反馈。E2E 放 `editor/e2e/*.spec.ts`（`pnpm test:e2e`，真浏览器，vitest 不收 `.spec`）；webServer 用 `127.0.0.1`（避 Windows localhost IPv6 错配）。
