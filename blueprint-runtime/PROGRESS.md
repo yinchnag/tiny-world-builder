@@ -6,7 +6,7 @@
 
 ## 当前状态（2026-06-29）
 
-**runtime 支 F1 完成**（L0 内核 + L3 事件溯源持久化，78 测试）。**下一步 runtime F2**（引擎）；editor 支(F4–F6) 仍可并行起步（未开）。
+**runtime 支 F2 完成**（L4 引擎，88 测试）。**下一步 runtime F3**（MCP 协议 + 横切）；editor 支(F4–F6) 仍可并行起步（未开）。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
 
 ## 决策记录（不可动摇基线）
@@ -42,7 +42,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - [x] **【契约冻结点】** ✅ — 跨 MCP 线契约冻结：事件词表+码表(00 §5.6/5.7)、**MCP 协议封套**落地 `core/test/fixtures/protocol-samples.ts`(00 §5.8)、`RuntimeAdapter`(20 §4)、**golden-graph + protocol-samples** 夹具(testing/00 §3/§3.1)。验收：夹具自洽全绿；两支「接受/产出」断言留 F3/F5(transport·mcp-client)落地。
 - **runtime 支**（可与 editor 支并行）：
   - [x] **F1 · 内核+持久化** ✅ — L0 kernel(ids/result/errors/clock/ctx) + L3 persist(sqlite-adapter/event-log append-scan-head/projections framework+nodes/snapshot)。验收：重放与快照重建一致(冒烟绿)；node:sqlite Node24 可用。
-  - [ ] **F2 · 引擎** — node-machine/message-bus/edge-policy/scheduler。验收：事件序列断言状态机/总线/运行期校验。
+  - [x] **F2 · 引擎** ✅ — node-machine(状态机推进+产事件) / message-bus(运行期类型防线,调 core/validate.canConnect+validatePayload,4 个拒绝码) / edge-policy(directed 反向拒+钩子) / scheduler(FIFO)。验收：F2 冒烟「A 产出→经边→B」message.delivered+状态推进 ✓。
   - [ ] **F3 · 协议+横切** — MCP 传输/中间件链/tools/resources/sse + audit/auth/logger。验收：JSON-RPC 往返 + 后端内端到端冒烟。
 - **editor 支**（可与 runtime 支并行，对 mock 编码）：
   - [ ] **F4 · 状态+画布** — Vite/React + Zustand graph-store/命令(zundo) + xyflow 集成 + core↔xyflow 映射。验收：store/命令撤销单测；画布渲染节点/边。
