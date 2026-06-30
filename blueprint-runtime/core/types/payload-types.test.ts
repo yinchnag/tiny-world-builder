@@ -37,6 +37,10 @@ describe('payload-types', () => {
     expect(laneOf('StderrChunk')).toBe('resource');
   });
 
+  it('registers CacheBypass on the control lane (Cache)', () => {
+    expect(laneOf('CacheBypass')).toBe('control');
+  });
+
   it('registers HandoffRequest on the task lane with a field schema (BP-1)', () => {
     const t = lookupPayloadType('HandoffRequest');
     expect(t?.lane).toBe('task');

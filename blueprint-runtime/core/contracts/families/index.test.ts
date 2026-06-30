@@ -13,6 +13,7 @@ import {
   BROWSER_CONTRACT,
   GIT_CONTRACT,
   POLLY_CONTRACT,
+  CACHE_CONTRACT,
 } from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
@@ -35,6 +36,14 @@ describe('builtin contracts', () => {
     expect(lookup('git')).toBeDefined();
     expect(lookup('status')).toBeDefined();
     expect(lookup('polly')).toBeDefined();
+    expect(lookup('cache')).toBeDefined();
+  });
+
+  it('wraps a context producer: Document → Cache → Agent', () => {
+    const into = canConnect(port(DOCUMENT_CONTRACT.outputs, 'selection_out'), port(CACHE_CONTRACT.inputs, 'input_in'));
+    const out = canConnect(port(CACHE_CONTRACT.outputs, 'result_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
+    expect(into).toEqual({ ok: true });
+    expect(out).toEqual({ ok: true });
   });
 
   it('wires Polly into Agent tasks and the Human gate (reusing Task / HumanAttention)', () => {

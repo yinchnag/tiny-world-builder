@@ -149,4 +149,21 @@ test.describe('BP-1 节点面板', () => {
     await expect(inspector.locator('[data-port="item_task_out"]')).toBeVisible();
     await expect(inspector.locator('[data-port="human_attention_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Cache 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addCache = page.getByTestId('palette-add-cache');
+    await expect(addCache).toBeVisible();
+    await addCache.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    const inspector = page.getByTestId('inspector');
+    await expect(inspector.locator('[data-port="input_in"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="result_out"]')).toBeVisible();
+    await expect(inspector.locator('[data-port="bypass_in"]')).toBeVisible();
+  });
 });

@@ -20,10 +20,16 @@ export const FOUNDATION_EVENT_TYPES = [
   'message.rejected',
 ] as const;
 
+/** 功能阶段（BP）登记的事件类型（§5.6；与地基闭集合并为已知集）。 */
+export const FEATURE_EVENT_TYPES = [
+  'cache.hit', // BP Cache：精确记忆化命中（可审计，vision §7）
+  'cache.miss', // BP Cache：未命中（计算并存）
+] as const;
+
 /** 事件类型名（`<domain>.<verb>`，全小写点分）。 */
 export type EventType = string;
 
-const KNOWN: ReadonlySet<string> = new Set(FOUNDATION_EVENT_TYPES);
+const KNOWN: ReadonlySet<string> = new Set([...FOUNDATION_EVENT_TYPES, ...FEATURE_EVENT_TYPES]);
 
 /**
  * 是否地基闭集内的已知事件类型（兜底校验未登记的事件名）。

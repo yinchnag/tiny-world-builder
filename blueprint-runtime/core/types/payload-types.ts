@@ -69,6 +69,7 @@ const TYPES: readonly PayloadType[] = [
   def({ name: 'StdoutChunk', lane: 'resource', description: '标准输出块', schema: z.object({ text: z.string() }) }),
   def({ name: 'StderrChunk', lane: 'resource', description: '标准错误块', schema: z.object({ text: z.string() }) }),
   def({ name: 'PollySnapshot', lane: 'resource', description: 'Polly 注册表快照', schema: z.object({ items: z.array(z.string()) }) }),
+  def({ name: 'CacheBypass', lane: 'control', description: '缓存旁路信号（强制未命中）', schema: z.object({ force: z.boolean() }) }),
 ];
 
 const REGISTRY: ReadonlyMap<string, PayloadType> = new Map(TYPES.map((t) => [t.name, t]));
