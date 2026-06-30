@@ -250,6 +250,69 @@ Contex impact:
 - `polly_request_action` should map to typed `OperatorRequest` payloads.
 - Polly remains the owner of registry mutation.
 
+### 7. Cache / Memo Nodes (Planned)
+
+Current representation:
+
+- None. Today's only caching is exact-match: middleware idempotency (dedup of
+  the same mutating call) and the model's own prefix prompt cache. Neither
+  recognizes a semantically equivalent query asked a different way, so an agent
+  re-querying the same information with different wording/parameters re-runs the
+  expensive call every time.
+
+Target role:
+
+A Cache/Memo node wraps an expensive node (Agent, MCP Tool, Browser, Test
+Runner) and short-circuits when an equivalent input was already answered —
+making caching a **visible, typed, inspectable, bypassable** graph unit, not
+hidden infrastructure that silently alters results.
+
+Two tiers, in order:
+
+1. **Exact memoization (do first).** Key by `node + input hash`. Deterministic,
+   zero correctness risk. Nearly free from event sourcing — a projection of
+   "input → result" (or the existing idempotency store). Covers re-running the
+   same task with identical parameters.
+2. **Semantic cache (later, opt-in).** Key by embedding similarity with a
+   threshold. Covers the same information asked with different wording. Requires
+   an embedding model + vector index — external, with latency, cost, and a real
+   correctness risk: too loose a threshold returns "similar-but-wrong" results
+   that then propagate through the workflow.
+
+Suggested ports:
+
+```text
+Cache.input_in       -> (any expensive node's input type)
+Cache.result_out     -> (downstream consumer)
+Cache.bypass_in      -> force a miss (correctness-critical runs)
+Cache.hit_event_out  -> Debugger (audit hit/miss)
+```
+
+Why it is a feature node, not foundation:
+
+- `core/` is platform-neutral (no embeddings, no vector store, no I/O) — a
+  semantic cache cannot live there.
+- The similarity threshold is a domain/correctness decision, not a platform
+  primitive.
+- It grows as one contract (core) + one handler (runtime) + one node UI
+  (editor), without touching the baseline.
+
+Foundation already supports it (no core change needed):
+
+- The `edge-policy` skeleton (retry/cancel/gate hooks) can host a `memoize`
+  policy.
+- Event sourcing makes every cache hit/miss an auditable `RuntimeEvent`, so
+  debugging shows which result came from cache.
+- Exact memoization reuses the projection/idempotency machinery that exists.
+
+Direction / guardrails:
+
+- Ship exact memoization before semantic; the deterministic tier covers the
+  common "same params" case with no risk.
+- Semantic cache is **opt-in per node**, with a tight default threshold and a
+  **bypass** input so correctness-critical paths can force a fresh call.
+- Cache hits stay visible (highlighted edge / inspector note), never silent.
+
 ## Function-To-Node Migration
 
 Many current features are endpoint/tool functions. Blueprint direction should
@@ -384,6 +447,8 @@ Recommended order:
 8. Add runtime event metadata for messages/handoff/report.
 9. Convert workflow presets into workflow templates.
 10. Add Polly node contracts.
+11. Add Cache/Memo node family — exact memoization first, then opt-in semantic
+    cache (§7).
 
 ## Risks
 
@@ -393,6 +458,9 @@ Recommended order:
 - Polly integration could accidentally become control-plane mutation; keep
   observe/assist boundaries explicit.
 - Agent nodes may become too bloated if routing/gates are not split out.
+- Semantic caching can return similar-but-wrong results; keep it opt-in, tightly
+  thresholded, and bypassable, and prefer exact memoization where parameters
+  match (§7).
 
 ## Success Criteria
 

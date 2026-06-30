@@ -71,5 +71,6 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 - 2026-06-29 入口接线 + F-guard 设定基线：新增 `blueprint-runtime/CLAUDE.md`（agent 工作入口，先读 execution/00 + testing/00）；F-guard 四项设定定稿落 30 §7——**pnpm** workspaces · **Node 24 LTS** · 三包 `@blueprint/{core,runtime,editor}` + tools · **ESM**(tsx + vitest + tsc)。文档内 `npm run` 命令统一改 `pnpm`。
 - 2026-06-29 分期改 DAG：阶段从线性改为依赖图——F0 后 runtime 支(F1–F3) ∥ editor 支(F4–F6) 可并行；新增**【契约冻结点】**(F0 后冻结跨 MCP 线契约，解锁 editor 支并行)与**【Fx 集成阶段】**(全栈端到端)；execution/00 增 **§6.1 阶段交接播报**(完成阶段主动告知下一步内容与方向)。详见 GUIDE §10。
 - 2026-06-29 契约冻结点写实 + F-guard 决策：新增 **00 §5.8 MCP 协议封套**(JSON-RPC 信封/`context://`/SSE 帧/镜像方向) + **testing/00 §3.1 protocol-samples** 协议样本夹具与两支契约测试；30 §9 四个 F-guard 开放问题拍板(覆盖率分层门槛 / G5 只查存在 / 依赖登记 `DEPENDENCIES.md` / 不强加 pre-commit)。
+- 2026-06-30 决策：载荷 schema 用 **Zod**（00 §5.9）——字段级结构校验，两道边界（模型侧 strict tool use 生成 + 应用侧 `parse` 挡）；与 `core/validate`（图结构）互补；新增 §5.7 码 `payload.schema_invalid`；Zod 平台中立可入 `core/`，F0 落地 + 登记 `DEPENDENCIES.md`。
 - 愿景文档（`docs/vision/`）部分实现建议（如「static JS metadata」「零依赖」）早于技术栈决定，已被 `docs/architecture/` 取代——以架构文档为准。
 </content>

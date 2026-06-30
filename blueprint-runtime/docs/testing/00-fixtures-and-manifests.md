@@ -95,6 +95,7 @@ RES_READ    resources/read context://ws/graph → 投影视图
 | `types/compatibility` | 相容矩阵正例 + 跨 lane 负例 + 同类型自相容 |
 | `state/machine` | 合法转移通过；非法转移被拒且无副作用；initial ∈ values |
 | `events` | `isKnownEventType` 认地基闭集（00 §5.6）、拒未登记名 |
+| 载荷 schema（00 §5.9，Zod） | 合法载荷 `parse` 通过；字段缺失/类型错/多余字段 → `payload.schema_invalid` |
 
 ---
 

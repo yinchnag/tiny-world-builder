@@ -40,6 +40,7 @@ message-bus.ts          夹具：E1 正例 / X1·X2·X3 反例
   rejects_incompatible            X1 → message.rejected{reason:'payload.incompatible'}，不投递
   rejects_lane_mismatch           X3 → reason:'lane.mismatch'
   uses_same_validate_as_editor    断言走 core/validate（与前端同函数）
+  rejects_invalid_payload_schema  字段不合 schema → message.rejected{reason:'payload.schema_invalid'}（00 §5.9）
 
 edge-policy.ts
   directed_reverse_blocked        反向投递被拒

@@ -294,7 +294,7 @@ type Middleware = (next: ToolHandler) => ToolHandler;
 type ToolHandler = (req: ToolRequest, ctx: CallCtx) => Promise<Result<ToolResult>>;
 interface ToolDef {
   name: string;
-  schema: JsonSchema;     // 入参校验
+  schema: JsonSchema;     // 入参校验（由 Zod 导出，00 §5.9）
   mutates: boolean;       // true 才需幂等键
   adminOnly: boolean;
   handler: ToolHandler;

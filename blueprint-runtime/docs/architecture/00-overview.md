@@ -205,7 +205,7 @@ registry.ts       │
   name: 'AgentMessage',          // 全局唯一标识
   lane: 'message',               // control | message | task | context | resource | human
   description: '一条 Agent 间消息',
-  // 可选的结构约束，运行期可据此做更细的载荷校验（地基阶段可留空）
+  // 字段级结构约束 = 一个 Zod schema（§5.9）；导出 JSON Schema 供运行期 parse 与 LLM 工具定义。地基阶段可留 null（结构校验后置）。
   schema: null,
 }
 ```
@@ -335,6 +335,7 @@ message.rejected      运行期类型拒投   必填 edgeId（payload: {reason}�
 | `direction.invalid` | `canConnect` | out→out 或 in→in |
 | `cardinality.exceeded` | `canConnect` | 目标 in 口 `multiple:false` 已被占用 |
 | `required.unmet` | `validateGraph` | 必填 in 口未连接 |
+| `payload.schema_invalid` | Zod `parse`（§5.9）| 载荷字段不满足其 PayloadType 的 schema |
 | `contract.invalid` | `validateContract`（30 G4）| 契约元校验失败 |
 
 ### 5.8 MCP 协议封套（前后端协议契约 · 跨线冻结）
@@ -382,6 +383,33 @@ data: <RuntimeEvent JSON>  ← §5.5 结构（camelCase）
 **镜像方向**：前端本地图变更也经 `tools/call` 推给后端（携端口 + lane + payloadType）；后端经 SSE 回推。**双向都是「事件/调用」，无单独命令队列**（20 §4 注）。
 
 **契约测试**：协议样本夹具 `protocol-samples`（testing/00 §3.1）给出一组标准 请求/result/error/SSE 帧；runtime 支断言 transport **接受**样本、产出样本 SSE；editor 支断言 mcp-client **产出**样本、解析样本 result/error/SSE。两支对**同一份样本**都绿 = 前后端不漂。
+
+### 5.9 载荷 schema 与两道校验边界（Zod）
+
+> **决策（2026-06-30 定）**：载荷与工具入参的**字段级结构**用 **Zod** 描述（TS 生态的 Pydantic 对位物）。一个 Zod schema 同时产出三样、全栈共用：
+> - **编译期类型**：`z.infer<typeof S>` → 给前后端的 TS 类型；
+> - **JSON Schema**：导出后填进 `PayloadType.schema`（§5.1）与 `ToolDef.schema`（10 §10），既喂运行期校验、也喂 LLM 工具定义；
+> - **运行期校验**：`S.parse(value)` 在边界挡下不合法载荷。
+
+**与 `core/validate` 互补、分两层**（都走 `core/`，不在别处各写）：
+
+| 层 | 管什么 | 出口码 |
+| --- | --- | --- |
+| `core/validate`（§4） | **图结构**：端口能否连、lane 一致、方向/基数 | §5.7 的 lane/payload/direction… |
+| **Zod schema**（本节） | **载荷字段形状**：某 PayloadType 的字段/类型/枚举对不对 | §5.7 新增 `payload.schema_invalid` |
+
+**两道边界**（「保证 AI 输出格式正确」的真正落点）：
+
+```text
+LLM ──① 生成时受约束──► 工具调用/载荷 ──② 边界 parse，不信任──► 系统
+        strict tool use / 结构化输出          Zod S.parse() → 不合即拒
+        （模型侧，Claude 端）                  （应用侧，与模型无关的硬保证）
+```
+
+- **① 模型侧**：Agent 节点产出工具调用/载荷时，用 Claude **严格工具调用**（`strict:true`，入参精确匹配 schema）+ `tool_choice` 强制，让 LLM **生成时**就贴合 schema。
+- **② 应用侧**：载荷流经 message-bus、工具入参过中间件时一律 `S.parse()`；不合 → 产出 `message.rejected{reason:'payload.schema_invalid'}` 或工具 `result.ok:false`。**这是与具体模型无关的硬保证**——模型侧有逃逸口（拒答、`max_tokens` 截断、JSON Schema 不支持递归/数值约束），最终保证住在校验器里。
+
+**依赖登记**：Zod 是新依赖，须在 `DEPENDENCIES.md` 登记理由（GUIDE §2）。Zod 纯 JS、零平台 API，**满足 `core/` 平台中立铁律**，schema 与 PayloadType 同处 `core/types/payload-types.ts`。落地在 **F0**。
 
 ---
 
