@@ -6,7 +6,7 @@
 
 ## 当前状态（2026-06-30）
 
-**🏗️ 地基全部完成**（F-guard → F0 →（F1/F2/F3 ∥ F4/F5/F6）→ Fx，**131 测试全绿**）。一套空白但**类型安全·可执行·可观测·可扩展**的图运行时 + 编辑器骨架就绪。**下一步进入功能阶段 BP-1**（节点家族契约落地，地基之上，不改地基）。
+**🏗️ 地基全部完成 + 功能阶段 BP-1 开张**（**143 测试全绿**）。地基(F-guard→F0→F1/F2/F3∥F4/F5/F6→Fx)之上,BP-1 已落 **Agent(execution) + Human Gate(human)** 两份节点契约(不改地基)。**下一步 BP-1 续作**(Terminal/Context/Task 家族)或 **BP-2**(类型化连线全流程)。
 > 工具链全就位：`pnpm check`(lint+test+镜像) + `pnpm types`(5 个 tsconfig：core/runtime/editor/tools/integration) 全绿。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。前端 jsdom 组件测试（`// @vitest-environment jsdom`）就绪。
 
@@ -58,7 +58,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 对应愿景路线图 BP-1..BP-7（见 `docs/vision/`）：逐个节点家族（Agent/Human/Task/Context/Observation/Integration）→ 工作流资产 → 可视化调试 → Polly 集成。
 **每个功能 = 一份契约(core) + 一组 handler(runtime) + 一个 nodes 目录(editor)**，不改地基。
 
-- [ ] BP-1 节点契约落地（各家族）
+- [~] BP-1 节点契约落地（各家族）— ✅ **Agent**(execution:message/task/context/human_reply 入,message/report/handoff/human_attention/task_update 出) + **Human Gate**(human:question 入,reply/approval 出);新增 `HandoffRequest`(task 泳道)载荷类型;`registerBuiltinContracts()` 统一注册入口。验收:C1–C7 元校验 ✓、跨家族「人在回路」闭合(attention→question→reply→human_reply)✓、引擎用 Agent 契约推进状态机 ✓。⏳ 余 Terminal/Document/Memory/Task 等家族。
 - [ ] BP-2 类型化连线全流程
 - [ ] BP-3 端口 UI / 检视器完善
 - [ ] BP-4 运行时事件映射 + 调试高亮

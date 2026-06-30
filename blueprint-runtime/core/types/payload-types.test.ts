@@ -22,6 +22,13 @@ describe('payload-types', () => {
     expect(isRegisteredPayloadType('Nope')).toBe(false);
   });
 
+  it('registers HandoffRequest on the task lane with a field schema (BP-1)', () => {
+    const t = lookupPayloadType('HandoffRequest');
+    expect(t?.lane).toBe('task');
+    expect(t?.schema?.safeParse({ targetRole: 'reviewer', reason: 'needs review' }).success).toBe(true);
+    expect(t?.schema?.safeParse({ targetRole: 'reviewer' }).success).toBe(false);
+  });
+
   it('laneOf returns lane or undefined', () => {
     expect(laneOf('ContextBundle')).toBe('context');
     expect(laneOf('Nope')).toBeUndefined();

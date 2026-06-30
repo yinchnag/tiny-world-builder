@@ -10,8 +10,12 @@ import { registerNodeUi, nodeTypes } from '../nodes/registry';
 import { GenericNode } from '../nodes/GenericNode';
 import { useGraphStore } from '../state/graph-store';
 import { useSelectionStore } from '../state/selection-store';
+import { registerBuiltinContracts } from '@blueprint/core';
 
+// 让 core/contracts 知道全部内置契约（检视器/校验据此渲染与判定）。
+registerBuiltinContracts();
 registerNodeUi('agent', { node: GenericNode });
+registerNodeUi('human_gate', { node: GenericNode });
 
 const NODE_TYPES = nodeTypes();
 const EDGE_TYPES = { typed: TypedEdge };

@@ -47,6 +47,12 @@ const TYPES: readonly PayloadType[] = [
   def({ name: 'Task', lane: 'task', description: '任务', schema: z.object({ title: z.string() }) }),
   def({ name: 'TaskUpdate', lane: 'task', description: '任务更新' }),
   def({ name: 'Claim', lane: 'task', description: '认领' }),
+  def({
+    name: 'HandoffRequest',
+    lane: 'task',
+    description: 'Agent 交接请求（移交给某角色 + 理由）',
+    schema: z.object({ targetRole: z.string(), reason: z.string() }),
+  }),
   def({ name: 'ContextBundle', lane: 'context', description: '上下文包', schema: z.object({ items: z.array(z.string()) }) }),
   def({ name: 'DocumentSelection', lane: 'context', description: '文档选区', schema: z.object({ text: z.string() }) }),
   def({ name: 'MemoryFact', lane: 'context', description: '记忆事实' }),

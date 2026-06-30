@@ -11,4 +11,5 @@ export * from './graph/edge';
 export * from './graph/graph';
 export * from './state/machine';
 export * from './contracts/registry';
+export * from './contracts/families/index';
 export * from './validate';
