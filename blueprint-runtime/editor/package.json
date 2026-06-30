@@ -1,0 +1,9 @@
+{
+  "name": "@blueprint/editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@blueprint/core": "workspace:*"
+  }
+}

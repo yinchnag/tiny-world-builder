@@ -1,0 +1,6 @@
+# pnpm workspaces — F-guard 设定基线（30 §7）：三包 + tools。
+packages:
+  - core
+  - runtime
+  - editor
+  - tools

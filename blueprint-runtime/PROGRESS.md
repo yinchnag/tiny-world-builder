@@ -6,7 +6,8 @@
 
 ## 当前状态（2026-06-29）
 
-**设计阶段完成、评审中；代码未开始。** 下一步：F-guard。
+**F-guard 完成**（pnpm monorepo 脚手架 + 护栏 G1/G2/G5/G4/G6 全绿）。下一步：**F0**（core/）+ 过契约冻结点。
+> ⚠️ 本机 Node 22；基线是 Node 24。F-guard 不需要 24，但 **F1（`node:sqlite`）前须升级到 Node 24**。
 
 ## 决策记录（不可动摇基线）
 
@@ -36,7 +37,7 @@ F-guard ─► F0(core) ─►【契约冻结点】─┬─► F1 ─► F2 ─
 ```
 > editor 支只卡 F0 + 契约冻结点，**可与 runtime 支并行**（前后端不直连）。
 
-- [ ] **F-guard** — monorepo 脚手架 + 护栏（ESLint + 契约自校验 + Vitest）。验收：空骨架 `pnpm check`/`pnpm test` 全绿；故意违规夹具被逐项拦下。
+- [x] **F-guard** ✅ — pnpm monorepo（core/runtime/editor/tools）+ 护栏：ESLint flat config（G1 boundaries+前后端禁连+无环 / G2 体积复杂度 / G5 jsdoc）、`tools/guard`（G6 测试镜像 + check 总入口）、G4 `core/contracts` 元校验（C1–C7 抛 `contract.invalid`）。验收全过：`pnpm check`/`pnpm test`/`tsc --noEmit` 全绿（16 测试）；5 类违规夹具被逐项拦下（600 行 / 137 行函数 / 裸导出无 JSDoc / core 引 node:* / 跨前后端 import）；坏契约 register 即抛。
 - [ ] **F0 · core/** — types/graph/contracts/state/validate/events。验收：同构单测全绿；`canConnect`/`validateGraph` 覆盖正反例。
 - [ ] **【契约冻结点】** — 冻结跨 MCP 线契约：事件词表+码表(00 §5.6/5.7)、**MCP 协议封套(00 §5.8)**、`RuntimeAdapter`(20 §4)、黄金夹具+protocol-samples(testing/00 §3/§3.1)。验收：两支对 protocol-samples 契约测试都绿。
 - **runtime 支**（可与 editor 支并行）：
