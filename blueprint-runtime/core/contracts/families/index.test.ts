@@ -11,6 +11,7 @@ import {
   MEMORY_CONTRACT,
   TERMINAL_CONTRACT,
   BROWSER_CONTRACT,
+  GIT_CONTRACT,
 } from './index';
 import { lookup } from '../registry';
 import { canConnect } from '../../validate';
@@ -30,11 +31,14 @@ describe('builtin contracts', () => {
     expect(lookup('memory')).toBeDefined();
     expect(lookup('terminal')).toBeDefined();
     expect(lookup('browser')).toBeDefined();
+    expect(lookup('git')).toBeDefined();
   });
 
-  it('feeds Browser findings into Agent (finding_out → context_in)', () => {
+  it('feeds observation findings into Agent (browser.finding_out / git.diff_out → context_in)', () => {
     const find = canConnect(port(BROWSER_CONTRACT.outputs, 'finding_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
+    const diff = canConnect(port(GIT_CONTRACT.outputs, 'diff_out'), port(AGENT_CONTRACT.inputs, 'context_in'));
     expect(find).toEqual({ ok: true });
+    expect(diff).toEqual({ ok: true });
   });
 
   it('keeps Terminal resource output isolated from message lane (stdout_out → message_in = lane.mismatch)', () => {

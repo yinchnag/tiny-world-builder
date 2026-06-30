@@ -104,4 +104,18 @@ test.describe('BP-1 节点面板', () => {
 
     await expect(page.getByTestId('inspector').locator('[data-port="finding_out"]')).toBeVisible();
   });
+
+  test('从面板新建 Git 节点并在检视器查看其契约端口', async ({ page }) => {
+    await page.goto('/');
+
+    const addGit = page.getByTestId('palette-add-git');
+    await expect(addGit).toBeVisible();
+    await addGit.click();
+
+    const node = page.locator('.react-flow__node');
+    await expect(node).toHaveCount(1);
+    await node.click();
+
+    await expect(page.getByTestId('inspector').locator('[data-port="diff_out"]')).toBeVisible();
+  });
 });
