@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**F0 完成**（`core/` 全模块绿，50 测试，2026-06-30）。下一步 **契约冻结点**（GUIDE §10）→ 再 runtime∥editor 并行。
+**F0 + 契约冻结点 完成**（`core/` 全模块 + 共享夹具绿，59 测试，2026-06-30）。**解锁 runtime 支(F1–F3) ∥ editor 支(F4–F6) 并行**。
 - 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。
-- 契约冻结点：落地 golden-graph + protocol-samples 夹具、冻结 §5.8 MCP 协议封套、写共享契约测试；进此步前与人确认。
+- 并行支都 import `@blueprint/core` + 照冻结夹具（golden-graph / protocol-samples）编码；editor 支对 mock，真集成在 Fx。
