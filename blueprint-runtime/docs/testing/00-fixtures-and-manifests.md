@@ -93,7 +93,7 @@ RES_READ    resources/read context://ws/graph → 投影视图
 | 模块 | 必含用例（意图） |
 | --- | --- |
 | `validate.canConnect` | 每 lane 一条相容正例（E1/E2…）；负例**逐一覆盖 00 §5.7 每个码**：lane.mismatch / payload.incompatible / port.not_found / direction.invalid / cardinality.exceeded |
-| `validate.validateGraph` | required.unmet（必填 in 口未连）；无环图通过；带环图被拒 |
+| `validate.validateGraph` | required.unmet（必填 in 口未连）；**允许环**（工作流可循环：重试/反馈回路，不查环） |
 | `contracts.validateContract` | 逐一覆盖 30 G4 的 C1–C7（坏契约各一例 → `contract.invalid`） |
 | `types/compatibility` | 相容矩阵正例 + 跨 lane 负例 + 同类型自相容 |
 | `state/machine` | 合法转移通过；非法转移被拒且无副作用；initial ∈ values |

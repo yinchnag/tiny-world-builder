@@ -78,8 +78,8 @@ export type ContractResolver = (nodeType: string) => { readonly inputs: readonly
 /**
  * 图级校验：必填 in 口未连接 → required.unmet。
  *
- * 注：环检测（带环图被拒）待定——§5.7 暂无对应码，且运行期工作流是否允许环
- * 属设计决策，留待 F0 收口的停-问确认后补。
+ * 设计决定（2026-06-30）：运行期工作流**允许环**（重试/反馈回路是合法功能），
+ * 故本函数不做环检测、§5.7 也不设环码。如需限制由具体节点/功能阶段处理。
  *
  * @param graph 图
  * @param getContract 节点类型 → 契约（取 inputs）

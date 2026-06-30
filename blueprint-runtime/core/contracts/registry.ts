@@ -1,44 +1,32 @@
 /**
  * ─────────────────────────────────────────────────────────────
- * 模块：core/contracts/registry（契约注册表 + 元校验 · 护栏 G4）
+ * 模块：core/contracts/registry（契约注册表 + 元校验 · 护栏 G4 / 00 §5.3）
  * 职责：注册/查询 NodeContract，并在注册时做元校验（30 §G4 的 C1–C7），
  *       写错当场抛 `contract.invalid`。
  *
- * 在分层中的位置：
- *   register() ──► validateContract()（纯函数，可离线兜底）
- *
- * 范围说明（F-guard）：
- *   - 本文件是 G4 的最小自洽实现（含内联的最小 NodeContract 形状）；
- *     F0 建 core/ 时会与 types/graph 的正式结构对齐，元校验逻辑不变。
+ * F0 归一：端口/lane/状态机均复用 canonical 类型（graph/port、types/payload-types、
+ *          state/machine），不再内联（F-guard 的最小自洽版已被本文件取代）。
  * ─────────────────────────────────────────────────────────────
  */
+import type { Lane } from '../types/payload-types';
+import { payloadLaneMap } from '../types/payload-types';
+import type { Port } from '../graph/port';
+import type { StateMachineDef } from '../state/machine';
 
-export type Lane = 'control' | 'message' | 'task' | 'context' | 'resource' | 'human';
-export type PortDir = 'in' | 'out';
+/** 节点家族（00 §5.3）。 */
 export type Family = 'human' | 'execution' | 'context' | 'task' | 'observation' | 'integration';
+
+/** 执行归属（谁负责跑该节点）。 */
 export type RuntimeOwner = 'contex' | 'editor' | 'integration';
 
-export interface Port {
-  id: string;
-  dir: PortDir;
-  payloadType: string;
-  lane: Lane;
-}
-
-export interface StateMachineDef {
-  values: string[];
-  initial: string;
-  /** 每条 transition = [from, to, trigger]。 */
-  transitions: Array<[string, string, string]>;
-}
-
+/** 某类节点的静态契约（端口/状态机/家族/执行归属）。 */
 export interface NodeContract {
-  type: string;
-  family: Family;
-  inputs: Port[];
-  outputs: Port[];
-  state: StateMachineDef;
-  runtime: RuntimeOwner;
+  readonly type: string;
+  readonly family: Family;
+  readonly inputs: readonly Port[];
+  readonly outputs: readonly Port[];
+  readonly state: StateMachineDef;
+  readonly runtime: RuntimeOwner;
 }
 
 const FAMILIES: readonly Family[] = ['human', 'execution', 'context', 'task', 'observation', 'integration'];
@@ -53,7 +41,7 @@ export class ContractInvalidError extends Error {
   }
 }
 
-// C1：端口命名与方向一致（input 以 _in 结尾且 dir=in；output 同理）。
+// C1：端口命名与方向一致（input 以 _in 结尾且 dir=in；output 以 _out 结尾且 dir=out）。
 function checkPortNaming(c: NodeContract): string[] {
   const errs: string[] = [];
   for (const p of c.inputs) {
@@ -65,8 +53,8 @@ function checkPortNaming(c: NodeContract): string[] {
   return errs;
 }
 
-// C3/C4：lane 与 payloadType 的 lane 一致，且 payloadType 已注册。
-function checkLanes(ports: Port[], lanes: Record<string, Lane>): string[] {
+// C3/C4：port.lane 与 payloadType 的 lane 一致，且 payloadType 已注册。
+function checkLanes(ports: readonly Port[], lanes: Record<string, Lane>): string[] {
   const errs: string[] = [];
   for (const p of ports) {
     if (!(p.payloadType in lanes)) errs.push(`C4 未注册 payloadType: ${p.payloadType}`);
@@ -90,10 +78,13 @@ function checkState(s: StateMachineDef): string[] {
  * 对一个 NodeContract 做元校验（C1–C7）。纯函数，可离线兜底。
  *
  * @param contract 待校验契约
- * @param lanes 已注册 payloadType → lane 的映射（C3/C4 用）
+ * @param lanes payloadType → lane 映射（默认取已注册载荷类型）
  * @returns 违规原因数组；空数组表示通过
  */
-export function validateContract(contract: NodeContract, lanes: Record<string, Lane>): string[] {
+export function validateContract(
+  contract: NodeContract,
+  lanes: Record<string, Lane> = payloadLaneMap(),
+): string[] {
   const ports = [...contract.inputs, ...contract.outputs];
   const ids = ports.map((p) => p.id);
   const errs = [...checkPortNaming(contract), ...checkLanes(ports, lanes), ...checkState(contract.state)];
@@ -109,10 +100,10 @@ const registry = new Map<string, NodeContract>();
  * 注册一个契约；元校验失败即抛 `contract.invalid`（写错当场炸）。
  *
  * @param contract 待注册契约
- * @param lanes payloadType → lane 映射
+ * @param lanes payloadType → lane 映射（默认取已注册载荷类型）
  * @returns 已注册的契约
  */
-export function register(contract: NodeContract, lanes: Record<string, Lane>): NodeContract {
+export function register(contract: NodeContract, lanes: Record<string, Lane> = payloadLaneMap()): NodeContract {
   const errors = validateContract(contract, lanes);
   if (errors.length > 0) throw new ContractInvalidError(errors.join('; '));
   registry.set(contract.type, contract);

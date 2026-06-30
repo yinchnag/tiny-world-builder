@@ -21,7 +21,7 @@
 
 ## 现状（重要）
 
-**F-guard 完成**（pnpm monorepo + 护栏全绿，2026-06-30）。下一步 **F0（core/）**，须先过**契约冻结点**（GUIDE §10）。
-- 本机 **Node 24.18**（nvm，符合基线）。
+**F0 完成**（`core/` 全模块绿，50 测试，2026-06-30）。下一步 **契约冻结点**（GUIDE §10）→ 再 runtime∥editor 并行。
+- 本机 **Node 24.18**（nvm，符合基线）。pnpm 命令需前置 `C:\nvm\nodejs` 到 PATH（旧会话 shell 的 PATH 是陈的）。
 - 命令：`pnpm check`（lint+test+镜像）/ `pnpm test` / `pnpm types`。新增依赖登记 `DEPENDENCIES.md`。
-- 推进规则不变：按 execution/00 六步循环 + 停-问；进 F0 写 core/ 前先与人确认契约冻结点内容。
+- 契约冻结点：落地 golden-graph + protocol-samples 夹具、冻结 §5.8 MCP 协议封套、写共享契约测试；进此步前与人确认。
