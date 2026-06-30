@@ -2,5 +2,8 @@
   "name": "@blueprint/core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "zod": "^3.24.0"
+  }
 }

@@ -43,15 +43,18 @@
   D  document   out: selection_out:DocumentSelection
   H  human      in:  question_in:HumanAttention   out: reply_out:HumanReply
 
-合法边（正例，各 lane 至少一条）：
-  E1  A.report_out    → B.message_in    AgentReport→AgentMessage   相容（message lane）
-  E2  D.selection_out → A.context_in    DocumentSelection          相容（context lane）
+合法边（正例，各 lane 至少一条；E1/E2 即「assignable 表」——可赋 = 同类型 或在此表）：
+  E1  A.report_out    → B.message_in    AgentReport→AgentMessage          相容（message lane，可赋）
+  E2  D.selection_out → A.context_in    DocumentSelection→ContextBundle   相容（context lane，可赋）
 
 反例边（负向测试用，不入图，仅供 canConnect 断言）：
-  X1  A.report_out    → H.question_in   payload.incompatible
+  X1  H.reply_out     → H.question_in   payload.incompatible（同 human lane，HumanReply 不可赋给 HumanAttention）
   X2  A.message_out   → B.message_out   direction.invalid（out→out）
   X3  D.selection_out → A.message_in    lane.mismatch（context vs message）
 ```
+
+> **canConnect 判定序**（§5.7 码）：port.not_found → direction.invalid → lane.mismatch → payload.incompatible（类型不可赋）→ cardinality.exceeded。
+> 即：lane 不同先报 `lane.mismatch`；lane 同但类型不在「可赋」范围才报 `payload.incompatible`。
 
 **标准事件序列**（喂投影 / 总线 / SSE 测试）：
 
