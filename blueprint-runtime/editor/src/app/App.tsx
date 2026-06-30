@@ -9,7 +9,6 @@ import { TypedEdge } from '../graph/edges/TypedEdge';
 import { InspectorPanel } from '../inspector/InspectorPanel';
 import { registerNodeUi, nodeTypes } from '../nodes/registry';
 import { GenericNode } from '../nodes/GenericNode';
-import { useGraphStore } from '../state/graph-store';
 import { useSelectionStore } from '../state/selection-store';
 import { useUiStore } from '../state/ui-store';
 import { registerBuiltinContracts, BUILTIN_CONTRACTS } from '@blueprint/core';
@@ -23,7 +22,6 @@ const EDGE_TYPES = { typed: TypedEdge };
 
 export function App() {
   const selectedId = useSelectionStore((s) => [...s.selected][0] ?? null);
-  const selectedType = useGraphStore((s) => s.nodes.find((n) => n.id === selectedId)?.type ?? null);
   const connectReason = useUiStore((s) => s.connectReason);
   return (
     <Providers>
@@ -53,7 +51,7 @@ export function App() {
           <FlowCanvas nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES} />
         </div>
         <aside style={{ width: 280, borderLeft: '1px solid #ddd', padding: 8, overflow: 'auto' }}>
-          <InspectorPanel nodeType={selectedType} />
+          <InspectorPanel nodeId={selectedId} />
         </aside>
       </div>
     </Providers>
