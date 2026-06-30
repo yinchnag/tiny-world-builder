@@ -19,9 +19,20 @@
 | `globals` | ^15.14 | ESLint 全局环境定义 | 2026-06-30 |
 | `jiti` | ^2.4 | 让 ESLint 加载 `eslint.config.ts`（TS flat config） | 2026-06-30 |
 | `@types/node` | ^22.10 | Node 内置类型（runtime/tools） | 2026-06-30 |
+| `vite` | ^6.0 | 前端构建/Dev（editor） | 2026-06-30 |
+| `@vitejs/plugin-react` | ^4.3 | Vite React 插件 | 2026-06-30 |
+| `@types/react` / `@types/react-dom` | ^18.3 | React 类型 | 2026-06-30 |
+| `@testing-library/react` | ^16.1 | 组件单测（RTL） | 2026-06-30 |
+| `jsdom` | ^25.0 | 组件单测 DOM 环境（vitest） | 2026-06-30 |
 
 ## dependencies（进产物）
 
 | 包 | 范围 | 理由 | 登记日 |
 | --- | --- | --- | --- |
 | `zod` | ^3.24 | 载荷字段级 schema（00 §5.9）：一份 schema → TS 类型 + JSON Schema + 运行期 parse；纯 JS 平台中立，置于 `core/` | 2026-06-30 |
+| `react` / `react-dom` | ^18.3 | 前端框架（editor，20-frontend 技术栈） | 2026-06-30 |
+| `@xyflow/react` | ^12.3 | 节点图画布——平移/缩放/端口拖连/边路由/小地图（20 §2 现成基础设施） | 2026-06-30 |
+| `zustand` | ^5.0 | 图文档 store（单一来源 + 选择器，20 §6） | 2026-06-30 |
+| `zundo` | ^2.3 | 命令撤销/重做（与 Zustand 一体，20 §6） | 2026-06-30 |
+
+> editor devDependencies（构建/测试）：`vite` `@vitejs/plugin-react`（构建/Dev）、`@types/react(-dom)`、`@testing-library/react` `jsdom`（组件单测）——登记在 devDependencies 区。

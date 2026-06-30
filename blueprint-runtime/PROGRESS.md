@@ -6,7 +6,8 @@
 
 ## 当前状态（2026-06-29）
 
-**runtime 支 F1–F3 全部完成**（后端图运行时就绪，104 测试）。**下一步 editor 支 F4–F6**（需先登记前端依赖）→ 再 Fx 集成。
+**runtime 支完成 + editor F4 状态/映射层完成**（graph-store/commands/adapters，111 测试）。**下一步 F4 画布组件**（FlowCanvas + 渲染测试，jsdom）→ F5/F6 → Fx。
+> 前端工具链就位：`@blueprint/core` 桶（exports）+ editor tsconfig(jsx/DOM) + per-package `tsc`；前端依赖已装（react/vite/xyflow/zustand/zundo）。
 > 本机 **Node 24.18**（nvm，符合基线）。`node:sqlite` 在 Node 24 + vitest 直接可用（无需 flag）。
 
 ## 决策记录（不可动摇基线）

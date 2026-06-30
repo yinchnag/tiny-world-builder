@@ -33,4 +33,7 @@ export const COVERAGE = {
  * G6 测试镜像豁免名单：纯类型/常量文件（无逻辑）可免同名测试。
  * 路径相对 blueprint-runtime/ 根，使用正斜杠。
  */
-export const MIRROR_EXEMPT: readonly string[] = [];
+export const MIRROR_EXEMPT: readonly string[] = [
+  'core/index.ts', // 纯 re-export 桶文件，无逻辑
+  'editor/src/lib/flow-types.ts', // 纯类型文件，无逻辑
+];
