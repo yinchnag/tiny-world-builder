@@ -39,4 +39,11 @@ describe('graph-store', () => {
     useGraphStore.getState().markEdgeDelivered('E1');
     expect(useGraphStore.getState().edges[0].animated).toBe(true);
   });
+
+  it('setNodeProperties merges instance properties (EX-5)', () => {
+    useGraphStore.getState().addNode(node('A'));
+    useGraphStore.getState().setNodeProperties('A', { provider: 'deepseek' });
+    useGraphStore.getState().setNodeProperties('A', { model: 'deepseek-chat' });
+    expect(useGraphStore.getState().nodes[0].data.properties).toEqual({ provider: 'deepseek', model: 'deepseek-chat' });
+  });
 });

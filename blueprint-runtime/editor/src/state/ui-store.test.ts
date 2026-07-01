@@ -11,4 +11,11 @@ describe('ui-store', () => {
     useUiStore.getState().setConnectReason('lane.mismatch');
     expect(useUiStore.getState().connectReason).toBe('lane.mismatch');
   });
+
+  it('records deliveries and exec status per node (EX-5)', () => {
+    useUiStore.getState().recordDelivery('B', 'message_in', { summary: 'hi' });
+    useUiStore.getState().recordExec('A', 'exec.completed');
+    expect(useUiStore.getState().lastDelivery.B.message_in).toEqual({ summary: 'hi' });
+    expect(useUiStore.getState().execStatus.A).toBe('exec.completed');
+  });
 });

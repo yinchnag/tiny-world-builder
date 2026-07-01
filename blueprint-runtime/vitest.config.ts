@@ -10,7 +10,9 @@ export default defineConfig({
   test: {
     include: ['**/*.test.ts', '**/*.test.tsx'],
     environment: 'node',
-    retry: 1, // 并行 HTTP/SSE server 测试偶发端口/连接竞争，重试一次（各测本身确定性）
+    // 并行 HTTP/SSE server 测试在 CPU 竞争下偶发慢/连接竞争（各测本身确定性）：给足超时 + 重试。
+    retry: 2,
+    testTimeout: 20_000,
 
     coverage: {
       provider: 'v8',

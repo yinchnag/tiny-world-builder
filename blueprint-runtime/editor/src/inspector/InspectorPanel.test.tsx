@@ -36,4 +36,17 @@ describe('InspectorPanel', () => {
     const { getByTestId } = render(<InspectorPanel nodeId={null} />);
     expect(getByTestId('inspector-empty')).toBeTruthy();
   });
+
+  it('run button calls onRun with the node id (EX-5)', () => {
+    let ran: string | null = null;
+    const { getByTestId } = render(<InspectorPanel nodeId="A" onRun={(id) => (ran = id)} />);
+    fireEvent.click(getByTestId('run-node'));
+    expect(ran).toBe('A');
+  });
+
+  it('editing the provider property updates the store (EX-5)', () => {
+    const { getByTestId } = render(<InspectorPanel nodeId="A" />);
+    fireEvent.change(getByTestId('prop-provider'), { target: { value: 'deepseek' } });
+    expect(useGraphStore.getState().nodes[0].data.properties.provider).toBe('deepseek');
+  });
 });

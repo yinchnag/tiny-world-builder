@@ -49,19 +49,19 @@ export function createHttpAdapter(baseUrl: string, fetchFn: typeof fetch = fetch
     subscribe: (onEvent: (ev: RuntimeEvent) => void): Unsubscribe => {
       const ctrl = new AbortController();
       void (async (): Promise<void> => {
-        const resp = await fetchFn(`${baseUrl}/mcp/sse`, { signal: ctrl.signal });
-        if (resp.body === null) return;
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
         try {
+          const resp = await fetchFn(`${baseUrl}/mcp/sse`, { signal: ctrl.signal });
+          if (resp.body === null) return;
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
           for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
             buf = drainFrames(buf + decoder.decode(value, { stream: true }), onEvent);
           }
         } catch {
-          // 取消订阅触发的 abort，正常结束
+          // 连接失败(离线)或 abort(取消订阅)：静默结束
         }
       })();
       return (): void => ctrl.abort();

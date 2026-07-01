@@ -5,6 +5,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 import { useGraphStore } from '../state/graph-store';
+import { useUiStore } from '../state/ui-store';
 import type { RuntimeAdapter, Unsubscribe } from './runtime-adapter';
 import type { RuntimeEvent } from '@blueprint/core';
 
@@ -23,6 +24,13 @@ export function applyEvent(ev: RuntimeEvent): void {
   }
   if (ev.eventType === 'message.delivered' && ev.edgeId !== undefined) {
     useGraphStore.getState().markEdgeDelivered(ev.edgeId);
+    if (ev.nodeId !== undefined && ev.portId !== undefined) {
+      useUiStore.getState().recordDelivery(ev.nodeId, ev.portId, ev.payload);
+    }
+    return;
+  }
+  if (ev.eventType.startsWith('exec.') && ev.nodeId !== undefined) {
+    useUiStore.getState().recordExec(ev.nodeId, ev.eventType);
   }
 }
 
