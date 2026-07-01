@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "try:agent": "tsx scripts/try-agent.ts",
     "types": "tsc -p core/tsconfig.json && tsc -p runtime/tsconfig.json && tsc -p editor/tsconfig.json && tsc -p tools/tsconfig.json && tsc -p integration/tsconfig.json",
     "check": "tsx tools/guard/check.ts"
   },
