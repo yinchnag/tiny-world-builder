@@ -10,6 +10,8 @@ export default defineConfig({
   test: {
     include: ['**/*.test.ts', '**/*.test.tsx'],
     environment: 'node',
+    retry: 1, // 并行 HTTP/SSE server 测试偶发端口/连接竞争，重试一次（各测本身确定性）
+
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],

@@ -32,6 +32,13 @@ export interface JsonRpcResponse {
   readonly error?: { readonly code: number; readonly message: string };
 }
 
+/** CORS 头（供浏览器跨域访问；dev 放开）。 */
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET,POST,OPTIONS',
+  'access-control-allow-headers': 'content-type',
+} as const;
+
 function protoError(id: number | string | null, code: number, message: string): JsonRpcResponse {
   return { jsonrpc: '2.0', id, error: { code, message } };
 }
@@ -74,13 +81,13 @@ function handlePost(req: IncomingMessage, res: ServerResponse, deps: TransportDe
     } catch {
       response = protoError(null, -32700, 'Parse error');
     }
-    res.writeHead(200, { 'content-type': 'application/json' });
+    res.writeHead(200, { 'content-type': 'application/json', ...CORS });
     res.end(JSON.stringify(response));
   });
 }
 
 function handleSse(req: IncomingMessage, res: ServerResponse, deps: TransportDeps): void {
-  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', ...CORS });
   res.flushHeaders(); // 立即下发响应头，否则客户端 fetch 在收到首帧前不会 resolve（与"连上再推"形成死锁）
   const unsub = deps.hub.subscribe((ev) => {
     const f = toSseFrame(ev);
@@ -99,6 +106,11 @@ function handleSse(req: IncomingMessage, res: ServerResponse, deps: TransportDep
  */
 export function createTransport(deps: TransportDeps): Server {
   return createServer((req: IncomingMessage, res: ServerResponse) => {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, CORS);
+      res.end();
+      return;
+    }
     if (req.method === 'POST' && req.url === '/mcp') {
       handlePost(req, res, deps);
       return;
